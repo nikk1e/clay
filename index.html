@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title></title>
+	<!--script src="http://code.jquery.com/jquery-1.10.0.min.js"></script-->
+<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="css/layouts/side-menu.css">
+<!--<![endif]-->
+
+
+<script src="js/clay.js"></script>
+<style>
+html { font-family: "Open Sans","Segoe UI",verdana , sans-serif; 
+background: #fff; color: #777; }
+
+table {
+	min-width: 100%;
+}
+
+h1, h2, h3, h4, h5, h6 {
+color: rgb(75, 75, 75);
+text-rendering: optimizeLegibility;
+line-height: 1;
+margin-top: 0;
+font-weight: 300;
+}
+
+h1 { font-size: 50.66px;
+font-family: "Open Sans", "Segoe UI Light","Segoe WP Light", verdana , sans-serif; 
+}
+h2 {  
+padding-top: 0.8em;
+margin-top: 0.8em;
+border-top: #edece4 1px solid;
+}
+
+pre {
+margin: 1.6em 0;
+box-sizing: border-box;
+background: rgb(250, 250, 250);
+border: 1px solid #eee;
+width: 100%;
+padding: 10px;
+font-size: 0.9em;
+/*white-space: pre;*/
+/*border-radius: 3px;*/
+}
+
+code, kbd, pre, samp {
+font-family: Consolas, Inconsolata, monospace;
+font-size: 1em;
+color: #333;
+}
+
+pre code, pre tt {
+font-size: inherit;
+/*white-space: -moz-pre-wrap;*/
+white-space: pre-wrap;
+background: transparent;
+border: none;
+padding: 0;
+}
+
+blockquote {
+margin: 1.6em 0;
+box-sizing: border-box;
+padding: 0 1.6em 0 1.6em;
+border-left: #edece4 0.6em solid;
+}
+
+#preview {
+	position: relative;
+	box-sizing: border-box;
+	padding-top: 130px; /* TODO If you add margin then you need to take that into account for the cursor */
+}
+
+#model {
+	position: fixed;
+	box-sizing: border-box;
+	top: 0;
+	width: 100%;
+	max-width: 800px;
+	height: 100px;
+	background: white;
+	border: 1px solid #efefef;
+	z-index: 100;
+}
+
+
+span.cursor {
+  position: absolute;
+  background: #111;
+  margin-right: -1px;
+  width: 1px;
+  display: none;
+ 
+  -webkit-animation: blink 2s linear 0s infinite;
+  -moz-animation: blink 2s linear 0s infinite;
+  -ms-animation: blink 2s linear 0s infinite;
+  -o-animation: blink 2s linear 0s infinite;
+}
+
+@-webkit-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #090 }
+}
+ 
+@-moz-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #999 }
+}
+ 
+@-ms-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #999 }
+}
+ 
+@-o-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #999 }
+}
+
+h1::before { content: "#␣";  }
+h2::before { content: "##␣";  }
+h3::before { content: "###␣"; }
+h4::before { content: "####␣";  }
+h5::before { content: "#####␣";  }
+
+h1::before,
+h2::before,
+h3::before,
+h4::before,
+h5::before {
+	position: absolute;
+	color: rgb(202, 224, 243);
+	right: 100%;
+	margin-right: 3px;
+}
+</style>
+</head>
+
+<body>
+<div id="layout">
+    <!-- Menu toggle -->
+    <a href="#menu" id="menuLink" class="menu-link">
+        <!-- Hamburger icon -->
+        <span></span>
+    </a>
+
+    <div id="menu">
+        <div class="pure-menu pure-menu-open">
+            <a class="pure-menu-heading" href="#">Clay</a>
+
+            <ul>
+                <li><a href="#">Save</a></li>
+                <li><a href="#">Save All</a></li>
+                <li class="menu-item-divided pure-menu-selected"><a href="#">Example</a></li>
+                <li><a href="#">Benchmarks</a></li>
+
+
+            </ul>
+        </div>
+    </div>
+
+    <div id="main">
+<div class="content">
+<span id="cursor" class="cursor">&nbsp;</span>
+<textarea id="model" class="editor">
+# Clay
+
+## TODO
+
+* Reposition cursor after change (use cancellable timeout so you only do it infrequently)
+* Draw rects for selection (check previous width and left and just extend if they match)
+* Hide cursor if text area loses focus. (draw cursor/selection should probably be triggered by things including onfocus)
+* Add back invisible elements like → for tab and &#9251; \u2423 for space
+* Update parser to fully separate rendering
+* Track relationship between objects and markup without using an attribute
+
+## Features to add
+
+Live Editing
+:  Keep track of who else has the document open and show the changes they are making live.
+
+## Abstract
+Clay takes the spreadsheet out of the grid. Rows and columns become dimensions meaningful to your model, like "Time" and "Fund". Formulas are written for humans first and models are made to be maintained, shared, and reused.
+
+## Building a model
+
+We want to model a simple manufacturer. Our goal is to project their "net income" under different assumptions over the course of the year.
+
+Start by defining the months of the year:
+
+	Month = {Jan,Feb,Mar,Apr,May,Jun,Jul,
+  		Aug,Sep,Oct,Nov,Dec}
+
+
+"Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In paper we choose the dimensions.
+
+&gt; Note: Categories are just a list
+
+We can now project the "Unit sales" of the firm over the months of the year. Lets assume the firm will sell 5000 units in January and that sales will grow monthly at a constant rate.
+
+	Unit Sales[Jan] = 5000
+    Unit Sales = Unit Sales[Month[Prev]] * (1 + Growth)
+
+Conservatively estimate a monthly growth rate of 1% based on our analysis of the firms position in the market.
+
+	Growth = 1%
+
+Their product sells for £55 and costs £25 to manufacture. We also know they have Fixed Costs of £2000 per month.
+
+	Price = 55
+    Unit Cost = 25
+    Fixed Costs = 2000
+
+Now we can calculate Revenue, Cost of Goods Sold, and EBIT. In a spreadsheet we would need 36 formulas, in paper we need 3.
+
+	Revenue = Unit Sales * Price
+    COGS = Unit Sales * Price
+    EBIT = Revenue - Fixed Costs - COGS
+
+The firm has £10,000 of debt on which it pays interest monthly at an annual rate of 8%. They also have a corporate tax rate of 30%.
+
+	Debt = 10000
+    Interest Rate = 8%
+	Tax Rate = 30%
+
+Just four more formulas and we have net income.
+
+	Interest = Debt * Interest Rate / 12
+    EBT = EBIT - Interest
+    Tax = EBT * Tax Rate
+    Net Income = EBT - Tax
+
+### Scenario testing
+
+What if we want to show a graph of "Net Income" for five different growth rates? In a spreadsheet this would be a problem. Copy and paste or a macro. But in paper we just change Growth to a list of rates:
+
+	Growth = {1%,2%,3%,4%,5%}
+	Graph.Line(Net Income,[Month],[Growth])
+
+
+## Reusable Models
+
+The **trick** to building reusable models is leaving things unspecified and being more specific where we might clash.
+
+* use full names when specifying category items (e.g. Month.Jan)
+
+
+## Lookups
+In a spreadsheet you need a host of different lookup mechanisms (VLookup, HLookup, Sumif, Sumifs, Averageif, etc). In Paper the lookups are all handled by a single concept called slice `[]`.
+
+Given a table of city populations across America
+
+Data.State|.Gender|.City|.Pop
+--|--|--|--
+WA|M|Seattle|2
+WA|F|Seattle|23
+KS|M|Lawrence|4
+KS|F|Lawrence|345
+FL|M|Miami|546
+FL|F|Miami|2
+FL|M|Orlando|1000
+FL|F|Orlando|2000
+
+We can find the population of Lawrence, Kansas by doing a sum on a slice (in a spreadsheet this would be a sumifs):
+
+	Sum(Data.Pop[Data.State=KS,Data.City=Lawrence]) // Data
+
+We can find the State for the city Miami using slice (in a spreadsheet this would need to use offset and match, since the table is in the wrong order to use vlookup):
+
+	Head(Data.State[Data.City=Miami] // Data)
+    
+Note, We use `Head` because without it we get a list of all the items in Data.State where the corresponding item in Data.City is Miami. We could also replace `Head` with `Unique` to get all the States that have a City called Miami (in our dataset).
+    
+&gt; Geek Note: This works just like APL.
+
+Because categories are just lists we can make them by hand or use a function that returns a list (like Unique).
+
+    Gender = {M,F}
+    State  = Unique(Data.State)
+ 
+We can now create a table of Population by State and Gender.
+
+	Population = Sum(Data.Pop[
+    	Data.State=State, Data.Gender=Gender]) // Data
+
+In a spreadsheet we could have created the above `Population` using a pivot table or 6 calls to sumifs (given our 3 states and 2 genders). The advantage of slice is you can use an function that takes a list to aggregate.
+
+
+## Own functions
+Just like in a spreadsheet we can define our own functions where the built-in functions don't meet our needs. Just include a javascript code block in the model. This is how you would implement the Sum function (had we not provided it):
+
+```javascript
+function MySum(iter) {
+	var memo = 0, item;
+    while(!(item = iter.next()).done) {
+    	memo = memo + item.value;
+    }
+    return memo;
+}
+```
+## Special characters
+
+Want to look like a real mathematician? Paper uses standard notation for many concepts, so you can write \\neq in place of !=. For example:
+
+    Early Costs[Month\in Jan..Mar] = 200
+
+
+Code|Symbol
+--|--:
+\\in|\in 
+\\notin|\notin 
+\\oplus|\oplus 
+\\ne \\neq|\ne 
+\\leq|\leq 
+\\geq|\geq 
+\\wedge|\wedge 
+\\vee|\vee 
+\\pi|\pi
+\\alpha|\alpha 
+\\beta|\beta
+\\gamma|\gamma
+\\delta|\delta
+\\epsion|\epsilon
+\\neg \\alpha|\neg\alpha
+</textarea>
+<div id="preview" class="editor">
+</div>
+</div>
+</div>
+</div>
+<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+<script type="text/javascript">
+	var model = document.getElementById('model');
+	var preview = document.getElementById('preview');
+	var cursor = document.getElementById('cursor');
+	preview.innerHTML = clay(model.value);
+
+	var update = _.debounce(function() { 
+		console.time('#update');
+		var nex = clay(model.value);
+		console.timeEnd('#update');
+		console.time('#render')
+		preview.innerHTML = nex; 
+		console.timeEnd('#render');
+	},20);
+	model.onchange = update;
+	model.onkeyup = update;
+
+	preview.onmouseup = function(e) {
+		var selected = window.getSelection(),
+			range = selected.getRangeAt(0),
+			rects = range.getClientRects(),
+			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
+        	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft,
+        	cs = cursor.style,
+        	start, end;
+		if (selected.isCollapsed) {
+			//caret
+			var par = range.startContainer.parentElement || range.startContainer.parentNode,
+				rect = rects[0],
+				endPos = par.getAttribute('pos');
+			if (endPos) {
+				cs.top = (rect.top + scrollTop) + 'px';
+				cs.left = (rect.right + scrollLeft - 1) + 'px';
+				cs.height = rect.height + 'px';
+				cs.display = 'block';
+				end = parseInt(endPos) + range.startOffset;
+				model.focus();
+				model.setSelectionRange(end,end);
+			}
+		} else {
+			//range
+			var startE = range.startContainer.parentElement || range.startContainer.parentNode,
+				endE = range.endContainer.parentNode || range.endContainer.parentNode,
+				startPos = startE.getAttribute('pos'),
+				endPos = endE.getAttribute('pos')
+			if (startPos &&
+				endPos) {
+				cs.display = 'none';
+				end = parseInt(endPos) + range.endOffset;
+				start = parseInt(startPos) + range.startOffset;
+				model.focus();
+				model.selectionStart = start;
+				model.selectionEnd = end;
+			}
+		}
+	}
+</script>
+
+<script src="js/ui.js"></script>
+
+</body>
+</html>
