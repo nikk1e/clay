@@ -139,21 +139,19 @@ span.cursor {
   100% { background: #999 }
 }
 
-h1::before { content: "#␣";  }
-h2::before { content: "##␣";  }
-h3::before { content: "###␣"; }
-h4::before { content: "####␣";  }
-h5::before { content: "#####␣";  }
-
-h1::before,
-h2::before,
-h3::before,
-h4::before,
-h5::before {
+h1 .before,
+h2 .before,
+h3 .before,
+h4 .before,
+h5 .before {
 	position: absolute;
-	color: rgb(202, 224, 243);
 	right: 100%;
 	margin-right: 3px;
+}
+
+span.before,
+span.after {
+	color: rgb(202, 224, 243);
 }
 </style>
 </head>

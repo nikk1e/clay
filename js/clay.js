@@ -15,10 +15,10 @@
 
 var block = {
   newline: /^\n+/,
-  code: /^( {4}[^\n]+\n*)+/,
+  code: /^((?: {4}| *\t)[^\n]+\n*)+/,
   fences: noop,
   hr: /^( *[-*_]){3,} *(?:\n+|$)/,
-  heading: /^ *(#{1,6})( *)([^\n]+?) *#* *(?:\n+|$)/,
+  heading: /^( *(#{1,6}) *)([^\n]+?)( *#* *(?:\n+|$))/,
   nptable: noop,
   lheading: /^([^\n]+)\n *(=|-){2,} *(?:\n+|$)/,
   blockquote: /^( *>[^\n]+(\n(?!def)[^\n]+)*\n*)+/,
@@ -137,8 +137,8 @@ Lexer.lex = function(src, options) {
 
 Lexer.prototype.lex = function(src) {
   src = src
-    .replace(/\r\n|\r/g, '\n')
-    .replace(/\t/g, '    ')
+    .replace(/\r\n|\r/g, '\n') //TODO this needs to move to inbound
+    //.replace(/\t/g, '    ') //TODO replace this
     .replace(/\u00a0/g, ' ')
     .replace(/\u2424/g, '\n');
 
@@ -150,7 +150,7 @@ Lexer.prototype.lex = function(src) {
  */
 
 Lexer.prototype.token = function(src, top, bq, pos) {
-  var src = src.replace(/^ +$/gm, '') //TODO: this would need to be reflected in the text area
+  var src// = src.replace(/^ +$/gm, '') //TODO: this would need to be reflected in the text area
     , next
     , loose
     , cap
@@ -179,7 +179,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
     if (cap = this.rules.code.exec(src)) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
-      cap = cap[0].replace(/^ {4}/gm, '');
+      cap = cap[0].replace(/^ {4}|\t/gm, '');
       this.tokens.push({
         type: 'code',
         text: !this.options.pedantic
@@ -211,9 +211,11 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       src = src.substring(matchlen);
       this.tokens.push({
         type: 'heading',
-        depth: cap[1].length,
+        depth: cap[2].length,
         text: cap[3],
-        pos: pos + cap[1].length + cap[2].length
+        pos: pos + cap[1].length,
+		before: cap[1],
+		after: cap[4]
       });
       pos += matchlen;
       continue;
@@ -797,7 +799,7 @@ function Renderer(options) {
   this.options = options || {};
 }
 
-Renderer.prototype.code = function(code, lang, escaped) {
+Renderer.prototype.code = function(code, lang, escaped, pos) {
   if (this.options.highlight) {
     var out = this.options.highlight(code, lang);
     if (out != null && out !== code) {
@@ -807,15 +809,15 @@ Renderer.prototype.code = function(code, lang, escaped) {
   }
 
   if (!lang) {
-    return '<pre><code>'
+    return '<pre><code pos='+ pos +'>'
       + (escaped ? code : escape(code, true))
       + '\n</code></pre>';
   }
 
-  return '<pre><code class="'
+  return '<pre><code pos='+ pos +' class="'
     + this.options.langPrefix
     + escape(lang, true)
-    + '">'
+    + '"><span class="before">' + escape(lang, true) + '</span>\n'
     + (escaped ? code : escape(code, true))
     + '\n</code></pre>\n';
 };
@@ -828,15 +830,17 @@ Renderer.prototype.html = function(html) {
   return html;
 };
 
-Renderer.prototype.heading = function(text, level, raw, pos) {
+Renderer.prototype.heading = function(text, level, raw, pos, before, after) {
+	before = before || '';
+	after = after || '';
   return '<h'
     + level
     + ' id="'
     + this.options.headerPrefix
     + raw.toLowerCase().replace(/[^\w]+/g, '-')
-    + '" pos='+ pos +'>'
+    + '" pos='+ pos +'><span class="before">' + before.replace(/ /g,'\u2423') + '</span>'
     + text
-    + '<span class="after">&nbsp;</span></h'
+    + '<span class="after">'+ after.replace(/ /g,'\u2423').replace(/\n/g,'\u00AC') + '</span></h'
     + level
     + '>\n';
 };
@@ -1016,12 +1020,12 @@ Parser.prototype.tok = function() {
       return this.renderer.heading(
         this.inline.output(this.token.text),
         this.token.depth,
-        this.token.text, this.token.pos);
+        this.token.text, this.token.pos, this.token.before, this.token.after);
     }
     case 'code': {
       return this.renderer.code(this.token.text,
         this.token.lang,
-        this.token.escaped);
+        this.token.escaped, this.token.pos);
     }
     case 'table': {
       var header = ''
