@@ -1,0 +1,159 @@
+# Clay
+
+## TODO
+
+* Reposition cursor after change (use cancellable timeout so you only do it infrequently)
+* Draw rects for selection (check previous width and left and just extend if they match)
+* Hide cursor if text area loses focus. (draw cursor/selection should probably be triggered by things including onfocus)
+* Add back invisible elements like → for tab and &#9251; \u2423 for space
+* Update parser to fully separate rendering
+* Track relationship between objects and markup without using an attribute
+
+## Features to add
+
+Live Editing
+:  Keep track of who else has the document open and show the changes they are making live.
+
+## Abstract
+Clay takes the spreadsheet out of the grid. Rows and columns become dimensions meaningful to your model, like "Time" and "Fund". Formulas are written for humans first and models are made to be maintained, shared, and reused.
+
+## Building a model
+
+We want to model a simple manufacturer. Our goal is to project their "net income" under different assumptions over the course of the year.
+
+Start by defining the months of the year:
+
+	Month = {Jan,Feb,Mar,Apr,May,Jun,Jul,
+  		Aug,Sep,Oct,Nov,Dec}
+
+
+"Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In paper we choose the dimensions.
+
+&gt; Note: Categories are just a list
+
+We can now project the "Unit sales" of the firm over the months of the year. Lets assume the firm will sell 5000 units in January and that sales will grow monthly at a constant rate.
+
+	Unit Sales[Jan] = 5000
+    Unit Sales = Unit Sales[Month[Prev]] * (1 + Growth)
+
+Conservatively estimate a monthly growth rate of 1% based on our analysis of the firms position in the market.
+
+	Growth = 1%
+
+Their product sells for £55 and costs £25 to manufacture. We also know they have Fixed Costs of £2000 per month.
+
+	Price = 55
+    Unit Cost = 25
+    Fixed Costs = 2000
+
+Now we can calculate Revenue, Cost of Goods Sold, and EBIT. In a spreadsheet we would need 36 formulas, in paper we need 3.
+
+	Revenue = Unit Sales * Price
+    COGS = Unit Sales * Price
+    EBIT = Revenue - Fixed Costs - COGS
+
+The firm has £10,000 of debt on which it pays interest monthly at an annual rate of 8%. They also have a corporate tax rate of 30%.
+
+	Debt = 10000
+    Interest Rate = 8%
+	Tax Rate = 30%
+
+Just four more formulas and we have net income.
+
+	Interest = Debt * Interest Rate / 12
+    EBT = EBIT - Interest
+    Tax = EBT * Tax Rate
+    Net Income = EBT - Tax
+
+### Scenario testing
+
+What if we want to show a graph of "Net Income" for five different growth rates? In a spreadsheet this would be a problem. Copy and paste or a macro. But in paper we just change Growth to a list of rates:
+
+	Growth = {1%,2%,3%,4%,5%}
+	Graph.Line(Net Income,[Month],[Growth])
+
+
+## Reusable Models
+
+The **trick** to building reusable models is leaving things unspecified and being more specific where we might clash.
+
+* use full names when specifying category items (e.g. Month.Jan)
+
+
+## Lookups
+In a spreadsheet you need a host of different lookup mechanisms (VLookup, HLookup, Sumif, Sumifs, Averageif, etc). In Paper the lookups are all handled by a single concept called slice `[]`.
+
+Given a table of city populations across America
+
+Data.State|.Gender|.City|.Pop
+--|--|--|--
+WA|M|Seattle|2
+WA|F|Seattle|23
+KS|M|Lawrence|4
+KS|F|Lawrence|345
+FL|M|Miami|546
+FL|F|Miami|2
+FL|M|Orlando|1000
+FL|F|Orlando|2000
+
+We can find the population of Lawrence, Kansas by doing a sum on a slice (in a spreadsheet this would be a sumifs):
+
+	Sum(Data.Pop[Data.State=KS,Data.City=Lawrence]) // Data
+
+We can find the State for the city Miami using slice (in a spreadsheet this would need to use offset and match, since the table is in the wrong order to use vlookup):
+
+	Head(Data.State[Data.City=Miami] // Data)
+    
+Note, We use `Head` because without it we get a list of all the items in Data.State where the corresponding item in Data.City is Miami. We could also replace `Head` with `Unique` to get all the States that have a City called Miami (in our dataset).
+    
+&gt; Geek Note: This works just like APL.
+
+Because categories are just lists we can make them by hand or use a function that returns a list (like Unique).
+
+    Gender = {M,F}
+    State  = Unique(Data.State)
+ 
+We can now create a table of Population by State and Gender.
+
+	Population = Sum(Data.Pop[
+    	Data.State=State, Data.Gender=Gender]) // Data
+
+In a spreadsheet we could have created the above `Population` using a pivot table or 6 calls to sumifs (given our 3 states and 2 genders). The advantage of slice is you can use an function that takes a list to aggregate.
+
+
+## Own functions
+Just like in a spreadsheet we can define our own functions where the built-in functions don't meet our needs. Just include a javascript code block in the model. This is how you would implement the Sum function (had we not provided it):
+
+```javascript
+function MySum(iter) {
+	var memo = 0, item;
+    while(!(item = iter.next()).done) {
+    	memo = memo + item.value;
+    }
+    return memo;
+}
+```
+## Special characters
+
+Want to look like a real mathematician? Paper uses standard notation for many concepts, so you can write \\neq in place of !=. For example:
+
+    Early Costs[Month\in Jan..Mar] = 200
+
+
+Code|Symbol
+--|--:
+\\in|\in 
+\\notin|\notin 
+\\oplus|\oplus 
+\\ne \\neq|\ne 
+\\leq|\leq 
+\\geq|\geq 
+\\wedge|\wedge 
+\\vee|\vee 
+\\pi|\pi
+\\alpha|\alpha 
+\\beta|\beta
+\\gamma|\gamma
+\\delta|\delta
+\\epsion|\epsilon
+\\neg \\alpha|\neg\alpha
