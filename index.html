@@ -104,6 +104,7 @@ span.cursor {
   -o-animation: blink 2s linear 0s infinite;
 }
 
+
 @-webkit-keyframes blink {
   0%   { background: #aa0 }
   47%  { background: #999 }
@@ -151,6 +152,7 @@ span.after {
 	color: rgb(202, 224, 243);
 }
 
+
 #models {
 	list-style-type: none;
 	margin: 0;
@@ -182,11 +184,30 @@ span.after {
 		margin-left: 150px;	
 	}
 }
+
+#selection {
+	top: 0;
+	left: 0;
+	position: absolute;
+	padding: 0;
+	margin: 0;
+	z-index: 100;
+	display: none;
+}
+
+#selection div {
+	background: rgba(0, 128, 236, 0.51);
+	box-sizing: border-box;
+	position: absolute;
+	padding: 0;
+	margin: 0;
+}
 </style>
 </head>
 
 <body>
 <span id="cursor" class="cursor">&nbsp;</span>
+<div id="selection"></div>
 <div class='debug'>
 <div class='content'>
 <textarea id="model" class="editor pure-u-5-5">
@@ -266,18 +287,84 @@ Requires Chrome, Firefox, or IE9>.
 	
 	fetchJSONFile('models.json', updateModelIndex);
 	
+
+	var selection = document.getElementById('selection');
+
 	preview.innerHTML = clay(model.value);
 
 	var update = _.debounce(function() { 
-		console.time('#update');
+		//TODO check if the document is actually different.
+		//console.time('#update');
 		var nex = clay(model.value);
-		console.timeEnd('#update');
-		console.time('#render')
+		//console.timeEnd('#update');
+		//console.time('#render')
 		preview.innerHTML = nex; 
-		console.timeEnd('#render');
+		//console.timeEnd('#render');
 	},20);
 	model.onchange = update;
 	model.onkeyup = update;
+
+	var renderSelection = function(range) {
+		console.log('renderSelection');
+		grange = range;
+		rects = range.getClientRects();
+		var r = range.getBoundingClientRect();
+		console.log(r);
+		var first
+		  , last
+		  , mid
+		  , cs
+		  , fbot
+		  , rect
+		  , farLeft = Math.floor(r.left)
+		  , farRight = Math.ceil(r.right)
+		  , scrollTop = document.documentElement.scrollTop || document.body.scrollTop
+          , scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft
+          , len = rects.length
+          , i;
+        selection.innerHTML = '';
+        if (len > 0) {
+        	rect = rects[0];
+        	first = document.createElement('div');
+        	cs = first.style;
+        	cs.top = (rect.top + scrollTop) + 'px';
+			cs.left = (rect.left + scrollLeft) + 'px';
+			cs.height = rect.height + 'px';
+			cs.width = (farRight - rect.left) + 'px';
+			fbot = rect.bottom;
+        	selection.appendChild(first);
+        }
+        if (len > 1) {
+        	rect = rects[len - 1];
+        	last = document.createElement('div');
+			selection.appendChild(last);
+        	cs = last.style;
+			cs.left = (farLeft + scrollLeft) + 'px';
+			cs.width = (rect.right - farLeft) + 'px';
+			var gap = rect.top - fbot;
+			if (gap < rect.height * 0.6) {
+				cs.top = (rect.top + scrollTop - gap) + 'px';
+        		cs.height = (rect.height + gap) + 'px';
+			} else {
+        		cs.top = (rect.top + scrollTop) + 'px';
+        		cs.height = rect.height + 'px';
+        		// now draw the gap
+        		mid = document.createElement('div');
+        		cs = mid.style;
+        		cs.top = (fbot + scrollTop) + 'px'
+        		cs.left = (farLeft + scrollLeft) + 'px';
+        		cs.width = (farRight - farLeft) + 'px';
+        		cs.height = gap + 'px';
+        		selection.appendChild(mid)
+			}
+        }
+        selection.style.display = 'block';
+	}
+
+	//clear selection if textarea loses focus
+	model.onblur = function() {
+		cursor.style.display = selection.style.display = 'none';
+	}
 
 	preview.onmouseup = function(e) {
 		var selected = window.getSelection(),
@@ -287,6 +374,8 @@ Requires Chrome, Firefox, or IE9>.
         	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft,
         	cs = cursor.style,
         	start, end;
+		cs.display = 'none';
+		selection.style.display = 'none';
 		if (selected.isCollapsed) {
 			//caret
 			var par = range.startContainer.parentElement || range.startContainer.parentNode,
@@ -309,7 +398,7 @@ Requires Chrome, Firefox, or IE9>.
 				endPos = endE.getAttribute('pos')
 			if (startPos &&
 				endPos) {
-				cs.display = 'none';
+				renderSelection(range);
 				end = parseInt(endPos) + range.endOffset;
 				start = parseInt(startPos) + range.startOffset;
 				model.focus();
