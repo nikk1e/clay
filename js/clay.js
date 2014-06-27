@@ -15,7 +15,7 @@
 
 var block = {
   newline: /^\n+/,
-  code: /^((?: {4}| *\t)[^\n]+\n*)+/,
+  code: /^((?: {4}|\t)[^\n]+\n*)+/,
   fences: noop,
   hr: /^( *[-*_]){3,} *(?:\n+|$)/,
   heading: /^( *(#{1,6}) *)([^\n]+?)( *#* *(?:\n+|$))/,
@@ -150,7 +150,7 @@ Lexer.prototype.lex = function(src) {
  */
 
 Lexer.prototype.token = function(src, top, bq, pos) {
-  var src// = src.replace(/^ +$/gm, '') //TODO: this would need to be reflected in the text area
+  var src = src.replace(/^( {1,3})(\t+)/gm, '$2$1') //TODO.. This will result in funny indent outdent
     , next
     , loose
     , cap
@@ -179,7 +179,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
     if (cap = this.rules.code.exec(src)) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
-      cap = cap[0].replace(/^ {4}|\t/gm, '');
+      cap = cap[0]; //TODO .replace(/^ {4}|\t/gm, '')
       this.tokens.push({
         type: 'code',
         text: !this.options.pedantic
@@ -810,7 +810,7 @@ Renderer.prototype.code = function(code, lang, escaped, pos) {
 
   if (!lang) {
     return '<pre><code pos='+ pos +'>'
-      + (escaped ? code : escape(code, true))
+      + (escaped ? code : escape(code, true)).replace(/^( {4}|\t)/gm, '<span class="hide">$1</span>')
       + '\n</code></pre>';
   }
 
@@ -818,7 +818,7 @@ Renderer.prototype.code = function(code, lang, escaped, pos) {
     + this.options.langPrefix
     + escape(lang, true)
     + '"><span class="before">' + escape(lang, true) + '</span>\n'
-    + (escaped ? code : escape(code, true))
+    + (escaped ? code : escape(code, true)).replace(/^( {4}|\t)/gm, '<span class="hide">$1</span>')
     + '\n</code></pre>\n';
 };
 

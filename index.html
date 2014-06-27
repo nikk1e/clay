@@ -152,6 +152,10 @@ span.after {
 	color: rgb(202, 224, 243);
 }
 
+code span.hide {
+	display: none;
+}
+
 
 #models {
 	list-style-type: none;
@@ -167,7 +171,7 @@ span.after {
 	border-bottom: 1px solid #e7e7e7;
 }
 
-#models a {
+#models li a {
 	text-decoration: none;
 }
 
@@ -229,12 +233,13 @@ Requires Chrome, Firefox, or IE9>.
             <a class="pure-menu-heading" href="#">Clay</a>
 
             <ul>
-                <li><a href="#">Save</a></li>
+            	<li><a href="#">Open</a></li>
+            	<li><a href="#">Close</a></li>
+            	<li><a href="#">Revert</a></li>
+                <li class="menu-item-divided"><a href="#">Save</a></li>
                 <li><a href="#">Save All</a></li>
-                <li class="menu-item-divided pure-menu-selected"><a href="#">Example</a></li>
+                <li class="menu-item-divided pure-menu-selected"><a href="#">Getting Started</a></li>
                 <li><a href="#">Benchmarks</a></li>
-
-
             </ul>
         </div>
     </div>
@@ -260,18 +265,62 @@ Requires Chrome, Firefox, or IE9>.
 	var model = document.getElementById('model');
 	var preview = document.getElementById('preview');
 	var cursor = document.getElementById('cursor');
+
+	model.onkeydown = function(e) {
+		if (e.keyCode === 9 && !e.altKey && !e.ctrlKey && !e.shiftKey) { //tab
+			var val = this.value,
+				start = this.selectionStart,
+				end = this.selectionEnd;
+			this.value = val.substring(0,start) + '\t' + val.substring(end);
+			this.selectionStart = this.selectionEnd = start + 1;
+			return false;
+		}
+		return true;
+	}
+
+	model.oninput = function(e) {
+		console.log('model oninput');
+		update();
+		return true;
+	}
 	
 	var openModel = function(path) {
-		fetchFile('/models/'+path + '.md', function(data) {
+		fetchFile('/models/'+path, function(data) {
 			model.value = data;
 			update();
 		});
+	}
+	var empty = /^\n*$/;
+	var elementPath = function elementPath(root, elem, path) {
+		var i = 0,
+			parent = elem.parentNode
+		path = path || [];
+		if (elem === root) return path.reverse();
+		while((elem=elem.previousSibling)!=null) {
+			if (!(elem.nodeType === 3 && empty.test(elem.nodeValue))) ++i;
+		};
+		path.push(i);
+		return elementPath(root,parent, path);
 	}
 	
 	var updateModelIndex = function(data) {
 		console.log(data);
 		var models = document.getElementById('models');
-		models.innerHTML = '';
+		//models.innerHTML = '';
+		function addModels(items, path) {
+			path = path || '';
+			var ret = '';
+			items.forEach(function(item) {
+				if (item.type === 'directory') {
+					ret = ret + addModels(item.children, path + item.name + '/');
+				} else {
+					var name = item.name.replace(/\.model$/,'')
+					ret = ret + '<li><a href="#' + name + '" onclick="openModel(\'' + path + item.name + '\')">' + path + name + '</a></li>';
+				}
+			})
+			return ret
+		}
+		models.innerHTML = addModels(data);/*
 		data.forEach(function(name) {
 			var a = document.createElement('a')
 			  , li = document.createElement('li');
@@ -282,11 +331,10 @@ Requires Chrome, Firefox, or IE9>.
 			};
 			a.innerText = name;
 			models.appendChild(li);
-		});
+		});*/
 	}
 	
 	fetchJSONFile('models.json', updateModelIndex);
-	
 
 	var selection = document.getElementById('selection');
 
@@ -302,7 +350,12 @@ Requires Chrome, Firefox, or IE9>.
 		//console.timeEnd('#render');
 	},20);
 	model.onchange = update;
-	model.onkeyup = update;
+	
+	model.onkeyup = function(e) {
+		console.log('model onkeyup');
+		//TODO 
+		return true;
+	}
 
 	var renderSelection = function(range) {
 		console.log('renderSelection');
@@ -361,6 +414,21 @@ Requires Chrome, Firefox, or IE9>.
         selection.style.display = 'block';
 	}
 
+	//TODO
+	var drawSelection = function(range) {
+		//given a preview range draw the cursor or selection
+	}
+
+	var selectText = function(range) {
+		//given a preview range select model range
+
+	}
+
+	var selectedToRange = function() {
+		// calculate preview selection from model selection
+	}
+
+
 	//clear selection if textarea loses focus
 	model.onblur = function() {
 		cursor.style.display = selection.style.display = 'none';
@@ -374,6 +442,7 @@ Requires Chrome, Firefox, or IE9>.
         	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft,
         	cs = cursor.style,
         	start, end;
+        grange = range;
 		cs.display = 'none';
 		selection.style.display = 'none';
 		if (selected.isCollapsed) {
