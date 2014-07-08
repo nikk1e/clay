@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title></title>
-	<!--script src="http://code.jquery.com/jquery-1.10.0.min.js"></script-->
+	<script src="http://code.jquery.com/jquery-1.10.0.min.js"></script>
 <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
 <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
 
@@ -157,7 +157,7 @@ code span.hide {
 }
 
 
-#models {
+.models {
 	list-style-type: none;
 	margin: 0;
 	padding: 0;
@@ -165,13 +165,13 @@ code span.hide {
 	text-align: center;
 }
 
-#models li {
+.models li {
 	padding: 0.8em 0;
 	background: #f7f7f7;
 	border-bottom: 1px solid #e7e7e7;
 }
 
-#models li a {
+.models li a {
 	text-decoration: none;
 }
 
@@ -206,6 +206,10 @@ code span.hide {
 	padding: 0;
 	margin: 0;
 }
+
+#menu .menu-modified {
+    border-right: 10px solid rgb(34, 92, 141);
+}
 </style>
 </head>
 
@@ -223,73 +227,340 @@ Requires Chrome, Firefox, or IE9>.
 </div>
 <div id="layout">
     <!-- Menu toggle -->
-    <a href="#menu" id="menuLink" class="menu-link">
-        <!-- Hamburger icon -->
-        <span></span>
-    </a>
-
-    <div id="menu">
-        <div class="pure-menu pure-menu-open">
-            <a class="pure-menu-heading" href="#">Clay</a>
-
-            <ul>
-            	<li><a href="#">Open</a></li>
-            	<li><a href="#">Close</a></li>
-            	<li><a href="#">Revert</a></li>
-                <li class="menu-item-divided"><a href="#">Save</a></li>
-                <li><a href="#">Save All</a></li>
-                <li class="menu-item-divided pure-menu-selected"><a href="#">Getting Started</a></li>
-                <li><a href="#">Benchmarks</a></li>
-            </ul>
-        </div>
-    </div>
 
     <div id="main">
 <div class="content">
-	<div id="index">
-		<div class="header">
-			<h1>Models</h1>
-			<h2>Clay for modelling</h2>
-		</div>
-		<ul id="models">
-		</ul>
-	</div>
+	
 <div id="preview" class="editor">
 </div>
 </div>
 </div>
 </div>
 <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+<script type="text/javascript" src="/js/react/react-with-addons.js"></script>
 <script type="text/javascript" src="/js/functions.js"></script>
-<script type="text/javascript">
-	var model = document.getElementById('model');
-	var preview = document.getElementById('preview');
-	var cursor = document.getElementById('cursor');
 
-	model.onkeydown = function(e) {
+<script type="text/javascript">
+var title = "Clay"
+var DOM = React.DOM,
+	div = DOM.div, ul = DOM.ul, li = DOM.li, p = DOM.p
+	h1 = DOM.h1, h2 = DOM.h2, a = DOM.a, span = DOM.span;
+
+var Clay = function() {
+	this._blank = true;
+	this.names = [{name:'Blank'}];
+	this._sources = {'Blank': '# Blank\n\nEnter your model here.'};
+	this._asts = {};
+	this._rendered = {};
+	this._model;
+};
+
+Clay.prototype.getSource = function(name) {
+	return this._sources[name];
+};
+
+Clay.prototype.close = function(name) {
+	delete this._sources[name];
+	delete this._asts[name];
+	delete this._rendered[name];
+	var i = this.names.length;
+	while (i--)
+		if (this.names[i].name == name) 
+				break;
+	if (i >= 0)
+		this.names.splice(i, 1);
+	//this.recalc()
+	if (this.names.length === 0) {
+		this.names = [{name:'Blank'}];
+		this._sources = {'Blank': '# Blank\n\nEnter your model here.'};
+		this._blank	= true;
+		this.recalc('Blank');
+	}
+};
+
+Clay.prototype.addModel = function(name, source) {
+	if (this._blank && !this.name('Blank').modified) {
+		this.names = [];
+		this._sources = {};
+		this._blank = false;
+	}
+	this._sources[name] = source;
+	this.names.push({name: name});
+	this.recalc(name);
+};
+
+Clay.prototype.openModel = function(name, callback, revert) {
+	if (this._sources[name] !== undefined && !revert) {
+		callback(name); //file already open just switch to it
+	} else {
+		fetchFile('/models/'+name + '.model', function(data) {
+			if (data != undefined) {
+				if (revert) {
+					this.update(name, data);
+					this.name(name).modified = false;
+				}
+				else {
+					this.addModel(name, data);
+				}
+				callback(name);
+			}
+			
+		}.bind(this));
+	}
+};
+
+Clay.prototype.recalc = function(name) {
+	var source = this._sources[name];
+	this._rendered[name] = clay(source);
+};
+
+Clay.prototype.update = function(name, source) {
+	var s = this._sources[name];
+	if (s != source) {
+		this._sources[name] = source;
+		this.setModified(name);
+		this.recalc(name);
+	}
+};
+
+Clay.prototype.setModified = function(name) {
+	this.name(name).modified = true;
+};
+
+Clay.prototype.name = function(name) {
+	var i = this.names.length;
+	while (i--)
+		if (this.names[i].name == name)
+			return this.names[i];
+	return {}
+};
+
+var MenuToggle = React.createClass({
+	render: function() {
+		return a({href:"#menu", id:"menuLink", className:"menu-link"}, span(null));
+	},
+});
+
+var MenuItem = React.createClass({
+	clicked: function(event) {
+		this.props.clicked(this.props.item.name);
+	},
+	render: function() {
+		var item = this.props.item,
+			classes = React.addons.classSet({
+			'menu-item-divided': this.props.divided,
+			'pure-menu-selected': this.props.selected,
+			'menu-modified': item.modified,
+		});
+		return li({onClick: this.clicked, className: classes},
+			a({href:"#" + item.name}, item.name))
+	},
+});
+
+var Menu = React.createClass({
+	renderItem: function(item,idx) {
+		return MenuItem({item:item, 
+			divided: item.separator, 
+			selected: (item.name == this.props.selected), 
+			clicked: item.func});
+	},
+	renderFile: function(item, idx) {
+		return MenuItem({item:item, 
+			divided: (idx == 0), 
+			selected: (item.name == this.props.selected), 
+			clicked: this.props.fileClick});
+	},
+	render: function() {
+
+		return div({id:"menu"},
+			div({className:"pure-menu pure-menu-open"},
+				a({className:"pure-menu-heading", href:"#"},title),
+				ul(null,this.props.items.map(this.renderItem),
+					this.props.files.map(this.renderFile))));
+	},
+});
+
+var FileItem = React.createClass({
+	clicked: function(event) {
+		this.props.clicked(this.props.path + this.props.item.name.replace(/\.model$/,''));
+	},
+	render: function() {
+		var item = this.props.item.name,
+			name = this.props.path + item.replace(/\.model$/,'');
+		return li({onClick: this.clicked},
+			a({href:"#" + name}, name))
+	},
+});
+
+var DirectoryItem = React.createClass({
+	renderItem: function(item, idx) {
+		if (item.type === 'directory') {
+			return DirectoryItem({clicked: this.props.clicked,
+				directory: item,
+				path: this.props.path + item.name + '/'});
+		}
+		return FileItem({clicked: this.props.clicked, item: item, path: this.props.path});
+	},
+	render: function() {
+		return ul({className: 'models'}, this.props.directory.children.map(this.renderItem));
+	},
+});
+
+var FileList = React.createClass({
+	getInitialState: function() {
+		return {data: []};
+	},
+	componentWillMount: function() {
+		$.ajax({
+			url: 'models.json',
+			dataType: 'json',
+			success: function(data) {
+				this.setState({data: data});
+			}.bind(this),
+			error: function(xhr, status, err) {
+				console.error('models.json', status, err.toString());
+			}.bind(this)
+		});
+	},
+	render: function() {
+		return div(null,
+			div({className: 'header'}, h1(null, "Open Model"), h2(null, "Choose a model to open")),
+			DirectoryItem({directory:{children: this.state.data}, path:'', clicked: this.props.clicked}));
+	},
+});
+
+var Selection = React.createClass({
+	render: function() {
+		return span({id: "cursor", className: "cursor"}, " "); // or div selection
+	},
+});
+
+var Renderer = React.createClass({
+	render: function() { 
+		return div({id: 'preview',
+			className: 'editor', dangerouslySetInnerHTML:{
+            __html: this.props.model._rendered[this.props.name]
+          }}); 
+	},
+});
+
+var Editor = React.createClass({
+	getInitialState: function() {
+		return {
+			//TODO this should be an empty model
+			currentSource: 'Test of this',
+			selected: 'Getting Started',
+			modal: this.preview,
+		}
+	},
+	handleChange: function() {
+		var source = this.refs.textarea.getDOMNode().value;
+		this.setState({
+			currentSource: source
+		});
+		this.props.model.update(this.state.selected, source);
+	},
+	save: function() { console.log('save'); },
+	saveAll: function() { console.log('saveAll'); },
+	open: function() { 
+		console.log('open'); 
+		this.setState({modal: this.openModal});
+	},
+	close: function() { 
+		this.props.model.close(this.state.selected);
+		this.switchFile(this.props.model.names[0].name);
+
+	},
+	revert: function() { 
+		var path = this.state.selected;
+		this.props.model.openModel(path, function(name) {
+			this.switchFile(name);
+		}.bind(this), true);
+		this.switchFile(path);
+	},
+
+	preview: function() {
+		return Renderer({model:this.props.model, name:this.state.selected});
+	},
+	openModal: function() {
+		return FileList({clicked: this.openFile});
+	},
+	openFile: function(path) {
+		this.props.model.openModel(path, function(name) {
+			this.switchFile(name);
+		}.bind(this), false);
+		this.switchFile(path);
+	},
+	switchFile: function(name) { 
+		console.log('switchFile: ' + name);
+		var source = this.props.model.getSource(name)
+		this.setState({ selected: name, currentSource: source, modal: this.preview});
+		this.refs.textarea.getDOMNode().value = source; //React doesn't set the value of the text area
+	},
+
+	menu: function() {
+		// must be wrapped in a function to see the other functions
+		// i.e. this.openFile
+		// could be done on ComponentWillMount to save a call every time
+		return [
+			{name: "Open", func: this.open},
+			{name: "Close", func: this.close},
+			{name: "Revert", func: this.revert},
+			{name: "Save", func: this.save, separator: true},
+			{name: "Save All", func: this.saveAll},
+			];
+	},
+
+	handleKeyDown: function(e) {
 		if (e.keyCode === 9 && !e.altKey && !e.ctrlKey && !e.shiftKey) { //tab
-			var val = this.value,
-				start = this.selectionStart,
-				end = this.selectionEnd;
-			this.value = val.substring(0,start) + '\t' + val.substring(end);
-			this.selectionStart = this.selectionEnd = start + 1;
+			var ta = this.refs.textarea.getDOMNode(),
+				val = ta.value,
+				start = ta.selectionStart,
+				end = ta.selectionEnd;
+			ta.value = val.substring(0,start) + '\t' + val.substring(end);
+			ta.selectionStart = ta.selectionEnd = start + 1;
+			this.setState({currentSource: ta.value});
+			//manually trigger update
+			this.props.model.update(this.state.selected, ta.value);
 			return false;
 		}
 		return true;
-	}
+	},
 
-	model.oninput = function(e) {
-		console.log('model oninput');
-		update();
-		return true;
-	}
+	render: function() {
+		return div(null,
+			div({className: 'debug'},
+				div({className: 'content'},
+					DOM.textarea({id: 'model', 
+						onChange:this.handleChange,
+						onKeyDown:this.handleKeyDown,
+						ref: "textarea", 
+						className: "editor pure-u-5-5",
+						defaultValue: this.props.model.getSource(this.state.selected)}))),
+			div({id:'layout'},
+				MenuToggle(null),
+				Menu({items: this.menu(), files:this.props.model.names, 
+					selected:this.state.selected, fileClick: this.switchFile}),
+				div({id:'main'}, 
+					div({className:'content'},
+						this.state.modal()))));
+	},
+});
+
+
+var models = new Clay();
+//models.addModel("Getting Started", "# Some stuff here\n\nOther stuff");
+//models.addModel("Benchmarks","# Benchmarks\n\nNothing to see here");
+var ed = Editor({model: models});
+React.renderComponent(ed, document.body);
+ed.openFile('Example');
+</script>
+<script type="text/javascript">
+	/*var model = document.getElementById('model');
+	var preview = document.getElementById('preview');
+	var cursor = document.getElementById('cursor');
 	
-	var openModel = function(path) {
-		fetchFile('/models/'+path, function(data) {
-			model.value = data;
-			update();
-		});
-	}
+	}*/
 	var empty = /^\n*$/;
 	var elementPath = function elementPath(root, elem, path) {
 		var i = 0,
@@ -302,43 +573,8 @@ Requires Chrome, Firefox, or IE9>.
 		path.push(i);
 		return elementPath(root,parent, path);
 	}
-	
-	var updateModelIndex = function(data) {
-		console.log(data);
-		var models = document.getElementById('models');
-		//models.innerHTML = '';
-		function addModels(items, path) {
-			path = path || '';
-			var ret = '';
-			items.forEach(function(item) {
-				if (item.type === 'directory') {
-					ret = ret + addModels(item.children, path + item.name + '/');
-				} else {
-					var name = item.name.replace(/\.model$/,'')
-					ret = ret + '<li><a href="#' + name + '" onclick="openModel(\'' + path + item.name + '\')">' + path + name + '</a></li>';
-				}
-			})
-			return ret
-		}
-		models.innerHTML = addModels(data);/*
-		data.forEach(function(name) {
-			var a = document.createElement('a')
-			  , li = document.createElement('li');
-			li.appendChild(a); 
-			a.href = '#' + name;
-			a.onclick = function() { 
-				openModel(name); return false; 
-			};
-			a.innerText = name;
-			models.appendChild(li);
-		});*/
-	}
-	
-	fetchJSONFile('models.json', updateModelIndex);
 
-	var selection = document.getElementById('selection');
-
-	preview.innerHTML = clay(model.value);
+	/*preview.innerHTML = clay(model.value);
 
 	var update = _.debounce(function() { 
 		//TODO check if the document is actually different.
@@ -433,7 +669,7 @@ Requires Chrome, Firefox, or IE9>.
 	model.onblur = function() {
 		cursor.style.display = selection.style.display = 'none';
 	}
-
+*/
 	preview.onmouseup = function(e) {
 		var selected = window.getSelection(),
 			range = selected.getRangeAt(0),
