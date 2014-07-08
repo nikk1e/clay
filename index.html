@@ -360,13 +360,15 @@ var MenuItem = React.createClass({
 var Menu = React.createClass({
 	renderItem: function(item,idx) {
 		return MenuItem({item:item, 
+			key: idx,
 			divided: item.separator, 
 			selected: (item.name == this.props.selected), 
 			clicked: item.func});
 	},
 	renderFile: function(item, idx) {
 		return MenuItem({item:item, 
-			divided: (idx == 0), 
+			divided: (idx == 0),
+			key: idx,
 			selected: (item.name == this.props.selected), 
 			clicked: this.props.fileClick});
 	},
@@ -396,10 +398,11 @@ var DirectoryItem = React.createClass({
 	renderItem: function(item, idx) {
 		if (item.type === 'directory') {
 			return DirectoryItem({clicked: this.props.clicked,
+				key: idx,
 				directory: item,
 				path: this.props.path + item.name + '/'});
 		}
-		return FileItem({clicked: this.props.clicked, item: item, path: this.props.path});
+		return FileItem({clicked: this.props.clicked, key: idx, item: item, path: this.props.path});
 	},
 	render: function() {
 		return ul({className: 'models'}, this.props.directory.children.map(this.renderItem));
@@ -497,7 +500,9 @@ var Editor = React.createClass({
 		this.setState({ selected: name, currentSource: source, modal: this.preview});
 		this.refs.textarea.getDOMNode().value = source; //React doesn't set the value of the text area
 	},
-
+	componentDidMount: function() {
+		this.openFile('Example'); //TODO pass in as initial model
+	},
 	menu: function() {
 		// must be wrapped in a function to see the other functions
 		// i.e. this.openFile
@@ -553,7 +558,7 @@ var models = new Clay();
 //models.addModel("Benchmarks","# Benchmarks\n\nNothing to see here");
 var ed = Editor({model: models});
 React.renderComponent(ed, document.body);
-ed.openFile('Example');
+//ed.openFile('Example');
 </script>
 <script type="text/javascript">
 	/*var model = document.getElementById('model');
