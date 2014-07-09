@@ -96,7 +96,8 @@ span.cursor {
   background: #111;
   margin-right: -1px;
   width: 1px;
-  display: none;
+  display: block;
+  z-index: 100;
  
   -webkit-animation: blink 2s linear 0s infinite;
   -moz-animation: blink 2s linear 0s infinite;
@@ -189,17 +190,17 @@ code span.hide {
 	}
 }
 
-#selection {
+div.selection {
 	top: 0;
 	left: 0;
 	position: absolute;
 	padding: 0;
 	margin: 0;
 	z-index: 100;
-	display: none;
+	display: block;
 }
 
-#selection div {
+div.selection div {
 	background: rgba(0, 128, 236, 0.51);
 	box-sizing: border-box;
 	position: absolute;
@@ -214,8 +215,6 @@ code span.hide {
 </head>
 
 <body>
-<span id="cursor" class="cursor">&nbsp;</span>
-<div id="selection"></div>
 <div class='debug'>
 <div class='content'>
 <textarea id="model" class="editor pure-u-5-5">
@@ -289,29 +288,36 @@ Clay.prototype.addModel = function(name, source) {
 	this.recalc(name);
 };
 
-Clay.prototype.openModel = function(name, callback, revert) {
-	if (this._sources[name] !== undefined && !revert) {
-		callback(name); //file already open just switch to it
+Clay.prototype.openModel = function(name, callback) {
+	if (this._sources[name] !== undefined) {
+		if (callback) callback(name); //file already open just switch to it
 	} else {
 		fetchFile('/models/'+name + '.model', function(data) {
-			if (data != undefined) {
-				if (revert) {
-					this.update(name, data);
-					this.name(name).modified = false;
-				}
-				else {
-					this.addModel(name, data);
-				}
-				callback(name);
+			if (data !== undefined) {
+				this.addModel(name, data);
+				if (callback) callback(name);
 			}
-			
 		}.bind(this));
 	}
 };
 
+Clay.prototype.revert = function(name, callback) {
+	fetchFile('/models/'+name + '.model', function(data) {
+		if (data !== undefined) {
+			this.update(name, data);
+			this.name(name).modified = false;
+			if (callback) callback(name);
+		}
+	}.bind(this));
+};
+
 Clay.prototype.recalc = function(name) {
-	var source = this._sources[name];
-	this._rendered[name] = clay(source);
+	var source = this._sources[name],
+		lex = clay.lexer(source),
+		lexcopy = lex.slice();
+	lexcopy.links = lex.links;
+	this._asts[name] = clay.newparser(lexcopy, clay.options);
+	this._rendered[name] = clay.parser(lex, clay.options);
 };
 
 Clay.prototype.update = function(name, source) {
@@ -433,14 +439,91 @@ var FileList = React.createClass({
 });
 
 var Selection = React.createClass({
+	renderSelection: function(range) {
+		var rects = range.getClientRects(),
+			r = range.getBoundingClientRect()
+		  , ret = []
+		  , cs
+		  , fbot
+		  , rect
+		  , farLeft = Math.floor(r.left)
+		  , farRight = Math.ceil(r.right)
+		  , scrollTop = document.documentElement.scrollTop || document.body.scrollTop
+          , scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft
+          , len = rects.length
+          , i;
+        if (len > 0) {
+        	rect = rects[0];
+        	cs = {
+        		top: (rect.top + scrollTop) + 'px',
+        		left: (rect.left + scrollLeft) + 'px',
+        		height: rect.height + 'px',
+        		width: (farRight - rect.left) + 'px',
+        	}
+			fbot = rect.bottom;
+        	ret.push(div({style:cs, key:'first'}," "));
+        }
+        if (len > 1) {
+        	rect = rects[len - 1];
+        	cs = {
+        		left: (farLeft + scrollLeft) + 'px',
+        		width: (rect.right - farLeft) + 'px',
+        	}
+			var gap = rect.top - fbot;
+			if (gap < rect.height * 0.6) {
+				cs.top = (rect.top + scrollTop - gap) + 'px';
+        		cs.height = (rect.height + gap) + 'px';
+			} else {
+        		cs.top = (rect.top + scrollTop) + 'px';
+        		cs.height = rect.height + 'px';
+        		// now draw the gap
+        		ret.push(div({style: {
+        			top: (fbot + scrollTop) + 'px',
+        			left: (farLeft + scrollLeft) + 'px',
+        			width: (farRight - farLeft) + 'px',
+        			height: gap + 'px'
+        		}, key: 'mid'}, " "));
+			}
+			ret.push(div({style: cs, key: 'last'}, " "));
+        }
+        return ret;
+	},
 	render: function() {
-		return span({id: "cursor", className: "cursor"}, " "); // or div selection
+		var range = this.props.selection; //selection range
+		if (range === null)
+			return span(null);
+
+		var rects = range.getClientRects(),
+			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
+        	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+        if (rects.length === 0)
+        	return span(null);
+
+		if (range.collapsed) {
+			var rect = rects[0],
+				cs = {
+					top: (rect.top + scrollTop) + 'px',
+					left: (rect.right + scrollLeft - 1) + 'px',
+					height: rect.height + 'px',
+					display: 'block',
+				};
+			return span({className: "cursor", style: cs}, " ");
+		} else {
+			return div({className: "selection"},
+				this.renderSelection(range));
+		}
 	},
 });
 
 var Renderer = React.createClass({
+	handleMouseUp: function(e) {
+		var f = this.props.onmouseup;
+		if (f) f(e);
+	},
 	render: function() { 
-		return div({id: 'preview',
+		return div({id: 'preview', 
+			ref: 'preview',
+			onMouseUp: this.handleMouseUp,
 			className: 'editor', dangerouslySetInnerHTML:{
             __html: this.props.model._rendered[this.props.name]
           }}); 
@@ -454,54 +537,53 @@ var Editor = React.createClass({
 			currentSource: 'Test of this',
 			selected: 'Getting Started',
 			modal: this.preview,
+			selectionRange: null,
 		}
 	},
-	handleChange: function() {
+	handleChange: function(e) {
 		var source = this.refs.textarea.getDOMNode().value;
-		this.setState({
-			currentSource: source
-		});
+		this.setState({currentSource: source});
 		this.props.model.update(this.state.selected, source);
 	},
 	save: function() { console.log('save'); },
 	saveAll: function() { console.log('saveAll'); },
-	open: function() { 
-		console.log('open'); 
+	open: function() {
 		this.setState({modal: this.openModal});
 	},
 	close: function() { 
 		this.props.model.close(this.state.selected);
 		this.switchFile(this.props.model.names[0].name);
-
 	},
-	revert: function() { 
-		var path = this.state.selected;
-		this.props.model.openModel(path, function(name) {
-			this.switchFile(name);
-		}.bind(this), true);
-		this.switchFile(path);
+	revert: function() {
+		this.props.model.revert(this.state.selected, this.switchFile);
 	},
-
+	openFile: function(path) {
+		this.props.model.openModel(path, this.switchFile);
+	},
 	preview: function() {
-		return Renderer({model:this.props.model, name:this.state.selected});
+		return Renderer({model:this.props.model, 
+			name:this.state.selected, 
+			onmouseup:this.handleMouseUp,
+		});
 	},
 	openModal: function() {
 		return FileList({clicked: this.openFile});
 	},
-	openFile: function(path) {
-		this.props.model.openModel(path, function(name) {
-			this.switchFile(name);
-		}.bind(this), false);
-		this.switchFile(path);
-	},
 	switchFile: function(name) { 
 		console.log('switchFile: ' + name);
-		var source = this.props.model.getSource(name)
-		this.setState({ selected: name, currentSource: source, modal: this.preview});
-		this.refs.textarea.getDOMNode().value = source; //React doesn't set the value of the text area
+		var source = this.props.model.getSource(name),
+		    ta = this.refs.textarea.getDOMNode();
+		this.setState({ selected: name,
+			currentSource: source,
+			modal: this.preview});
+		ta.value = source; //React doesn't set the value of the text area
+		ta.setSelectionRange(0,0);
 	},
 	componentDidMount: function() {
 		this.openFile('Example'); //TODO pass in as initial model
+	},
+	componentDidUpdate: function(prevProps, prevState) {
+		//
 	},
 	menu: function() {
 		// must be wrapped in a function to see the other functions
@@ -515,7 +597,9 @@ var Editor = React.createClass({
 			{name: "Save All", func: this.saveAll},
 			];
 	},
-
+	updateCursor: function() {
+		//TODO might want this to ignore the 
+	},
 	handleKeyDown: function(e) {
 		if (e.keyCode === 9 && !e.altKey && !e.ctrlKey && !e.shiftKey) { //tab
 			var ta = this.refs.textarea.getDOMNode(),
@@ -531,14 +615,43 @@ var Editor = React.createClass({
 		}
 		return true;
 	},
-
+	//Note: these are getting called every click...
+	handleBlur: function() {
+		if (this.state.selectionRange !== null)
+			this.setState({selectionRange: null});
+	},
+	handleFocus: function() {
+		//textarea gained focus (draw selection)
+		this.updateCursor();
+	},
+	handleKeyUp: function() {
+		this.updateCursor();
+	},
+	handleMouseUp: function(e) {
+		var selected = window.getSelection(),
+			range = selected.getRangeAt(0),
+        	startE = range.startContainer.parentElement || range.startContainer.parentNode,
+			endE = range.endContainer.parentNode || range.endContainer.parentNode,
+			startPos = startE.getAttribute('pos'),
+			endPos = endE.getAttribute('pos'),
+			end = parseInt(endPos) + range.endOffset,
+			start = parseInt(startPos) + range.startOffset,
+			ta = this.refs.textarea.getDOMNode();
+			ta.setSelectionRange(start, end);
+			ta.focus();
+			this.setState({selectionRange: range}); 
+			//remove line above as the focus will do the trick by calling updateCursor
+	},
 	render: function() {
 		return div(null,
 			div({className: 'debug'},
 				div({className: 'content'},
 					DOM.textarea({id: 'model', 
-						onChange:this.handleChange,
-						onKeyDown:this.handleKeyDown,
+						onChange: this.handleChange,
+						onKeyDown: this.handleKeyDown,
+						onkeyUp: this.handleKeyUp,
+						onFocus: this.handleFocus,
+						onBlur: this.handleBlur,
 						ref: "textarea", 
 						className: "editor pure-u-5-5",
 						defaultValue: this.props.model.getSource(this.state.selected)}))),
@@ -546,8 +659,9 @@ var Editor = React.createClass({
 				MenuToggle(null),
 				Menu({items: this.menu(), files:this.props.model.names, 
 					selected:this.state.selected, fileClick: this.switchFile}),
-				div({id:'main'}, 
+				div({id:'main'},
 					div({className:'content'},
+						Selection({selection:this.state.selectionRange}),
 						this.state.modal()))));
 	},
 });
@@ -598,63 +712,6 @@ React.renderComponent(ed, document.body);
 		return true;
 	}
 
-	var renderSelection = function(range) {
-		console.log('renderSelection');
-		grange = range;
-		rects = range.getClientRects();
-		var r = range.getBoundingClientRect();
-		console.log(r);
-		var first
-		  , last
-		  , mid
-		  , cs
-		  , fbot
-		  , rect
-		  , farLeft = Math.floor(r.left)
-		  , farRight = Math.ceil(r.right)
-		  , scrollTop = document.documentElement.scrollTop || document.body.scrollTop
-          , scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft
-          , len = rects.length
-          , i;
-        selection.innerHTML = '';
-        if (len > 0) {
-        	rect = rects[0];
-        	first = document.createElement('div');
-        	cs = first.style;
-        	cs.top = (rect.top + scrollTop) + 'px';
-			cs.left = (rect.left + scrollLeft) + 'px';
-			cs.height = rect.height + 'px';
-			cs.width = (farRight - rect.left) + 'px';
-			fbot = rect.bottom;
-        	selection.appendChild(first);
-        }
-        if (len > 1) {
-        	rect = rects[len - 1];
-        	last = document.createElement('div');
-			selection.appendChild(last);
-        	cs = last.style;
-			cs.left = (farLeft + scrollLeft) + 'px';
-			cs.width = (rect.right - farLeft) + 'px';
-			var gap = rect.top - fbot;
-			if (gap < rect.height * 0.6) {
-				cs.top = (rect.top + scrollTop - gap) + 'px';
-        		cs.height = (rect.height + gap) + 'px';
-			} else {
-        		cs.top = (rect.top + scrollTop) + 'px';
-        		cs.height = rect.height + 'px';
-        		// now draw the gap
-        		mid = document.createElement('div');
-        		cs = mid.style;
-        		cs.top = (fbot + scrollTop) + 'px'
-        		cs.left = (farLeft + scrollLeft) + 'px';
-        		cs.width = (farRight - farLeft) + 'px';
-        		cs.height = gap + 'px';
-        		selection.appendChild(mid)
-			}
-        }
-        selection.style.display = 'block';
-	}
-
 	//TODO
 	var drawSelection = function(range) {
 		//given a preview range draw the cursor or selection
@@ -675,48 +732,6 @@ React.renderComponent(ed, document.body);
 		cursor.style.display = selection.style.display = 'none';
 	}
 */
-	preview.onmouseup = function(e) {
-		var selected = window.getSelection(),
-			range = selected.getRangeAt(0),
-			rects = range.getClientRects(),
-			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
-        	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft,
-        	cs = cursor.style,
-        	start, end;
-        grange = range;
-		cs.display = 'none';
-		selection.style.display = 'none';
-		if (selected.isCollapsed) {
-			//caret
-			var par = range.startContainer.parentElement || range.startContainer.parentNode,
-				rect = rects[0],
-				endPos = par.getAttribute('pos');
-			if (endPos) {
-				cs.top = (rect.top + scrollTop) + 'px';
-				cs.left = (rect.right + scrollLeft - 1) + 'px';
-				cs.height = rect.height + 'px';
-				cs.display = 'block';
-				end = parseInt(endPos) + range.startOffset;
-				model.focus();
-				model.setSelectionRange(end,end);
-			}
-		} else {
-			//range
-			var startE = range.startContainer.parentElement || range.startContainer.parentNode,
-				endE = range.endContainer.parentNode || range.endContainer.parentNode,
-				startPos = startE.getAttribute('pos'),
-				endPos = endE.getAttribute('pos')
-			if (startPos &&
-				endPos) {
-				renderSelection(range);
-				end = parseInt(endPos) + range.endOffset;
-				start = parseInt(startPos) + range.startOffset;
-				model.focus();
-				model.selectionStart = start;
-				model.selectionEnd = end;
-			}
-		}
-	}
 </script>
 
 <script src="js/ui.js"></script>

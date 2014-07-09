@@ -4,7 +4,7 @@
  *
  * Based on: marked.js
  * Copyright (c) 2011-2014, Christopher Jeffrey. (MIT Licensed) 
- * https://github.com/chjj/clay
+ * https://github.com/chjj/marked
  */
 
 ;(function() {
@@ -142,7 +142,9 @@ Lexer.prototype.lex = function(src) {
     .replace(/\u00a0/g, ' ')
     .replace(/\u2424/g, '\n');
 
-  return this.token(src, true);
+  this.token(src, true);
+  this.tokens.push({type:'EOF'});
+  return this.tokens;
 };
 
 /**
@@ -168,11 +170,12 @@ Lexer.prototype.token = function(src, top, bq, pos) {
     if (cap = this.rules.newline.exec(src)) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
-      if (cap[0].length > 1) {
-        this.tokens.push({
-          type: 'space', pos: pos
-        });
-      }
+      //if (cap[0].length > 1) {
+      //  this.tokens.push({
+      //    type: 'space', pos: pos
+      //  });
+      //}
+      pos += matchlen;
     }
 
     // code
@@ -296,7 +299,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       // Pass `top` to keep the current
       // "toplevel" state. This is exactly
       // how markdown.pl works.
-      this.token(cap, top, true);
+      this.token(cap, top, true, pos);
 
       this.tokens.push({
         type: 'blockquote_end',
@@ -482,7 +485,6 @@ Lexer.prototype.token = function(src, top, bq, pos) {
         Error('Infinite loop on byte: ' + src.charCodeAt(0));
     }
   }
-
   return this.tokens;
 };
 
@@ -1010,6 +1012,9 @@ Parser.prototype.parseText = function() {
 
 Parser.prototype.tok = function() {
   switch (this.token.type) {
+    case 'EOF': {
+      return '';
+    }
     case 'space': {
       return '';
     }
@@ -1116,6 +1121,192 @@ Parser.prototype.tok = function() {
   }
 };
 
+
+/**
+ * New Parser
+ */
+
+function NewParser(options) {
+  this.tokens = [];
+  this.token = null;
+  this.options = options || clay.defaults;
+  this.options.renderer = this.options.renderer || new Renderer;
+  this.renderer = this.options.renderer;
+  this.renderer.options = this.options;
+}
+
+NewParser.parse = function(src, options, renderer) {
+  var parser = new NewParser(options, renderer);
+  return parser.parse(src);
+};
+
+/**
+ * Parse Loop
+ */
+
+NewParser.prototype.parse = function(src) {
+  this.inline = new InlineLexer(src.links, this.options, this.renderer);
+  this.tokens = src.reverse();
+  return this.parseProg();
+};
+
+NewParser.prototype.parseProg = function() {
+  var out = [];
+  while (this.next()) {
+    var item = this.tok(); // match anything at top level
+    if (item)
+      out.push(item)
+  };
+  return out;
+}
+
+/**
+ * Next Token
+ */
+
+NewParser.prototype.next = function() {
+  return this.token = this.tokens.pop();
+};
+
+/**
+ * Preview Next Token
+ */
+
+NewParser.prototype.peek = function() {
+  return this.tokens[this.tokens.length - 1] || 0;
+};
+
+
+NewParser.prototype.poke = function() {
+  this.tokens.push(this.token);
+};
+/**
+ * Parse Text Tokens
+ */
+
+NewParser.prototype.parseText = function() {
+  var body = this.token.text;
+
+  while (this.peek().type === 'text') {
+    body += '\n' + this.next().text;
+  }
+
+  return this.inline.output(body);
+};
+
+/**
+ * Parse Current Token
+ */
+
+NewParser.prototype.parseSection = function() {
+  var level = this.token.depth,
+      ret = {type: 'section'
+            ,children: [this.token]
+            };
+  while (this.next()) {
+    if (this.token.type === 'heading' && this.token.depth <= level) {
+      this.poke();
+      return ret;
+    }
+    var item = this.tok();
+    if (item)
+      ret.children.push(item);
+  }
+  return ret;
+};
+
+NewParser.prototype.tok = function() {
+    switch (this.token.type) {
+      case 'EOF': return;
+      case 'space': return; 
+      case 'hr': return {type:'hr', pos: this.token.pos};
+      case 'heading': return this.parseSection()
+      case 'code': return this.token;
+      case 'table': {
+        var header = ''
+          , body = ''
+          , i
+          , row
+          , cell
+          , flags
+          , j
+          , pos = this.token.pos;
+  
+        // header
+        cell = '';
+        for (i = 0; i < this.token.header.length; i++) {
+          flags = { header: true, align: this.token.align[i] };
+          cell += this.renderer.tablecell(
+            this.inline.output(this.token.header[i]),
+            { header: true, align: this.token.align[i] }
+          );
+        }
+        header += this.renderer.tablerow(cell);
+  
+        for (i = 0; i < this.token.cells.length; i++) {
+          row = this.token.cells[i];
+  
+          cell = '';
+          for (j = 0; j < row.length; j++) {
+            cell += this.renderer.tablecell(
+              this.inline.output(row[j]),
+              { header: false, align: this.token.align[j] }
+            );
+          }
+  
+          body += this.renderer.tablerow(cell);
+        }
+        return {type: 'table', header: header, body: body, pos: pos}; //TODO. this needs work
+      }
+      case 'blockquote_start': {
+        var body = [], item, pos = this.token.pos;
+        while (this.next().type !== 'blockquote_end') {
+          item = this.tok();
+          if (item)
+            body.push(item);
+        }
+        return {type: 'quote', children: body};
+      }
+      case 'list_start': {
+        var body = [], item;
+        while (this.next().type !== 'list_end') {
+          item = this.tok();
+          if (item)
+            body.push(item);
+        }
+        return {type: (this.token.ordered ? 'ol' : 'ul'), children: body, pos: pos};
+      }
+      case 'list_item_start': {
+        var body = [], item, pos = this.token.pos;
+        while (this.next().type !== 'list_item_end') {
+          item = this.token.type === 'text'
+            ? this.parseText()
+            : this.tok();
+          if (item)
+            body.push(item);
+        }
+        return {type: 'li', pos: pos, children: body};
+      }
+      case 'loose_item_start': {
+        var body = [], item, pos = this.token.pos;
+        while (this.next().type !== 'list_item_end') {
+          item = this.tok();
+          if (item)
+            body.push(item);
+        }
+        return {type: 'li', pos: pos, children: body};
+      }
+      case 'html': {
+        var html = !this.token.pre && !this.options.pedantic
+          ? this.inline.output(this.token.text)
+          : this.token.text;
+        return {type: 'html', pos: this.token.pos, raw: html};
+      }
+      case 'paragraph': return {type: 'p', pos: this.token.pos, children: [this.inline.output(this.token.text)]};
+      case 'text': return {type: 'p', pos: this.token.pos, children: [this.parseText()]};
+    }
+};
+
 /**
  * Helpers
  */
@@ -1211,6 +1402,7 @@ function clay(src, opt, callback) {
 
       try {
         out = Parser.parse(tokens, opt);
+        put = out.join('');
       } catch (e) {
         err = e;
       }
@@ -1251,7 +1443,7 @@ function clay(src, opt, callback) {
   }
   try {
     if (opt) opt = merge({}, clay.defaults, opt);
-    return Parser.parse(Lexer.lex(src, opt), opt);
+    return Parser.parse(Lexer.lex(src, opt), opt).join('');
   } catch (e) {
     e.message += '\nPlease report this to https://github.com/chjj/clay.';
     if ((opt || clay.defaults).silent) {
@@ -1295,6 +1487,8 @@ clay.defaults = {
 
 clay.Parser = Parser;
 clay.parser = Parser.parse;
+
+clay.newparser = NewParser.parse;
 
 clay.Renderer = Renderer;
 
