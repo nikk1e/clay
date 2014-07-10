@@ -245,6 +245,14 @@ var DOM = React.DOM,
 	div = DOM.div, ul = DOM.ul, li = DOM.li, p = DOM.p
 	h1 = DOM.h1, h2 = DOM.h2, a = DOM.a, span = DOM.span;
 
+
+//helper string functions
+if (typeof String.prototype.startsWith != 'function') {
+  String.prototype.startsWith = function (str){
+    return this.slice(0, str.length) == str;
+  };
+}
+
 var Clay = function() {
 	this._blank = true;
 	this.names = [{name:'Blank'}];
@@ -275,6 +283,21 @@ Clay.prototype.close = function(name) {
 		this._blank	= true;
 		this.recalc('Blank');
 	}
+};
+
+Clay.prototype.charOffset = function(name, path, toff) {
+	var node = {}, path = path.reverse(), cur, off = 0;
+	node.children = this._asts[name] || [];
+	while ((cur = path.pop()) !== undefined) {
+		if (cur === 'before') return node.pos - node.before.length + toff; //off +
+		if (cur === 'after')  return node.pos + node.length + toff;
+		if (cur === 'result') return node.pos + node.length; //off + // no toff
+		if (cur === 'text') return node.pos + toff;
+		node = node.children[cur];
+		if (node === undefined) return off + toff;
+		off = node.pos; //+= //change pos to be against level
+	}
+	return off + toff;
 };
 
 Clay.prototype.addModel = function(name, source) {
@@ -516,17 +539,94 @@ var Selection = React.createClass({
 });
 
 var Renderer = React.createClass({
+	rangeFor: function(start, end) {
+		var range = document.createRange();
+
+		return range;
+	},
 	handleMouseUp: function(e) {
 		var f = this.props.onmouseup;
 		if (f) f(e);
+		/*var x = this.props.selectionChanged;
+		if (true) {
+			//calculate the selection from the data-ids
+			var selected = window.getSelection(),
+				range = selected.getRangeAt(),
+				startE = range.startContainer.parentElement || range.startContainer.parentNode,
+				endE = range.endContainer.parentElement || range.endContainer.parentNode,
+				startPath = startE.getAttribute('data-reactid'),
+				endPath = endE.getAttribute('data-reactid'),
+				rootId = this._rootNodeID + '.';
+			if (startPath !== undefined 
+				&& endPath !== undefined
+				&& startPath.startsWith(rootId)
+				&& endPath.startsWith(rootId)) {
+				var model = this.props.model, name = this.props.name;
+				startPath = startPath.slice(rootId.length).replace(/\$_?/g,'');
+				startPath = startPath.replace(/\.+/g,'.');
+				startPath = startPath.split('.');
+				endPath = endPath.slice(rootId.length).replace(/\$_?/g,'').replace(/\.+/g,'.').split('.');
+				var start = model.charOffset(name,startPath, range.startOffset);
+				var end = model.charOffset(name,endPath, range.endOffset);
+			}
+		}*/
 	},
-	render: function() { 
+	renderHeading: function(item, idx) {
+		var id = this.props.name + '-' + item.text.toLowerCase().replace(/[^\w]+/g, '-'),
+			content = [],
+			attr = {id: id, 'data-pos': item.pos, key: idx};
+		if (item.before) content.push(span({className: 'before', key:'before', 'data-pos': item.pos - item.before.length},
+			item.before.replace(/ /g,'\u2423')));
+		content.push(span({key: 'text', 'data-pos': item.pos}, item.text)); //todo this should be a children map
+		if (item.before) content.push(span({className: 'after', key:'after', 'data-pos': item.pos + item.length},
+			item.after.slice(0,-1).replace(/ /g,'\u2423').replace(/\n/g,'\u00AC')));
+		switch(item.depth) {
+			case 1: return h1(attr, content);
+			case 2: return h2(attr, content);
+			case 3: return DOM.h3(attr, content);
+			case 4: return DOM.h4(attr, content);
+			case 5: return DOM.h5(attr, content);
+			case 6: return DOM.h6(attr, content);
+		}
+		return h1(attr, content);
+	},
+	renderTable: function(item, idx) {
+		return DOM.table({'data-pos': item.pos, key: idx}); //TODO
+	},
+	renderTree: function(item, idx) {
+		if (typeof item == 'string' || item instanceof String)
+			return span({key: idx, dangerouslySetInnerHTML:{__html: item}});
+		switch(item.type) {
+			case 'text': return span({key: idx, 'data-pos': item.pos, dangerouslySetInnerHTML:{__html: item.text}});
+			case 'p': return p({'data-pos': item.pos, key: idx}, item.children.map(this.renderTree));
+			case 'section': return DOM.section({'data-pos': item.pos, key: idx}, item.children.map(this.renderTree));
+			case 'heading': return this.renderHeading(item, idx);
+			case 'table': return this.renderTable(item, idx);
+			case 'blockquote': return DOM.blockquote({'data-pos': item.pos, key: idx}, item.children.map(this.renderTree));
+			case 'ul': return ul({'data-pos': item.pos, key: idx}, item.children.map(this.renderTree));
+			case 'ol': return ol({'data-pos': item.pos, key: idx}, item.children.map(this.renderTree));
+			case 'li': return li({'data-pos': item.pos, key: idx}, item.children.map(this.renderTree));
+			case 'hr': return DOM.hr({'data-pos': item.pos, key: idx}); //TODO
+			case 'code': return div({'data-pos': item.pos, key: idx}, 
+				DOM.pre({key: '_'}, DOM.code({'data-pos': item.pos, key: '_'}, item.text))//, result TODO
+				);
+			case 'html': return div({'data-pos': item.pos, key: idx,
+				dangerouslySetInnerHTML:{__html: item.raw}
+				});
+			default: return p({'data-pos': item.pos, key: idx},'unsupported: ' + item.type);
+		};
+	},
+	render: function() {
+		var ast = this.props.model._asts[this.props.name];
+		if (ast === undefined)
+			ast = [];
 		return div({id: 'preview', 
 			ref: 'preview',
 			onMouseUp: this.handleMouseUp,
-			className: 'editor', dangerouslySetInnerHTML:{
-            __html: this.props.model._rendered[this.props.name]
-          }}); 
+			className: 'editor', 
+			//dangerouslySetInnerHTML:{__html: this.props.model._rendered[this.props.name]}
+      		}, ast.map(this.renderTree)
+      		); 
 	},
 });
 
@@ -535,7 +635,7 @@ var Editor = React.createClass({
 		return {
 			//TODO this should be an empty model
 			currentSource: 'Test of this',
-			selected: 'Getting Started',
+			selected: 'Example',
 			modal: this.preview,
 			selectionRange: null,
 		}
@@ -631,9 +731,9 @@ var Editor = React.createClass({
 		var selected = window.getSelection(),
 			range = selected.getRangeAt(0),
         	startE = range.startContainer.parentElement || range.startContainer.parentNode,
-			endE = range.endContainer.parentNode || range.endContainer.parentNode,
-			startPos = startE.getAttribute('pos'),
-			endPos = endE.getAttribute('pos'),
+			endE = range.endContainer.parentElement || range.endContainer.parentNode,
+			startPos = startE.getAttribute('data-pos'),
+			endPos = endE.getAttribute('data-pos'),
 			end = parseInt(endPos) + range.endOffset,
 			start = parseInt(startPos) + range.startOffset,
 			ta = this.refs.textarea.getDOMNode();

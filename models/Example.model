@@ -29,7 +29,7 @@ Start by defining the months of the year:
 
 "Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In paper we choose the dimensions.
 
-&gt; Note: Categories are just a list
+> Note: Categories are just a list
 
 We can now project the "Unit sales" of the firm over the months of the year. Lets assume the firm will sell 5000 units in January and that sales will grow monthly at a constant rate.
 
@@ -106,7 +106,7 @@ We can find the State for the city Miami using slice (in a spreadsheet this woul
     
 Note, We use `Head` because without it we get a list of all the items in Data.State where the corresponding item in Data.City is Miami. We could also replace `Head` with `Unique` to get all the States that have a City called Miami (in our dataset).
     
-&gt; Geek Note: This works just like APL.
+> Geek Note: This works just like APL.
 
 Because categories are just lists we can make them by hand or use a function that returns a list (like Unique).
 

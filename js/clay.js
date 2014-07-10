@@ -217,8 +217,9 @@ Lexer.prototype.token = function(src, top, bq, pos) {
         depth: cap[2].length,
         text: cap[3],
         pos: pos + cap[1].length,
-		before: cap[1],
-		after: cap[4]
+        length: cap[3].length,
+		    before: cap[1],
+		    after: cap[4]
       });
       pos += matchlen;
       continue;
@@ -327,14 +328,16 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       next = false;
       l = cap.length;
       i = 0;
-
+      var ipos = pos, ilen;
       for (; i < l; i++) {
         item = cap[i];
-
+        ilen = item.length;
         // Remove the list item's bullet
         // so it is seen as the next token.
         space = item.length;
-        item = item.replace(/^ *([*+-]|\d+\.) +/, '');
+        var match = /^ *([*+-]|\d+\.) +/.exec(item);
+        item = item.slice(match.length);
+        //item = item.replace(/^ *([*+-]|\d+\.) +/, '');
 
         // Outdent whatever the
         // list item contains. Hacky.
@@ -367,10 +370,13 @@ Lexer.prototype.token = function(src, top, bq, pos) {
         this.tokens.push({
           type: loose
             ? 'loose_item_start'
-            : 'list_item_start'
+            : 'list_item_start',
+          pos: ipos + match.length
         });
         // Recurse.
-        this.token(item, false, bq, pos);
+        this.token(item, false, bq, ipos + match.length);
+
+        ipos += ilen;
 
         this.tokens.push({
           type: 'list_item_end'
@@ -1223,7 +1229,8 @@ NewParser.prototype.tok = function() {
       case 'heading': return this.parseSection()
       case 'code': return this.token;
       case 'table': {
-        var header = ''
+        return this.token;
+        /*var header = ''
           , body = ''
           , i
           , row
@@ -1257,6 +1264,7 @@ NewParser.prototype.tok = function() {
           body += this.renderer.tablerow(cell);
         }
         return {type: 'table', header: header, body: body, pos: pos}; //TODO. this needs work
+        */
       }
       case 'blockquote_start': {
         var body = [], item, pos = this.token.pos;
@@ -1265,7 +1273,7 @@ NewParser.prototype.tok = function() {
           if (item)
             body.push(item);
         }
-        return {type: 'quote', children: body};
+        return {type: 'blockquote', children: body};
       }
       case 'list_start': {
         var body = [], item;
@@ -1280,7 +1288,7 @@ NewParser.prototype.tok = function() {
         var body = [], item, pos = this.token.pos;
         while (this.next().type !== 'list_item_end') {
           item = this.token.type === 'text'
-            ? this.parseText()
+            ? this.token
             : this.tok();
           if (item)
             body.push(item);
@@ -1302,8 +1310,10 @@ NewParser.prototype.tok = function() {
           : this.token.text;
         return {type: 'html', pos: this.token.pos, raw: html};
       }
-      case 'paragraph': return {type: 'p', pos: this.token.pos, children: [this.inline.output(this.token.text)]};
-      case 'text': return {type: 'p', pos: this.token.pos, children: [this.parseText()]};
+      case 'paragraph': return {type: 'p', pos: this.token.pos, 
+        children: [{type: 'text', pos: this.token.pos, text: this.inline.output(this.token.text)}]};
+      case 'text': return {type: 'p', pos: this.token.pos, 
+        children: [{type: 'text', pos: this.token.pos, text: this.parseText()}]};
     }
 };
 
