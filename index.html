@@ -545,10 +545,10 @@ var Renderer = React.createClass({
 		return range;
 	},
 	handleMouseUp: function(e) {
-		var f = this.props.onmouseup;
-		if (f) f(e);
-		/*var x = this.props.selectionChanged;
-		if (true) {
+		//var f = this.props.onmouseup;
+		//if (f) f(e);
+		var x = this.props.selectionChanged;
+		if (x) {
 			//calculate the selection from the data-ids
 			var selected = window.getSelection(),
 				range = selected.getRangeAt(),
@@ -568,8 +568,9 @@ var Renderer = React.createClass({
 				endPath = endPath.slice(rootId.length).replace(/\$_?/g,'').replace(/\.+/g,'.').split('.');
 				var start = model.charOffset(name,startPath, range.startOffset);
 				var end = model.charOffset(name,endPath, range.endOffset);
+				x(start, end);
 			}
-		}*/
+		}
 	},
 	renderHeading: function(item, idx) {
 		var id = this.props.name + '-' + item.text.toLowerCase().replace(/[^\w]+/g, '-'),
@@ -664,6 +665,7 @@ var Editor = React.createClass({
 		return Renderer({model:this.props.model, 
 			name:this.state.selected, 
 			onmouseup:this.handleMouseUp,
+			selectionChanged: this.handleSelect,
 		});
 	},
 	openModal: function() {
@@ -741,6 +743,11 @@ var Editor = React.createClass({
 			ta.focus();
 			this.setState({selectionRange: range}); 
 			//remove line above as the focus will do the trick by calling updateCursor
+	},
+	handleSelect: function(start, end) {
+		var ta = this.refs.textarea.getDOMNode();
+		ta.setSelectionRange(start, end);
+		ta.focus();
 	},
 	render: function() {
 		return div(null,

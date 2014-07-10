@@ -31,7 +31,7 @@ var block = {
 };
 
 block.bullet = /(?:[*+-]|\d+\.)/;
-block.item = /^( *)(bull) [^\n]*(?:\n(?!\1bull )[^\n]*)*/;
+block.item = /^(?: *)bull ([^\n]*(?:\n(?!\1bull )[^\n]*)*)/;
 block.item = replace(block.item, 'gm')
   (/bull/g, block.bullet)
   ();
@@ -323,21 +323,21 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       });
 
       // Get each top-level item.
-      cap = cap[0].match(this.rules.item);
+      //cap = cap[0].match(this.rules.item);
+      var x = cap[0].match(this.rules.item);
 
       next = false;
-      l = cap.length;
-      i = 0;
-      var ipos = pos, ilen;
-      for (; i < l; i++) {
-        item = cap[i];
-        ilen = item.length;
+
+      var all = cap[0];
+      var ipos, lastI, i = 0, l = x.length;
+      this.rules.item.lastIndex = 0;
+      while ((item = this.rules.item.exec(all)) != null) {
+        lastI = this.rules.item.lastIndex; //Save (and restore) lastIndex
+        ipos = item.index + pos + item[0].length - item[1].length;
         // Remove the list item's bullet
         // so it is seen as the next token.
-        space = item.length;
-        var match = /^ *([*+-]|\d+\.) +/.exec(item);
-        item = item.slice(match.length);
-        //item = item.replace(/^ *([*+-]|\d+\.) +/, '');
+        space = item[0].length;
+        item = item[1]; //with bullet removed
 
         // Outdent whatever the
         // list item contains. Hacky.
@@ -353,7 +353,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
         if (this.options.smartLists && i !== l - 1) {
           b = block.bullet.exec(cap[i + 1])[0];
           if (bull !== b && !(bull.length > 1 && b.length > 1)) {
-            src = cap.slice(i + 1).join('\n') + src;
+            src = cap.slice(i + 1).join('\n') + src; //TODO: this is wrong if we do it the way we are doing it
             i = l - 1;
           }
         }
@@ -361,6 +361,8 @@ Lexer.prototype.token = function(src, top, bq, pos) {
         // Determine whether item is loose or not.
         // Use: /(^|\n)(?! )[^\n]+\n\n(?!\s*$)/
         // for discount behavior.
+
+        //TODO: This is not working because of the l problem
         loose = next || /\n\n(?!\s*$)/.test(item);
         if (i !== l - 1) {
           next = item.charAt(item.length - 1) === '\n';
@@ -371,17 +373,18 @@ Lexer.prototype.token = function(src, top, bq, pos) {
           type: loose
             ? 'loose_item_start'
             : 'list_item_start',
-          pos: ipos + match.length
+          pos: ipos
         });
         // Recurse.
-        this.token(item, false, bq, ipos + match.length);
-
-        ipos += ilen;
+        this.token(item, false, bq, ipos);
 
         this.tokens.push({
           type: 'list_item_end'
         });
+        this.rules.item.lastIndex = lastI;
+        i += 1;
       }
+
 
       this.tokens.push({
         type: 'list_end'
