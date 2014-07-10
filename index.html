@@ -289,10 +289,11 @@ Clay.prototype.charOffset = function(name, path, toff) {
 	var node = {}, path = path.reverse(), cur, off = 0;
 	node.children = this._asts[name] || [];
 	while ((cur = path.pop()) !== undefined) {
-		if (cur === 'before') return node.pos - node.before.length + toff; //off +
-		if (cur === 'after')  return node.pos + node.length + toff;
-		if (cur === 'result') return node.pos + node.length; //off + // no toff
-		if (cur === 'text') return node.pos + toff;
+		if (cur === '_') continue;
+		else if (cur === 'before') return node.pos - node.before.length + toff; //off +
+		else if (cur === 'after')  return node.pos + node.length + toff;
+		else if (cur === 'result') return node.pos + node.length; //off + // no toff
+		else if (cur === 'text') return node.pos + toff;
 		node = node.children[cur];
 		if (node === undefined) return off + toff;
 		off = node.pos; //+= //change pos to be against level
@@ -562,10 +563,8 @@ var Renderer = React.createClass({
 				&& startPath.startsWith(rootId)
 				&& endPath.startsWith(rootId)) {
 				var model = this.props.model, name = this.props.name;
-				startPath = startPath.slice(rootId.length).replace(/\$_?/g,'');
-				startPath = startPath.replace(/\.+/g,'.');
-				startPath = startPath.split('.');
-				endPath = endPath.slice(rootId.length).replace(/\$_?/g,'').replace(/\.+/g,'.').split('.');
+				startPath = startPath.slice(rootId.length).replace(/\$?/g,'').split('.');
+				endPath = endPath.slice(rootId.length).replace(/\$?/g,'').split('.');
 				var start = model.charOffset(name,startPath, range.startOffset);
 				var end = model.charOffset(name,endPath, range.endOffset);
 				x(start, end);
