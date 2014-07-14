@@ -177,6 +177,11 @@ code span.hide {
 }
 
 
+tr.align {
+	color: rgb(15, 135, 238);
+}
+
+
 .models {
 	list-style-type: none;
 	margin: 0;
@@ -305,7 +310,7 @@ Clay.prototype.close = function(name) {
 };
 
 Clay.prototype.charOffset = function(name, path, toff) {
-	var node = {}, path = path.reverse(), cur, off = 0;
+	var node = {}, path = path.reverse(), cur, off = 0, row;
 	node.children = this._asts[name] || [];
 	while ((cur = path.pop()) !== undefined) {
 		if (cur === '_') continue;
@@ -313,6 +318,30 @@ Clay.prototype.charOffset = function(name, path, toff) {
 		node = node.children[cur];
 		if (node === undefined) return off + toff;
 		off = node.pos; //+= //change pos to be against level
+		if (node.type === 'table') {
+			switch(cur = path.pop()) {
+				case 'body':
+					row = path.pop();
+					cur = path.pop();
+					node = {children: node.cells[row][cur]};
+					break;
+				case 'head':
+					row = path.pop(); //should be 0
+					cur = path.pop();
+					if (row === 'align') {
+						off = node.align.pos;
+						for (var i = 0; i < cur; i++) {
+							off += node.alignText[i].length + 1;
+						}
+						return off + toff;
+					} else {
+						node = {children: node.header[cur]};
+					}
+					break;
+				//case 'foot': 
+				//	return off + toff; //TODO: don't support foot yet
+			}
+		}
 	}
 	return off + toff;
 };
@@ -580,9 +609,37 @@ var Renderer = React.createClass({
 						path.push('$_'); //pre
 						path.push('$_'); //code
 						break;
+					case 'table':
+						if (pos < item.cells.pos) {
+							path.push('$head');
+							if (pos < item.align.pos) {
+								path.push('$0');
+								item = item.header;
+							} else {
+								path.push('$align');
+								var tw = item.align.pos,w;
+								for (i = 0; i < item.alignText.length; i++) {
+									w = item.alignText[i].length + 1;
+									if (pos < w + tw) {
+										path.push('$' + i);
+										item = {pos: tw};
+										break;
+									}
+									tw += w;
+								}
+							}
+						}
+						else {
+							path.push('$body');
+							item = item.cells;
+						}
+						break;
 				}
 				if (item.hasOwnProperty('children')) {
 					items = item.children;
+				} else if ($.isArray(item)) {
+					//items are a
+					items = item;
 				} else {
 					items = undefined;
 					pos -= item.pos;
@@ -616,8 +673,10 @@ var Renderer = React.createClass({
 		var x = this.props.selectionChanged;
 		if (x) {
 			//calculate the selection from the data-ids
-			var selected = window.getSelection(),
-				range = selected.getRangeAt(),
+			var selected = window.getSelection();
+			if (selected.rangeCount < 1)
+				return;
+			var range = selected.getRangeAt(0),
 				startE = range.startContainer.parentElement || range.startContainer.parentNode,
 				endE = range.endContainer.parentElement || range.endContainer.parentNode,
 				startPath = startE.getAttribute('data-reactid'),
@@ -658,23 +717,33 @@ var Renderer = React.createClass({
 			);
 	},
 	renderTable: function(item, idx) {
-		var align = item.align;
+		var align = item.align, rtree = this.renderTree;
 		function renderCell(f) {
 			return function(c, idx) {
 				var a = align[idx], ctx = {key:idx};
 				if (a !== null) {
 					ctx['style'] = {'text-align': a};
 				}
-				return f(ctx, c);
+				return f(ctx, c.map(rtree)); 
 			}
 		}
 		function renderTR(r, idx) {
 			return DOM.tr({key: idx}, r.map(renderCell(DOM.td)));
 		}
+		function renderAlign(c, idx) {
+			var a = align[idx], ctx = {key:idx};
+				if (a !== null) {
+					ctx['style'] = {'text-align': a};
+			}
+			return DOM.td(ctx, c);
+		}
 		return DOM.table({key: idx, className: 'pure-table pure-table-horizontal'},
-			DOM.thead({key:'head'},DOM.tr(null, item.header.map(renderCell(DOM.th)))),
-			DOM.tbody({key:'body'},item.cells.map(renderTR)),
-			DOM.tfoot({key:'foot'}));
+			DOM.thead({key:'head'},
+				DOM.tr({key: 0}, item.header.map(renderCell(DOM.th))),
+				DOM.tr({key: 'align', className: 'align'}, item.alignText.map(renderAlign))),
+			DOM.tbody({key:'body'},item.cells.map(renderTR))//,
+			//DOM.tfoot({key:'foot'})
+			);
 	},
 	renderTree: function(item, idx) {
 		//if (typeof item == 'string' || item instanceof String)

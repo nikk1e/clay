@@ -93,7 +93,7 @@ block.gfm.paragraph = replace(block.paragraph)
  */
 
 block.tables = merge({}, block.gfm, {
-  nptable: /^ *(\S.*\|.*)\n *([-:]+ *\|[-| :]*)\n((?:.*\|.*(?:\n|$))*)\n*/,
+  nptable: /^( *\S.*\|.*)\n( *[-:]+ *\|[-| :]*)\n((?:.*\|.*(?:\n|$))*)(\n*)/,
   table: /^ *\|(.+)\n *\|( *[-:]+[-| :]*)\n((?: *\|.*(?:\n|$))*)\n*/
 });
 
@@ -228,18 +228,26 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       continue;
     }
 
-    // table no leading pipe (gfm)
+    // table no leading pipe (gfm) -- assuming no trailing pipes either
     if (top && (cap = this.rules.nptable.exec(src))) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
 
+      var a = cap[3].match(/\n*$/);
+
+
       item = {
         type: 'table',
-        header: cap[1].replace(/^ *| *\| *$/g, '').split(/ *\| */),
-        align: cap[2].replace(/^ *|\| *$/g, '').split(/ *\| */),
-        cells: cap[3].replace(/\n$/, '').split('\n'),
+        header: cap[1].split(/\|/), //replace(/^ *| *\| *$/g, '').split(/ *\| */),
+        align: cap[2].split(/\|/), //.replace(/^ *|\| *$/g, '').split(/ *\| */),
+        alignText: cap[2].split(/\|/), 
+        cells: cap[3].slice(0,a.index).split('\n'),
+        after: a[0] + cap[4],
         pos: pos
       };
+
+      item.align.pos = pos + cap[1].length + 1;
+      item.cells.pos = item.align.pos + cap[2].length + 1;
 
       for (i = 0; i < item.align.length; i++) {
         if (/^ *-+: *$/.test(item.align[i])) {
@@ -253,8 +261,30 @@ Lexer.prototype.token = function(src, top, bq, pos) {
         }
       }
 
+      var rpos = pos + cap[1].length + cap[2].length + 2, rlength, cpos = 0;
+
+      //TODO replace with inner parse
+      item.header = item.header.map(function(c) {
+          var cw = c.length,
+              cp = [{type: 'text', text: c, pos: cpos+pos}];
+          cp.pos = cpos + pos;
+          cpos += cw + 1;
+          return cp; 
+        });
+
       for (i = 0; i < item.cells.length; i++) {
-        item.cells[i] = item.cells[i].split(/ *\| */);
+        rlength = item.cells[i].length;
+        cpos = 0;
+        //TODO replace with inner parse
+        item.cells[i] = item.cells[i].split(/\|/).map(function(c) {
+          var cw = c.length,
+              cp = [{type: 'text', text: c, pos: cpos + rpos}];
+          cp.pos = cpos + rpos;
+          cpos += cw + 1;
+          return cp; 
+        });
+        item.cells[i].pos = rpos;
+        rpos += rlength + 1;
       }
 
       this.tokens.push(item);
@@ -821,90 +851,12 @@ function Renderer(options) {
   this.options = options || {};
 }
 
-Renderer.prototype.code = function(code, lang, escaped, pos) {
-  if (this.options.highlight) {
-    var out = this.options.highlight(code, lang);
-    if (out != null && out !== code) {
-      escaped = true;
-      code = out;
-    }
-  }
-
-  if (!lang) {
-    return '<pre><code pos='+ pos +'>'
-      + (escaped ? code : escape(code, true)).replace(/^( {4}|\t)/gm, '<span class="hide">$1</span>')
-      + '\n</code></pre>';
-  }
-
-  return '<pre><code pos='+ pos +' class="'
-    + this.options.langPrefix
-    + escape(lang, true)
-    + '"><span class="before">' + escape(lang, true) + '</span>\n'
-    + (escaped ? code : escape(code, true)).replace(/^( {4}|\t)/gm, '<span class="hide">$1</span>')
-    + '\n</code></pre>\n';
-};
-
-Renderer.prototype.blockquote = function(quote) {
-  return '<blockquote>\n' + quote + '</blockquote>\n';
-};
-
-Renderer.prototype.html = function(html) {
-  return html;
-};
-
-Renderer.prototype.heading = function(text, level, raw, pos, before, after) {
-	before = before || '';
-	after = after || '';
-  return '<h'
-    + level
-    + ' id="'
-    + this.options.headerPrefix
-    + raw.toLowerCase().replace(/[^\w]+/g, '-')
-    + '" pos='+ pos +'><span class="before">' + before.replace(/ /g,'\u2423') + '</span>'
-    + text
-    + '<span class="after">'+ after.replace(/ /g,'\u2423').replace(/\n/g,'\u00AC') + '</span></h'
-    + level
-    + '>\n';
-};
-
 Renderer.prototype.hr = function() {
   return this.options.xhtml ? '<hr/>\n' : '<hr>\n';
 };
 
-Renderer.prototype.list = function(body, ordered) {
-  var type = ordered ? 'ol' : 'ul';
-  return '<' + type + '>\n' + body + '</' + type + '>\n';
-};
-
-Renderer.prototype.listitem = function(text) {
-  return '<li>' + text + '</li>\n';
-};
-
 Renderer.prototype.paragraph = function(text, pos) {
   return '<p pos=' + pos + '>' + text + '</p>\n';
-};
-
-Renderer.prototype.table = function(header, body) {
-  return '<table class="pure-table pure-table-horizontal">\n' //TODO table class in options
-    + '<thead>\n'
-    + header
-    + '</thead>\n'
-    + '<tbody>\n'
-    + body
-    + '</tbody>\n'
-    + '</table>\n';
-};
-
-Renderer.prototype.tablerow = function(content) {
-  return '<tr>\n' + content + '</tr>\n';
-};
-
-Renderer.prototype.tablecell = function(content, flags) {
-  var type = flags.header ? 'th' : 'td';
-  var tag = flags.align
-    ? '<' + type + ' style="text-align:' + flags.align + '">'
-    : '<' + type + '>';
-  return tag + content + '</' + type + '>\n';
 };
 
 // span level renderer
