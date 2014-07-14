@@ -76,7 +76,7 @@ border-left: #edece4 0.6em solid;
 }
 
 #main {
-	padding-top: 130px; /* TODO If you add margin then you need to take that into account for the cursor */
+	padding-top: 30px; /* TODO If you add margin then you need to take that into account for the cursor */
 }
 
 #preview {
@@ -144,7 +144,7 @@ h3 span.before,
 h4 span.before,
 h5 span.before,
 blockquote span.before,
-li span.before {
+li > span.before {
 	position: absolute;
 	right: 100%;
 	margin-right: 3px;
@@ -177,8 +177,14 @@ code span.hide {
 }
 
 
+tr.align td {
+	padding-top: 0;
+	padding-bottom: 0;
+}
+
 tr.align {
 	color: rgb(15, 135, 238);
+	position: 
 }
 
 
@@ -510,6 +516,14 @@ var Selection = React.createClass({
 			selection: null,
 		}
 	},
+	componentDidUpdate: function() {
+		/*var rects, rect;
+		if (this.state.selection !== null &&
+			(rects = this.state.selection.getClientRects()).length > 0) {
+			rect = rects[0];
+			window.scrollTo(rect.left, rect.top);
+		}*/
+	},
 	renderSelection: function(range) {
 		var rects = range.getClientRects(),
 			r = range.getBoundingClientRect()
@@ -746,10 +760,10 @@ var Renderer = React.createClass({
 			);
 	},
 	renderTree: function(item, idx) {
-		//if (typeof item == 'string' || item instanceof String)
-		//	return span({key: idx, dangerouslySetInnerHTML:{__html: item}});
 		switch(item.type) {
-			case 'text': return span({key: idx, dangerouslySetInnerHTML:{__html: item.text}});
+			case 'text': return span({key: idx},item.text.
+				replace(/  /g, '\u2423 '));
+			case 'escape': return span({key: idx, dangerouslySetInnerHTML:{__html: item.text}});
 			case 'span': return span({key: idx}, item.children.map(this.renderTree));
 			case 'before': return span({className: 'before', key:idx}, 
 				item.text.replace(/ /g,'\u2423').replace(/\t/,'\u2192')); // + (item.newline ? '\n' : '')
@@ -759,6 +773,10 @@ var Renderer = React.createClass({
 					text = ' '
 				return span({className: 'after', key:idx},  text);
 			case 'p': return p({key: idx}, item.children.map(this.renderTree));
+			case 'em': return DOM.em({key: idx}, item.children.map(this.renderTree));
+			case 'strong': return DOM.strong({key: idx}, item.children.map(this.renderTree));
+			case 'del': return DOM.del({key: idx}, item.children.map(this.renderTree));
+			case 'a': return DOM.a({key: idx, href: item.href, title: item.title}, item.children.map(this.renderTree));
 			case 'section': return DOM.section({key: idx}, item.children.map(this.renderTree));
 			case 'heading': return this.renderHeading(item, idx);
 			case 'table': return this.renderTable(item, idx);
@@ -767,7 +785,9 @@ var Renderer = React.createClass({
 			case 'ol': return ol({key: idx}, item.children.map(this.renderTree));
 			case 'li': return li({key: idx}, item.children.map(this.renderTree));
 			case 'hr': return DOM.hr({key: idx}); //TODO
+			case 'br': return DOM.br({key: idx}); //TODO
 			case 'code': return this.renderCode(item, idx);
+			case 'codespan': return span({key: idx}, DOM.code({key: '_'}, item.text));
 			case 'html': return div({key: idx,
 				dangerouslySetInnerHTML:{__html: item.raw}
 				});
@@ -896,17 +916,15 @@ var Editor = React.createClass({
 	},
 	render: function() {
 		return div(null,
-			div({className: 'debug'},
-				div({className: 'content'},
-					DOM.textarea({id: 'model', 
+			DOM.textarea({id: 'model', 
 						onChange: this.handleChange,
 						onKeyDown: this.handleKeyDown,
 						onKeyUp: this.handleKeyUp,
 						onFocus: this.handleFocus,
 						onBlur: this.handleBlur,
 						ref: "textarea", 
-						className: "editor pure-u-5-5",
-						defaultValue: this.props.model.getSource(this.state.selected)}))),
+						style: {opacity: '0', position: 'fixed', width: '100%', 'max-width': '800px'},
+						defaultValue: this.props.model.getSource(this.state.selected)}),
 			div({id:'layout'},
 				MenuToggle(null),
 				Menu({items: this.menu(), files:this.props.model.names, 

@@ -180,7 +180,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
     if (cap = this.rules.code.exec(src)) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
-      cap = cap[0]; //TODO .replace(/^ {4}|\t/gm, '')
+      cap = cap[0];
       this.tokens.push({
         type: 'code',
         text: !this.options.pedantic
@@ -266,7 +266,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       //TODO replace with inner parse
       item.header = item.header.map(function(c) {
           var cw = c.length,
-              cp = [{type: 'text', text: c, pos: cpos+pos}];
+              cp = {text: c, pos: cpos+pos};
           cp.pos = cpos + pos;
           cpos += cw + 1;
           return cp; 
@@ -278,7 +278,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
         //TODO replace with inner parse
         item.cells[i] = item.cells[i].split(/\|/).map(function(c) {
           var cw = c.length,
-              cp = [{type: 'text', text: c, pos: cpos + rpos}];
+              cp = {text: c, pos: cpos + rpos};
           cp.pos = cpos + rpos;
           cpos += cw + 1;
           return cp; 
@@ -463,6 +463,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
     }
 
     // table (gfm)
+    //TODO: fix this type of table...
     if (top && (cap = this.rules.table.exec(src))) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
@@ -544,6 +545,8 @@ Lexer.prototype.token = function(src, top, bq, pos) {
 
 var inline = {
   escape: /^\\([\\`*{}\[\]()#+\-.!_>])/,
+  escaped: /^&(#?\w+;)/,
+  math: /^\\([a-zA-Z]+)\b( )?/,
   autolink: /^<([^ >]+(@|:\/)[^ >]+)>/,
   url: noop,
   tag: /^<!--[\s\S]*?-->|^<\/?\w+(?:"[^"]*"|'[^']*'|[^'">])*?>/,
@@ -555,7 +558,7 @@ var inline = {
   code: /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/,
   br: /^ {2,}\n(?!\s*$)/,
   del: noop,
-  text: /^[\s\S]+?(?=[\\<!\[_*`]| {2,}\n|$)/
+  text: /^[\s\S]+?(?=[\\<!\[_*`&]| {2,}\n|$)/
 };
 
 inline._inside = /(?:\[[^\]]*\]|[^\[\]]|\](?=[^\[]*\]))*/;
@@ -608,6 +611,30 @@ inline.breaks = merge({}, inline.gfm, {
   text: replace(inline.gfm.text)('{2,}', '*')()
 });
 
+var math = {
+  'in':      '\u2208',
+  'notin':   '\u2209',
+  'oplus':   '\u2295',
+  'ne':      '\u2260',
+  'neq':     '\u2260',
+  'leq':     '\u2264',
+  'geq':     '\u2265',
+  'wedge':   '\u2227',
+  'vee':     '\u2228',
+
+  'alpha':   '\u03b1',
+  'beta':    '\u03b2',
+  'gamma':   '\u03b3',
+  'delta':   '\u03b4',
+  'epsilon': '\u03b5',
+  'pi':      '\u03c0',
+  'bar':     '\u0304',
+  'rightarrow': '\u2192',
+
+  'neg':     '\u00ac',
+  'lnot':    '\u00ac',
+};
+
 /**
  * Inline Lexer & Compiler
  */
@@ -616,6 +643,7 @@ function InlineLexer(links, options) {
   this.options = options || clay.defaults;
   this.links = links;
   this.rules = inline.normal;
+  this.math = math;
   this.renderer = this.options.renderer || new Renderer;
   this.renderer.options = this.options;
 
@@ -647,26 +675,53 @@ InlineLexer.rules = inline;
 
 InlineLexer.output = function(src, links, options) {
   var inline = new InlineLexer(links, options);
-  return inline.output(src);
+  return inline.output(src, 0);
 };
+
 
 /**
  * Lexing/Compiling
  */
 
-InlineLexer.prototype.output = function(src) {
-  var out = ''
+InlineLexer.prototype.output = function(src, pos) {
+  var aout = []
     , link
     , text
     , href
+    , out
     , cap;
 
   while (src) {
     // escape
     if (cap = this.rules.escape.exec(src)) {
       src = src.substring(cap[0].length);
-      out += cap[1];
+      aout.push({type: 'before', text: '\\', pos: pos});
+      aout.push({type: 'escape', text: cap[1], pos: pos + 1});
+      //out += cap[1];
+      pos += cap[0].length;
       continue;
+    }
+
+    //escaped
+    if (cap = this.rules.escaped.exec(src)) {
+      src = src.substring(cap[0].length);
+      aout.push({type: 'escape', text: cap[0], pos: pos});
+      aout.push({type: 'after', text: cap[1], pos: pos+1});
+      //out += cap[1];
+      pos += cap[0].length;
+      continue;
+    }
+
+    //math
+    if (cap = this.rules.math.exec(src)) {
+      if (this.math.hasOwnProperty(cap[1])) {
+        src = src.substring(cap[0].length);
+        aout.push({type: 'escape', text: this.math[cap[1]], pos: pos});
+        aout.push({type: 'after', text: cap[1] + (cap[2]||''), pos: pos+1});
+        //out += cap[1];
+        pos += cap[0].length;
+        continue;
+      }
     }
 
     // autolink
@@ -681,7 +736,9 @@ InlineLexer.prototype.output = function(src) {
         text = escape(cap[1]);
         href = text;
       }
-      out += this.renderer.link(href, null, text);
+      aout.push({type: 'a', href: href, children: [{type: 'text', text: 'UNSUPPORTED autolink', pos: pos}], pos: pos});
+      pos += cap[0].length;
+      //out += this.renderer.link(href, null, text);
       continue;
     }
 
@@ -690,7 +747,9 @@ InlineLexer.prototype.output = function(src) {
       src = src.substring(cap[0].length);
       text = escape(cap[1]);
       href = text;
-      out += this.renderer.link(href, null, text);
+      aout.push({type: 'a', children: [{type: 'text', text: 'UNSUPPORTED url (gfm)', pos: pos}], pos: pos});
+      pos += cap[0].length;
+      //out += this.renderer.link(href, null, text);
       continue;
     }
 
@@ -702,9 +761,11 @@ InlineLexer.prototype.output = function(src) {
         this.inLink = false;
       }
       src = src.substring(cap[0].length);
-      out += this.options.sanitize
-        ? escape(cap[0])
-        : cap[0];
+      aout.push({type: 'text', text: 'UNSUPPORTED tag ' + cap[0], pos: pos});
+      pos += cap[0].length;
+      //out += this.options.sanitize
+      //  ? escape(cap[0])
+      //  : cap[0];
       continue;
     }
 
@@ -712,10 +773,11 @@ InlineLexer.prototype.output = function(src) {
     if (cap = this.rules.link.exec(src)) {
       src = src.substring(cap[0].length);
       this.inLink = true;
-      out += this.outputLink(cap, {
+      aout.push(this.outputLink(cap, {
         href: cap[2],
         title: cap[3]
-      });
+      }, pos));
+      pos += cap[0].length;
       this.inLink = false;
       continue;
     }
@@ -729,53 +791,69 @@ InlineLexer.prototype.output = function(src) {
       if (!link || !link.href) {
         out += cap[0].charAt(0);
         src = cap[0].substring(1) + src;
-        continue;
+        aout.push({type: 'a', href: '#', 
+          children: [{type: 'text', text: 'UNSUPPORTED reflink/nolink thingy', pos: pos}], pos: pos});
+      } else {
+        this.inLink = true;
+        aout.push(this.outputLink(cap, link, pos));
+        this.inLink = false;
       }
-      this.inLink = true;
-      out += this.outputLink(cap, link);
-      this.inLink = false;
+      pos += cap[0].length;
       continue;
     }
 
     // strong
     if (cap = this.rules.strong.exec(src)) {
       src = src.substring(cap[0].length);
-      out += this.renderer.strong(this.output(cap[2] || cap[1]));
+      out = {type: 'strong', children: this.output(cap[2] || cap[1], pos+2), pos: pos};
+      out.children.unshift({type: 'before', text: '**', pos: pos});
+      out.children.push({type: 'after', text: '**', pos: pos + cap[0].length - 2})
+      aout.push(out);
+      pos += cap[0].length;
       continue;
     }
 
     // em
     if (cap = this.rules.em.exec(src)) {
       src = src.substring(cap[0].length);
-      out += this.renderer.em(this.output(cap[2] || cap[1]));
+      out = {type: 'em', children: this.output(cap[2] || cap[1], pos+1), pos: pos};
+      out.children.unshift({type: 'before', text: '*', pos: pos});
+      out.children.push({type: 'after', text: '*', pos: pos + cap[0].length - 1})
+      aout.push(out);
+      pos += cap[0].length;
       continue;
     }
 
     // code
     if (cap = this.rules.code.exec(src)) {
       src = src.substring(cap[0].length);
-      out += this.renderer.codespan(escape(cap[2], true));
+      aout.push({type: 'codespan', text: cap[2], pos: pos}); //TODO + length of backticks
+      pos += cap[0].length;
       continue;
     }
 
     // br
     if (cap = this.rules.br.exec(src)) {
       src = src.substring(cap[0].length);
-      out += this.renderer.br();
+      aout.push({type: 'br', text: cap[0], pos: pos}); 
+      pos += cap[0].length;
       continue;
     }
 
     // del (gfm)
     if (cap = this.rules.del.exec(src)) {
       src = src.substring(cap[0].length);
-      out += this.renderer.del(this.output(cap[1]));
+      aout.push({type: 'del', children: this.output(cap[1], pos), pos: pos}); 
+      pos += cap[0].length;
       continue;
     }
 
     // text
     if (cap = this.rules.text.exec(src)) {
       src = src.substring(cap[0].length);
-      out += escape(this.smartypants(cap[0]));
+      aout.push({type: 'text', text: this.smartypants(cap[0]), pos: pos}); 
+      pos += cap[0].length;
+      //out += escape(this.smartypants(cap[0]));
       continue;
     }
 
@@ -785,20 +863,20 @@ InlineLexer.prototype.output = function(src) {
     }
   }
 
-  return out;
+  return aout;
 };
 
 /**
  * Compile Link
  */
 
-InlineLexer.prototype.outputLink = function(cap, link) {
+InlineLexer.prototype.outputLink = function(cap, link, off) {
   var href = escape(link.href)
     , title = link.title ? escape(link.title) : null;
 
   return cap[0].charAt(0) !== '!'
-    ? this.renderer.link(href, title, this.output(cap[1]))
-    : this.renderer.image(href, title, escape(cap[1]));
+    ? {type: 'a', href: href, title: title, children: this.output(cap[1], off), pos: off}
+    : {type: 'img', href: href, title: title, alt: cap[1], pos: off};
 };
 
 /**
@@ -851,34 +929,10 @@ function Renderer(options) {
   this.options = options || {};
 }
 
-Renderer.prototype.hr = function() {
-  return this.options.xhtml ? '<hr/>\n' : '<hr>\n';
-};
-
-Renderer.prototype.paragraph = function(text, pos) {
-  return '<p pos=' + pos + '>' + text + '</p>\n';
-};
-
-// span level renderer
-Renderer.prototype.strong = function(text) {
-  return '<strong>' + text + '</strong>';
-};
-
-Renderer.prototype.em = function(text) {
-  return '<em>' + text + '</em>';
-};
-
-Renderer.prototype.codespan = function(text) {
-  return '<code>' + text + '</code>';
-};
-
 Renderer.prototype.br = function() {
   return this.options.xhtml ? '<br/>' : '<br>';
 };
 
-Renderer.prototype.del = function(text) {
-  return '<del>' + text + '</del>';
-};
 
 Renderer.prototype.link = function(href, title, text) {
   if (this.options.sanitize) {
@@ -972,14 +1026,14 @@ Parser.prototype.poke = function() {
  * Parse Text Tokens
  */
 
-Parser.prototype.parseText = function() {
+Parser.prototype.parseText = function(pos) {
   var body = this.token.text;
 
   while (this.peek().type === 'text') {
     body += '\n' + this.next().text;
   }
 
-  return this.inline.output(body);
+  return this.inline.output(body, pos);
 };
 
 /**
@@ -1036,6 +1090,29 @@ Parser.prototype.parseCode = function() {
   return this.token;
 }
 
+Parser.prototype.parseTable = function() {
+  //
+  var inline = this.inline;
+  this.token.header = this.token.header.map(function(t) {
+    var h = inline.output(t.text, t.pos);
+    h.pos = t.pos;
+    return h;
+  });
+  var c = this.token.cells.map(function(row) {
+    var r = row.map(function(cell) {
+      var c = inline.output(cell.text, cell.pos);
+      c.pos = cell.pos;
+      return c;
+    });
+    r.pos = row.pos;
+    return r;
+  })
+  c.pos = this.token.cells.pos;
+  this.token.cells = c;
+  return this.token;
+}
+
+
 Parser.prototype.tok = function(prev) {
     switch (this.token.type) {
       case 'EOF': return;
@@ -1049,7 +1126,7 @@ Parser.prototype.tok = function(prev) {
       case 'hr': return {type:'hr', pos: this.token.pos}; //TODO how do we display this with its before?
       case 'heading': return this.parseSection()
       case 'code': return this.parseCode();
-      case 'table': return this.token;
+      case 'table': return this.parseTable();
       case 'blockquote_start': {
         var pos = this.token.pos,
             body = [{type: 'before', pos:pos, text: this.token.before}],
@@ -1075,11 +1152,14 @@ Parser.prototype.tok = function(prev) {
             body = [{type: 'before', pos:pos, text: this.token.before}],
             item;
         while (this.next().type !== 'list_item_end') {
-          item = this.token.type === 'text'
-            ? this.token
-            : this.tok();
-          if (item)
-            body.push(item);
+          if (this.token.type === 'text') {
+            var tx = this.parseText(this.token.pos);
+            body = body.concat(tx);
+          } else {
+            item = this.tok();
+            if (item)
+              body.push(item);
+          }
         }
         return {type: 'li', pos: pos, children: body};
       }
@@ -1094,7 +1174,7 @@ Parser.prototype.tok = function(prev) {
       }
       case 'html': {
         var html = !this.token.pre && !this.options.pedantic
-          ? this.inline.output(this.token.text)
+          ? this.inline.output(this.token.text, this.token.pos)
           : this.token.text;
         return {type: 'html', pos: this.token.pos, raw: html};
       }
@@ -1103,14 +1183,11 @@ Parser.prototype.tok = function(prev) {
             l = this.token.text.length,
             pos = this.token.pos,
             p = {type: 'p', pos: pos, 
-                children: [{type: 'text', 
-                            pos: pos,
-                            text: this.inline.output(this.token.text)}]};
+                children: this.inline.output(this.token.text, pos)};
         if (after.length > 0)
           p.children.push({type: 'after', pos: pos + l, text: after });
         return p;
-      case 'text': return {type: 'p', pos: this.token.pos, 
-        children: [{type: 'text', pos: this.token.pos, text: this.parseText()}]};
+      case 'text': return {type: 'p', pos: this.token.pos, children: this.parseText(this.token.pos)};
     }
 };
 
@@ -1178,88 +1255,7 @@ function merge(obj) {
  */
 
 function clay(src, opt, callback) {
-  if (callback || typeof opt === 'function') {
-    if (!callback) {
-      callback = opt;
-      opt = null;
-    }
-
-    opt = merge({}, clay.defaults, opt || {});
-
-    var highlight = opt.highlight
-      , tokens
-      , pending
-      , i = 0;
-
-    try {
-      tokens = Lexer.lex(src, opt)
-    } catch (e) {
-      return callback(e);
-    }
-
-    pending = tokens.length;
-
-    var done = function(err) {
-      if (err) {
-        opt.highlight = highlight;
-        return callback(err);
-      }
-
-      var out;
-
-      try {
-        out = Parser.parse(tokens, opt);
-        put = out.join('');
-      } catch (e) {
-        err = e;
-      }
-
-      opt.highlight = highlight;
-
-      return err
-        ? callback(err)
-        : callback(null, out);
-    };
-
-    if (!highlight || highlight.length < 3) {
-      return done();
-    }
-
-    delete opt.highlight;
-
-    if (!pending) return done();
-
-    for (; i < tokens.length; i++) {
-      (function(token) {
-        if (token.type !== 'code') {
-          return --pending || done();
-        }
-        return highlight(token.text, token.lang, function(err, code) {
-          if (err) return done(err);
-          if (code == null || code === token.text) {
-            return --pending || done();
-          }
-          token.text = code;
-          token.escaped = true;
-          --pending || done();
-        });
-      })(tokens[i]);
-    }
-
-    return;
-  }
-  try {
-    if (opt) opt = merge({}, clay.defaults, opt);
-    return Parser.parse(Lexer.lex(src, opt), opt).join('');
-  } catch (e) {
-    e.message += '\nPlease report this to https://github.com/chjj/clay.';
-    if ((opt || clay.defaults).silent) {
-      return '<p>An error occured:</p><pre>'
-        + escape(e.message + '', true)
-        + '</pre>';
-    }
-    throw e;
-  }
+  //TODO: replace with our parser
 }
 
 /**
