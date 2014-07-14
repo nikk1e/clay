@@ -78,7 +78,7 @@ block.normal = merge({}, block);
  */
 
 block.gfm = merge({}, block.normal, {
-  fences: /^ *(`{3,}|~{3,}) *(\S+)? *\n([\s\S]+?)\s*\1 *(?:\n+|$)/,
+  fences: /^( *(`{3,}|~{3,}) *(\S+)? *)\n([\s\S]+?\n)(\s*\2 *(?:\n+|$))/,
   paragraph: /^/
 });
 
@@ -171,9 +171,7 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
       //if (cap[0].length > 1) {
-      //  this.tokens.push({
-      //    type: 'space', pos: pos
-      //  });
+      this.tokens.push({type: 'space', pos: pos, text: cap[0]});
       //}
       pos += matchlen;
     }
@@ -200,9 +198,11 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       src = src.substring(matchlen);
       this.tokens.push({
         type: 'code',
-        lang: cap[2],
-        text: cap[3],
-        pos: pos
+        lang: cap[3],
+        text: cap[4],
+        before: cap[1], 
+        after: cap[5].slice(0,-1),
+        pos: pos,
       });
       pos += matchlen;
       continue;
@@ -210,17 +210,20 @@ Lexer.prototype.token = function(src, top, bq, pos) {
 
     // heading
     if (cap = this.rules.heading.exec(src)) {
+      var after = cap[4].slice(0,-1);
       matchlen = cap[0].length;
       src = src.substring(matchlen);
-      this.tokens.push({
+      var t = {
         type: 'heading',
+        id: cap[3].toLowerCase().replace(/[^\w]+/g, '-'),
         depth: cap[2].length,
-        text: cap[3],
-        pos: pos + cap[1].length,
-        length: cap[3].length,
-		    before: cap[1],
-		    after: cap[4]
-      });
+        children: [{type: 'before', text: cap[1], pos: pos}
+                  ,{type: 'text', text: cap[3], pos: pos + cap[1].length}],
+        pos: pos
+      };
+      this.tokens.push(t);
+      if (after.length > 0)
+        t.children.push({type: 'after', text: after, pos: pos + cap[1].length + cap[3].length});
       pos += matchlen;
       continue;
     }
@@ -266,7 +269,8 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       this.tokens.push({
         type: 'heading',
         depth: cap[2] === '=' ? 1 : 2,
-        text: cap[1],
+        children: [{type: 'text', text: cap[1], pos: pos},
+                   {type: 'after', pos: pos + cap[1].length, text: cap[0].slice(cap[1].length,-1)}], 
         pos: pos
       });
       pos += matchlen;
@@ -279,7 +283,8 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       src = src.substring(matchlen);
       this.tokens.push({
         type: 'hr',
-        pos: pos
+        pos: pos,
+        text: cap[0],
       });
       pos += matchlen;
       continue;
@@ -290,17 +295,18 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
 
+      var m = cap[0].match(/^ *> ?/gm);
       this.tokens.push({
         type: 'blockquote_start',
-        pos: pos
+        pos: pos,
+        before: m[0],
       });
-
-      cap = cap[0].replace(/^ *> ?/gm, '');
+      cap = cap[0].slice(m[0].length);
 
       // Pass `top` to keep the current
       // "toplevel" state. This is exactly
       // how markdown.pl works.
-      this.token(cap, top, true, pos);
+      this.token(cap, top, true, pos + m[0].length);
 
       this.tokens.push({
         type: 'blockquote_end',
@@ -329,11 +335,12 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       next = false;
 
       var all = cap[0];
-      var ipos, lastI, i = 0, l = x.length;
+      var ipos, lastI, i = 0, l = x.length, item;
       this.rules.item.lastIndex = 0;
       while ((item = this.rules.item.exec(all)) != null) {
+        var before = item[0].substring(0,item[0].length - item[1].length);
         lastI = this.rules.item.lastIndex; //Save (and restore) lastIndex
-        ipos = item.index + pos + item[0].length - item[1].length;
+        ipos = item.index + pos;
         // Remove the list item's bullet
         // so it is seen as the next token.
         space = item[0].length;
@@ -373,10 +380,11 @@ Lexer.prototype.token = function(src, top, bq, pos) {
           type: loose
             ? 'loose_item_start'
             : 'list_item_start',
-          pos: ipos
+          pos: ipos,
+          before: before,
         });
         // Recurse.
-        this.token(item, false, bq, ipos);
+        this.token(item, false, bq, ipos + before.length);
 
         this.tokens.push({
           type: 'list_item_end'
@@ -464,11 +472,14 @@ Lexer.prototype.token = function(src, top, bq, pos) {
     if (top && (cap = this.rules.paragraph.exec(src))) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
+      var after = cap[0].match(/\n*$/)[0].slice(1),
+          text = cap[1].charAt(cap[1].length - 1) === '\n'
+          ? cap[1].slice(0, -1)
+          : cap[1];
       this.tokens.push({
         type: 'paragraph',
-        text: cap[1].charAt(cap[1].length - 1) === '\n'
-          ? cap[1].slice(0, -1)
-          : cap[1],
+        text: text,
+        after: after,
         pos: pos
       });
       pos += matchlen;
@@ -960,10 +971,6 @@ function Parser(options) {
   this.renderer.options = this.options;
 }
 
-/**
- * Static Parse Method
- */
-
 Parser.parse = function(src, options, renderer) {
   var parser = new Parser(options, renderer);
   return parser.parse(src);
@@ -976,14 +983,18 @@ Parser.parse = function(src, options, renderer) {
 Parser.prototype.parse = function(src) {
   this.inline = new InlineLexer(src.links, this.options, this.renderer);
   this.tokens = src.reverse();
-
-  var out = '';
-  while (this.next()) {
-    out += this.tok();
-  }
-
-  return out;
+  return this.parseProg();
 };
+
+Parser.prototype.parseProg = function() {
+  var out = [];
+  while (this.next()) {
+    var item = this.tok(); // match anything at top level
+    if (item)
+      out.push(item)
+  };
+  return out;
+}
 
 /**
  * Next Token
@@ -1001,6 +1012,10 @@ Parser.prototype.peek = function() {
   return this.tokens[this.tokens.length - 1] || 0;
 };
 
+
+Parser.prototype.poke = function() {
+  this.tokens.push(this.token);
+};
 /**
  * Parse Text Tokens
  */
@@ -1019,267 +1034,83 @@ Parser.prototype.parseText = function() {
  * Parse Current Token
  */
 
-Parser.prototype.tok = function() {
-  switch (this.token.type) {
-    case 'EOF': {
-      return '';
-    }
-    case 'space': {
-      return '';
-    }
-    case 'hr': {
-      return this.renderer.hr();
-    }
-    case 'heading': {
-      return this.renderer.heading(
-        this.inline.output(this.token.text),
-        this.token.depth,
-        this.token.text, this.token.pos, this.token.before, this.token.after);
-    }
-    case 'code': {
-      return this.renderer.code(this.token.text,
-        this.token.lang,
-        this.token.escaped, this.token.pos);
-    }
-    case 'table': {
-      var header = ''
-        , body = ''
-        , i
-        , row
-        , cell
-        , flags
-        , j;
-
-      // header
-      cell = '';
-      for (i = 0; i < this.token.header.length; i++) {
-        flags = { header: true, align: this.token.align[i] };
-        cell += this.renderer.tablecell(
-          this.inline.output(this.token.header[i]),
-          { header: true, align: this.token.align[i] }
-        );
-      }
-      header += this.renderer.tablerow(cell);
-
-      for (i = 0; i < this.token.cells.length; i++) {
-        row = this.token.cells[i];
-
-        cell = '';
-        for (j = 0; j < row.length; j++) {
-          cell += this.renderer.tablecell(
-            this.inline.output(row[j]),
-            { header: false, align: this.token.align[j] }
-          );
-        }
-
-        body += this.renderer.tablerow(cell);
-      }
-      return this.renderer.table(header, body);
-    }
-    case 'blockquote_start': {
-      var body = '';
-
-      while (this.next().type !== 'blockquote_end') {
-        body += this.tok();
-      }
-
-      return this.renderer.blockquote(body);
-    }
-    case 'list_start': {
-      var body = ''
-        , ordered = this.token.ordered;
-
-      while (this.next().type !== 'list_end') {
-        body += this.tok();
-      }
-
-      return this.renderer.list(body, ordered);
-    }
-    case 'list_item_start': {
-      var body = '';
-
-      while (this.next().type !== 'list_item_end') {
-        body += this.token.type === 'text'
-          ? this.parseText()
-          : this.tok();
-      }
-
-      return this.renderer.listitem(body);
-    }
-    case 'loose_item_start': {
-      var body = '';
-
-      while (this.next().type !== 'list_item_end') {
-        body += this.tok();
-      }
-
-      return this.renderer.listitem(body);
-    }
-    case 'html': {
-      var html = !this.token.pre && !this.options.pedantic
-        ? this.inline.output(this.token.text)
-        : this.token.text;
-      return this.renderer.html(html);
-    }
-    case 'paragraph': {
-      return this.renderer.paragraph(this.inline.output(this.token.text), this.token.pos);
-    }
-    case 'text': {
-      return this.renderer.paragraph(this.parseText(), this.token.pos);
-    }
-  }
-};
-
-
-/**
- * New Parser
- */
-
-function NewParser(options) {
-  this.tokens = [];
-  this.token = null;
-  this.options = options || clay.defaults;
-  this.options.renderer = this.options.renderer || new Renderer;
-  this.renderer = this.options.renderer;
-  this.renderer.options = this.options;
-}
-
-NewParser.parse = function(src, options, renderer) {
-  var parser = new NewParser(options, renderer);
-  return parser.parse(src);
-};
-
-/**
- * Parse Loop
- */
-
-NewParser.prototype.parse = function(src) {
-  this.inline = new InlineLexer(src.links, this.options, this.renderer);
-  this.tokens = src.reverse();
-  return this.parseProg();
-};
-
-NewParser.prototype.parseProg = function() {
-  var out = [];
-  while (this.next()) {
-    var item = this.tok(); // match anything at top level
-    if (item)
-      out.push(item)
-  };
-  return out;
-}
-
-/**
- * Next Token
- */
-
-NewParser.prototype.next = function() {
-  return this.token = this.tokens.pop();
-};
-
-/**
- * Preview Next Token
- */
-
-NewParser.prototype.peek = function() {
-  return this.tokens[this.tokens.length - 1] || 0;
-};
-
-
-NewParser.prototype.poke = function() {
-  this.tokens.push(this.token);
-};
-/**
- * Parse Text Tokens
- */
-
-NewParser.prototype.parseText = function() {
-  var body = this.token.text;
-
-  while (this.peek().type === 'text') {
-    body += '\n' + this.next().text;
-  }
-
-  return this.inline.output(body);
-};
-
-/**
- * Parse Current Token
- */
-
-NewParser.prototype.parseSection = function() {
+Parser.prototype.parseSection = function() {
   var level = this.token.depth,
+      item = null,
       ret = {type: 'section'
-            ,children: [this.token]
+            ,pos: this.token.pos
+            ,children: [this.token] 
             };
   while (this.next()) {
     if (this.token.type === 'heading' && this.token.depth <= level) {
       this.poke();
       return ret;
     }
-    var item = this.tok();
+    item = this.tok(item || ret);
     if (item)
       ret.children.push(item);
   }
   return ret;
 };
 
-NewParser.prototype.tok = function() {
+Parser.prototype.parseCode = function() {
+  var lines = this.token.text.split('\n'),
+      index = 0,
+      pos = this.token.pos,
+      children = [], i, l = lines.length;
+  if (this.token.before !== undefined) {
+    children.push({type: 'before', pos: pos, text: this.token.before, newline: true});
+    pos += this.token.before.length + 1
+    children.push({type: 'text', pos: pos, text: this.token.text});
+  }
+  else {
+    for (i = 0; i < l; i++) {
+      var line = lines[i] + '\n',
+        m = /^( {4}|\t)?(.*\n?)$/m.exec(line);
+      if (m) {
+        children.push({type: 'span', 
+          pos: pos + index, 
+          children: [{type: 'before', pos: pos + index, text: m[1]}
+                  ,{type: 'text', pos: pos + index + m[1].length, text: m[2]}]});
+      } else {
+        console.log('Error: m is null for line: ' + line);
+      }
+      index += line.length;
+    }
+  }
+  if (this.token.after !== undefined)
+    children.push({type: 'after', pos: pos + this.token.text.length, text: this.token.after})
+  this.token.children = children;
+  return this.token;
+}
+
+Parser.prototype.tok = function(prev) {
     switch (this.token.type) {
       case 'EOF': return;
-      case 'space': return; 
-      case 'hr': return {type:'hr', pos: this.token.pos};
+      case 'space': 
+        if (prev !== undefined && prev.hasOwnProperty('children')) {
+          prev.children.push({type: 'after', pos: this.token.pos, text: this.token.text});
+          return;
+        } else {
+          return; // {type: 'text',pos: this.token.pos, text: this.token.text};
+        }
+      case 'hr': return {type:'hr', pos: this.token.pos}; //TODO how do we display this with its before?
       case 'heading': return this.parseSection()
-      case 'code': return this.token;
-      case 'table': {
-        return this.token;
-        /*var header = ''
-          , body = ''
-          , i
-          , row
-          , cell
-          , flags
-          , j
-          , pos = this.token.pos;
-  
-        // header
-        cell = '';
-        for (i = 0; i < this.token.header.length; i++) {
-          flags = { header: true, align: this.token.align[i] };
-          cell += this.renderer.tablecell(
-            this.inline.output(this.token.header[i]),
-            { header: true, align: this.token.align[i] }
-          );
-        }
-        header += this.renderer.tablerow(cell);
-  
-        for (i = 0; i < this.token.cells.length; i++) {
-          row = this.token.cells[i];
-  
-          cell = '';
-          for (j = 0; j < row.length; j++) {
-            cell += this.renderer.tablecell(
-              this.inline.output(row[j]),
-              { header: false, align: this.token.align[j] }
-            );
-          }
-  
-          body += this.renderer.tablerow(cell);
-        }
-        return {type: 'table', header: header, body: body, pos: pos}; //TODO. this needs work
-        */
-      }
+      case 'code': return this.parseCode();
+      case 'table': return this.token;
       case 'blockquote_start': {
-        var body = [], item, pos = this.token.pos;
+        var pos = this.token.pos,
+            body = [{type: 'before', pos:pos, text: this.token.before}],
+            item;
         while (this.next().type !== 'blockquote_end') {
           item = this.tok();
           if (item)
             body.push(item);
         }
-        return {type: 'blockquote', children: body};
+        return {type: 'blockquote', pos: pos, children: body};
       }
       case 'list_start': {
-        var body = [], item;
+        var body = [], item, pos = this.token.pos;
         while (this.next().type !== 'list_end') {
           item = this.tok();
           if (item)
@@ -1288,7 +1119,9 @@ NewParser.prototype.tok = function() {
         return {type: (this.token.ordered ? 'ol' : 'ul'), children: body, pos: pos};
       }
       case 'list_item_start': {
-        var body = [], item, pos = this.token.pos;
+        var pos = this.token.pos,
+            body = [{type: 'before', pos:pos, text: this.token.before}],
+            item;
         while (this.next().type !== 'list_item_end') {
           item = this.token.type === 'text'
             ? this.token
@@ -1313,8 +1146,17 @@ NewParser.prototype.tok = function() {
           : this.token.text;
         return {type: 'html', pos: this.token.pos, raw: html};
       }
-      case 'paragraph': return {type: 'p', pos: this.token.pos, 
-        children: [{type: 'text', pos: this.token.pos, text: this.inline.output(this.token.text)}]};
+      case 'paragraph': 
+        var after = this.token.after,
+            l = this.token.text.length,
+            pos = this.token.pos,
+            p = {type: 'p', pos: pos, 
+                children: [{type: 'text', 
+                            pos: pos,
+                            text: this.inline.output(this.token.text)}]};
+        if (after.length > 0)
+          p.children.push({type: 'after', pos: pos + l, text: after });
+        return p;
       case 'text': return {type: 'p', pos: this.token.pos, 
         children: [{type: 'text', pos: this.token.pos, text: this.parseText()}]};
     }
@@ -1500,8 +1342,6 @@ clay.defaults = {
 
 clay.Parser = Parser;
 clay.parser = Parser.parse;
-
-clay.newparser = NewParser.parse;
 
 clay.Renderer = Renderer;
 
