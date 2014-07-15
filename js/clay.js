@@ -844,7 +844,10 @@ InlineLexer.prototype.output = function(src, pos) {
     // code
     if (cap = this.rules.code.exec(src)) {
       src = src.substring(cap[0].length);
-      aout.push({type: 'codespan', text: cap[2], pos: pos}); //TODO + length of backticks
+      out = {type: 'codespan', text: cap[2], pos: pos}
+      out.sexpr = clay.code(cap[2], false);
+      out.result = clay.code.show(out.sexpr); //TODO: replace with real evaluate
+      aout.push(out); //TODO + length of backticks
       pos += cap[0].length;
       continue;
     }
@@ -1107,6 +1110,10 @@ Parser.prototype.parseCode = function() {
   if (this.token.after !== undefined)
     children.push({type: 'after', pos: pos + this.token.text.length, text: this.token.after})
   this.token.children = children;
+  if (this.token.lang === undefined) {
+    this.token.sexpr = clay.code(this.token.text.replace(/^( {4}|\t)/gm,''), true);
+    this.token.result = clay.code.showp(this.token.sexpr).split('\n'); //TODO: replace with real evaluate
+  }
   return this.token;
 }
 
@@ -1319,6 +1326,8 @@ clay.lexer = Lexer.lex;
 
 clay.InlineLexer = InlineLexer;
 clay.inlineLexer = InlineLexer.output;
+
+clay.code = function() { return []; }; //replaced by parser module
 
 clay.parse = clay;
 

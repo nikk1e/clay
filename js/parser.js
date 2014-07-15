@@ -1,3 +1,9 @@
+/**
+ * clay - computable document format.
+ * Copyright (c) 2014, Benjamin Norrington (MIT Licensed)
+ * 
+ * Parse clay code blocks into S-Expr 
+ */
 
 ;(function(clay){
 
@@ -631,8 +637,12 @@ var showp = function(prog) {
 
 // parse code and return ast
 var parseCode = function(src, multi) {
-	var tokens = tokenize(src);
-	return parse(tokens, multi);
+	try {
+		var tokens = tokenize(src)
+		return parse(tokens, multi);
+	} catch (e) {
+		return ['Error', e];
+	}
 };
 
 parseCode.show = show;

@@ -16,6 +16,7 @@
 
 
 <script src="js/clay.js"></script>
+<script src="js/parser.js"></script>
 <style>
 html { font-family: "Open Sans","Segoe UI",verdana , sans-serif; 
 background: #fff; color: #777; }
@@ -39,6 +40,11 @@ font-family: "Open Sans", "Segoe UI Light","Segoe WP Light", verdana , sans-seri
 padding-top: 0.8em;
 margin-top: 0.8em;
 border-top: #edece4 1px solid;
+}
+
+#preview h1 {
+	padding-top: 0.8em;
+	margin-top: 0.8em;
 }
 
 pre {
@@ -169,6 +175,18 @@ code > span.after {
 
 span.meta {
 	display: block;
+}
+
+span.result::before {
+	content: " = ";
+}
+
+div.result {
+	margin-bottom: 0.8em;
+}
+
+.result {
+	color: rgb(15, 135, 238);
 }
 
 span.meta,
@@ -732,7 +750,9 @@ var Renderer = React.createClass({
 		return div({key: idx}, 
 				DOM.pre({key: '_'}, 
 				DOM.code({key: '_'}, 
-				item.children.map(this.renderTree)))//, result TODO
+				item.children.map(this.renderTree))),
+				(item.result !== undefined ? div({className: 'result', key: 'result'}, 
+					item.result.map(function(c, idx) { return div({key: idx}, c); })) : null)
 			);
 	},
 	renderTable: function(item, idx) {
@@ -793,7 +813,8 @@ var Renderer = React.createClass({
 			case 'hr': return DOM.hr({key: idx}); //TODO
 			case 'br': return DOM.br({key: idx}); //TODO
 			case 'code': return this.renderCode(item, idx);
-			case 'codespan': return span({key: idx}, DOM.code({key: '_'}, item.text));
+			case 'codespan': return span({key: idx}, DOM.code({key: '_'}, item.text),
+				(item.result !== undefined ? span({className: 'result', key: 'result'}, item.result) : null));
 			case 'html': return div({key: idx,
 				dangerouslySetInnerHTML:{__html: item.raw}
 				});
