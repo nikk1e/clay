@@ -182,13 +182,15 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       matchlen = cap[0].length;
       src = src.substring(matchlen);
       cap = cap[0];
-      this.tokens.push({
+      var t = {
         type: 'code',
         text: !this.options.pedantic
           ? cap.replace(/\n+$/, '')
           : cap,
         pos: pos
-      });
+      };
+      this.tokens.push(t);
+      this.tokens.push({type: 'result', code: t, pos: pos + matchlen})
       pos += matchlen;
       continue;
     }
@@ -572,7 +574,7 @@ var inline = {
   nolink: /^!?\[((?:\[[^\]]*\]|[^\[\]])*)\]/,
   strong: /^__([\s\S]+?)__(?!_)|^\*\*([\s\S]+?)\*\*(?!\*)/,
   em: /^\b_((?:__|[\s\S])+?)_\b|^\*((?:\*\*|[\s\S])+?)\*(?!\*)/,
-  code: /^(`+)\s*([\s\S]*?[^`])\s*\1(?!`)/,
+  code: /^(`+)(\s*[\s\S]*?[^`]\s*)\1(?!`)/,
   br: /^ {2,}\n(?!\s*$)/,
   del: noop,
   text: /^[\s\S]+?(?=[\\<!\[_*`&]| {2,}\n|$)/
@@ -844,10 +846,13 @@ InlineLexer.prototype.output = function(src, pos) {
     // code
     if (cap = this.rules.code.exec(src)) {
       src = src.substring(cap[0].length);
-      out = {type: 'codespan', text: cap[2], pos: pos}
+      aout.push({type: 'before', text: cap[1], pos: pos});
+      out = {type: 'codespan', text: cap[2], pos: pos + cap[1].length}
       out.sexpr = clay.code(cap[2], false);
       out.result = clay.code.show(out.sexpr); //TODO: replace with real evaluate
       aout.push(out); //TODO + length of backticks
+      aout.push({type: 'after', text: cap[1], pos: pos + cap[1].length + cap[2].length});
+      aout.push({type: 'result', code: out, pos: pos + cap[0].length + 1});
       pos += cap[0].length;
       continue;
     }
@@ -1083,6 +1088,7 @@ Parser.prototype.parseSection = function() {
 };
 
 Parser.prototype.parseCode = function() {
+  //IMPORTANT: must return the same token object as the result references it.
   var lines = this.token.text.split('\n'),
       index = 0,
       pos = this.token.pos,
@@ -1153,6 +1159,7 @@ Parser.prototype.tok = function(prev) {
       case 'hr': return {type:'hr', pos: this.token.pos}; //TODO how do we display this with its before?
       case 'heading': return this.parseSection()
       case 'code': return this.parseCode();
+      case 'result': return this.token;
       case 'table': return this.parseTable();
       case 'meta': return this.token;
       case 'blockquote_start': {

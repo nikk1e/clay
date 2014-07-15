@@ -85,6 +85,10 @@ border-left: #edece4 0.6em solid;
 	padding-top: 30px; /* TODO If you add margin then you need to take that into account for the cursor */
 }
 
+div.modal #preview {
+	display: none;
+}
+
 #preview {
 	position: relative;
 	box-sizing: border-box;
@@ -186,10 +190,13 @@ div.result {
 }
 
 .result {
-	color: rgb(15, 135, 238);
+	color: rgb(151, 168, 182);
 }
 
-span.meta,
+span.meta {
+	color: rgb(151, 168, 182);
+}
+
 span.before,
 span.after {
 	color: rgb(202, 224, 243);
@@ -643,9 +650,12 @@ var Renderer = React.createClass({
 				path.push('$' + i);
 				switch(item.type) {
 					case 'code':
-						path.push('$_'); //pre
+						//path.push('$_'); //pre
 						path.push('$_'); //code
 						break;
+					//case 'codespan':
+					//	path.push('$_'); //code
+					//	break;
 					case 'table':
 						if (pos < item.cells.pos) {
 							path.push('$head');
@@ -747,13 +757,16 @@ var Renderer = React.createClass({
 		return h1(attr, content);
 	},
 	renderCode: function(item, idx) {
-		return div({key: idx}, 
-				DOM.pre({key: '_'}, 
-				DOM.code({key: '_'}, 
-				item.children.map(this.renderTree))),
-				(item.result !== undefined ? div({className: 'result', key: 'result'}, 
-					item.result.map(function(c, idx) { return div({key: idx}, c); })) : null)
-			);
+		return DOM.pre({key: idx}, DOM.code({key: '_'}, item.children.map(this.renderTree)));
+	},
+	renderResult: function(item, idx) {
+		if (item.code.type === 'codespan') {
+			return span({className: 'result', key: idx}, 
+				item.code.result);
+		} else {
+			return div({className: 'result', key: idx}, 
+				item.code.result.map(function(c, i) { return div({key: i}, c); }));
+		}
 	},
 	renderTable: function(item, idx) {
 		var align = item.align, rtree = this.renderTree;
@@ -813,11 +826,11 @@ var Renderer = React.createClass({
 			case 'hr': return DOM.hr({key: idx}); //TODO
 			case 'br': return DOM.br({key: idx}); //TODO
 			case 'code': return this.renderCode(item, idx);
-			case 'codespan': return span({key: idx}, DOM.code({key: '_'}, item.text),
-				(item.result !== undefined ? span({className: 'result', key: 'result'}, item.result) : null));
+			case 'codespan': return DOM.code({key: idx}, item.text);
 			case 'html': return div({key: idx,
 				dangerouslySetInnerHTML:{__html: item.raw}
 				});
+			case 'result': return this.renderResult(item, idx);
 			default: return p({key: idx},'unsupported: ' + item.type);
 		};
 	},
@@ -942,7 +955,7 @@ var Editor = React.createClass({
 		this.updateCursor();
 	},
 	render: function() {
-		return div(null,
+		return div({className: (this.state.modal !== null ? "modal" : "view")},
 			DOM.textarea({id: 'model', 
 						onChange: this.handleChange,
 						onKeyDown: this.handleKeyDown,

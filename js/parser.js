@@ -367,7 +367,7 @@ var parse = function(ts,multi) {
 
 	function getOperator(val) {
 		if (token.value != val) {
-			throw new Error("'" + val + "' expected but got " + token.value);
+			throw new Error("'" + val + "' expected but got {" + token.type + "} " + token.value);
 		}
 		return getToken();
 	}
@@ -628,6 +628,8 @@ var show = function show(sexp) {
 		return '(' + sexp.map(show).join(' ') + ')';
 	else if ((sexp instanceof String || typeof sexp === 'string'))
 		return (simple.test(sexp) ? sexp : '`' + sexp + '`');
+	else if (sexp === undefined)
+		return 'NULL';
 	return sexp.toString();
 }
 

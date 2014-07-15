@@ -1,6 +1,7 @@
 %package clay
 %author Benjamin Norrington
 %note each key in this meta section may appear once only
+%tags Clay, Example, Computable, Document
 
 # Clay
 
