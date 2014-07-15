@@ -19,6 +19,7 @@ var block = {
   fences: noop,
   hr: /^( *[-*_]){3,} *(?:\n+|$)/,
   heading: /^( *(#{1,6}) *)([^\n]+?)( *#* *(?:\n+|$))/,
+  meta: /^%(\w+) *([^ ][^\n]*)?(\n+|$)/,
   nptable: noop,
   lheading: /^([^\n]+)\n *(=|-){2,} *(?:\n+|$)/,
   blockquote: /^( *>[^\n]+(\n(?!def)[^\n]+)*\n*)+/,
@@ -227,6 +228,22 @@ Lexer.prototype.token = function(src, top, bq, pos) {
       pos += matchlen;
       continue;
     }
+
+    // meta
+    if (cap = this.rules.meta.exec(src)) {
+      matchlen = cap[0].length;
+      src = src.substring(matchlen);
+      this.tokens.push({
+        type: 'meta',
+        head: cap[1],
+        value: cap[2],
+        text: cap[0].slice(0,-1),
+        pos: pos
+      });
+      pos += matchlen;
+      continue;
+    }
+
 
     // table no leading pipe (gfm) -- assuming no trailing pipes either
     if (top && (cap = this.rules.nptable.exec(src))) {
@@ -843,7 +860,10 @@ InlineLexer.prototype.output = function(src, pos) {
     // del (gfm)
     if (cap = this.rules.del.exec(src)) {
       src = src.substring(cap[0].length);
-      aout.push({type: 'del', children: this.output(cap[1], pos), pos: pos}); 
+      out = {type: 'del', children: this.output(cap[2] || cap[1], pos+2), pos: pos};
+      out.children.unshift({type: 'before', text: '~~', pos: pos});
+      out.children.push({type: 'after', text: '~~', pos: pos + cap[0].length - 2})
+      aout.push(out); 
       pos += cap[0].length;
       continue;
     }
@@ -1127,6 +1147,7 @@ Parser.prototype.tok = function(prev) {
       case 'heading': return this.parseSection()
       case 'code': return this.parseCode();
       case 'table': return this.parseTable();
+      case 'meta': return this.token;
       case 'blockquote_start': {
         var pos = this.token.pos,
             body = [{type: 'before', pos:pos, text: this.token.before}],
@@ -1312,5 +1333,3 @@ if (typeof module !== 'undefined' && typeof exports === 'object') {
 }).call(function() {
   return this || (typeof window !== 'undefined' ? window : global);
 }());
-
-/* TODO: This needs some work. It needs to be itterative and it needs to keep the string locations */

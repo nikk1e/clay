@@ -167,6 +167,11 @@ code > span.after {
 	margin-top: 10px;
 }
 
+span.meta {
+	display: block;
+}
+
+span.meta,
 span.before,
 span.after {
 	color: rgb(202, 224, 243);
@@ -389,7 +394,7 @@ Clay.prototype.revert = function(name, callback) {
 Clay.prototype.recalc = function(name) {
 	var source = this._sources[name],
 		lex = clay.lexer(source);
-	this._asts[name] = clay.parser(lex, clay.options);
+	this._asts[name] = clay.parser(lex);
 };
 
 Clay.prototype.update = function(name, source) {
@@ -765,6 +770,7 @@ var Renderer = React.createClass({
 				replace(/  /g, '\u2423 '));
 			case 'escape': return span({key: idx, dangerouslySetInnerHTML:{__html: item.text}});
 			case 'span': return span({key: idx}, item.children.map(this.renderTree));
+			case 'meta': return span({key: idx, className: 'meta'}, item.text);
 			case 'before': return span({className: 'before', key:idx}, 
 				item.text.replace(/ /g,'\u2423').replace(/\t/,'\u2192')); // + (item.newline ? '\n' : '')
 			case 'after': 

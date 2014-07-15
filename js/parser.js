@@ -1,3 +1,6 @@
+
+;(function(clay){
+
 function replace(regex, opt) {
 	regex = regex.source;
 	opt = opt || '';
@@ -48,9 +51,9 @@ code.symbol = replace(code.symbol, 'i')
 ();
 
 
-console.log(code.operator);
+//console.log(code.operator);
 
-console.time("this");
+//console.time("this");
 
 var src = 'Growth = {1%, 2%, 3% + 2 + 3 >= Stuff, 4%, 5%}\n' +
 	'Fred = "this is a multi line \n' +
@@ -63,129 +66,131 @@ var src = 'Growth = {1%, 2%, 3% + 2 + 3 >= Stuff, 4%, 5%}\n' +
 	'`Sum` This\n' +
 	'Something = sin(Growth,test, 4)';
 
+var tokenize = function(src) {
+	var tokens = []
+	  , cap;
 
-var tokens = [];
-var cap;
+	src += '\n\n'; // add a newline to src to simplify
+	while (src) {
+		//gobble whitespace (except newline)
+		if (cap = code.whitespace.exec(src)) {
+			//tokens.push("space"); //ignore space
+			src = src.substring(cap[0].length);
+		}
 
-src += '\n\n'; // add a newline to src to simplify
-while (src) {
-	//gobble whitespace (except newline)
-	if (cap = code.whitespace.exec(src)) {
-		//tokens.push("space"); //ignore space
-		src = src.substring(cap[0].length);
-	}
+		//gobble a comment to the end of the line
+		if (cap = code.comment.exec(src)) {
+			src = src.substring(cap[0].length);
+			continue;
+		}
 
-	//gobble a comment to the end of the line
-	if (cap = code.comment.exec(src)) {
-		src = src.substring(cap[0].length);
-		continue;
-	}
+		//gobble a newline followed by an indent
+		if (cap = code.continuation.exec(src)) {
+			//tokens.push("space"); //ignore space
+			src = src.substring(cap[0].length);
+			continue;
+		}
 
-	//gobble a newline followed by an indent
-	if (cap = code.continuation.exec(src)) {
-		//tokens.push("space"); //ignore space
-		src = src.substring(cap[0].length);
-		continue;
-	}
-
-	if (cap = code.newline.exec(src)) {
-		tokens.push({
-			type: "EOL",
-			value: cap[0]
-		});
-		src = src.substring(cap[0].length);
-		continue;
-	}
-
-	if (cap = code.string.exec(src)) {
-		src = src.substring(cap[0].length);
-		tokens.push({
-			type: "string",
-			value: cap[0].slice(1, -1).replace(/""/, '"')
-		})
-		continue;
-	}
-
-	if (cap = code.quoted.exec(src)) {
-		src = src.substring(cap[0].length);
-		tokens.push({
-			type: "symbol",
-			value: cap[0].slice(1, -1).replace(/``/, '`')
-		})
-		continue;
-	}
-
-	if (cap = code.symbol.exec(src)) {
-		src = src.substring(cap[0].length);
-		tokens.push({
-			type: "symbol",
-			value: cap[0]
-		});
-		continue;
-	}
-
-	if (cap = code.keyword.exec(src)) {
-		src = src.substring(cap[0].length);
-		tokens.push({
-			type: "keyword",
-			value: cap[0].toUpperCase()
-		});
-		continue;
-	}
-
-	if (cap = code.bracket.exec(src)) {
-		src = src.substring(cap[0].length);
-	    tokens.push({type:"bracket", value:cap[0]});
-	    continue;
-	}
-	
-	if (cap = code.blank.exec(src)) {
-		src = src.substring(cap[0].length);
-	    tokens.push({type:"blank", value:cap[0]});
-	    continue;
-	}
-	
-	if (cap = code.comma.exec(src)) {
-		src = src.substring(cap[0].length);
-		tokens.push({
-			type: "comma",
-			value: cap[0]
-		});
-		continue;
-	}
-
-	if (cap = code.operator.exec(src)) {
-		src = src.substring(cap[0].length);
-		tokens.push({
-			type: "operator",
-			value: cap[0]
-		});
-		continue;
-	}
-
-	if (cap = code.number.exec(src)) {
-		src = src.substring(cap[0].length);
-		if (cap[0][cap[0].length - 1] === '%')
+		if (cap = code.newline.exec(src)) {
 			tokens.push({
-				type: "number",
-				value: (Number(cap[0].slice(0, -1)) / 100.0)
+				type: "EOL",
+				value: cap[0]
 			});
-		else
+			src = src.substring(cap[0].length);
+			continue;
+		}
+
+		if (cap = code.string.exec(src)) {
+			src = src.substring(cap[0].length);
 			tokens.push({
-				type: "number",
-				value: Number(cap[0])
+				type: "string",
+				value: cap[0].slice(1, -1).replace(/""/, '"')
+			})
+			continue;
+		}
+
+		if (cap = code.quoted.exec(src)) {
+			src = src.substring(cap[0].length);
+			tokens.push({
+				type: "symbol",
+				value: cap[0].slice(1, -1).replace(/``/, '`')
+			})
+			continue;
+		}
+
+		if (cap = code.symbol.exec(src)) {
+			src = src.substring(cap[0].length);
+			tokens.push({
+				type: "symbol",
+				value: cap[0]
 			});
-		continue;
-	}
+			continue;
+		}
 
-	if (src) {
-		console.log(tokens);
-		throw new Error('Syntax error: ' + src);
-	}
-}
+		if (cap = code.keyword.exec(src)) {
+			src = src.substring(cap[0].length);
+			tokens.push({
+				type: "keyword",
+				value: cap[0].toUpperCase()
+			});
+			continue;
+		}
 
-console.timeEnd("this");
-console.log(tokens)
+		if (cap = code.bracket.exec(src)) {
+			src = src.substring(cap[0].length);
+			tokens.push({type:"bracket", value:cap[0]});
+			continue;
+		}
+		
+		if (cap = code.blank.exec(src)) {
+			src = src.substring(cap[0].length);
+			tokens.push({type:"blank", value:cap[0]});
+			continue;
+		}
+		
+		if (cap = code.comma.exec(src)) {
+			src = src.substring(cap[0].length);
+			tokens.push({
+				type: "comma",
+				value: cap[0]
+			});
+			continue;
+		}
+
+		if (cap = code.operator.exec(src)) {
+			src = src.substring(cap[0].length);
+			tokens.push({
+				type: "operator",
+				value: cap[0]
+			});
+			continue;
+		}
+
+		if (cap = code.number.exec(src)) {
+			src = src.substring(cap[0].length);
+			if (cap[0][cap[0].length - 1] === '%')
+				tokens.push({
+					type: "number",
+					value: (Number(cap[0].slice(0, -1)) / 100.0)
+				});
+			else
+				tokens.push({
+					type: "number",
+					value: Number(cap[0])
+				});
+			continue;
+		}
+
+		if (src) {
+			console.log(tokens);
+			throw new Error('Syntax error: ' + src);
+		}
+	}
+	return tokens;
+};
+
+//console.timeEnd("this");
+//console.log(tokens)
 
 /* M-Expr Parser */
 var prefixes = {},
@@ -624,4 +629,19 @@ var showp = function(prog) {
 	return prog.map(show).join('\n');
 }
 
-console.log(showp(parse(tokens,true)));
+// parse code and return ast
+var parseCode = function(src, multi) {
+	var tokens = tokenize(src);
+	return parse(tokens, multi);
+};
+
+parseCode.show = show;
+parseCode.showp = showp;
+parseCode.parse = parse;
+parseCode.lex = tokenize;
+
+clay.code = parseCode;
+
+//console.log(showp(parse(tokens,true)));
+
+}(clay));
