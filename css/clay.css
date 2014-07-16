@@ -1,0 +1,259 @@
+html { font-family: "Open Sans","Segoe UI",verdana , sans-serif; 
+background: #fff; color: #777; }
+
+table {
+	min-width: 100%;
+}
+
+h1, h2, h3, h4, h5, h6 {
+color: rgb(75, 75, 75);
+text-rendering: optimizeLegibility;
+line-height: 1;
+margin-top: 0;
+font-weight: 300;
+}
+
+#preview h1 { font-size: 50.66px;
+font-family: "Open Sans", "Segoe UI Light","Segoe WP Light", verdana , sans-serif; 
+}
+#preview h2 {  
+padding-top: 0.8em;
+margin-top: 0.8em;
+border-top: #edece4 1px solid;
+}
+
+#preview h1 {
+	padding-top: 0.8em;
+	margin-top: 0.8em;
+}
+
+pre {
+margin: 1.6em 0;
+box-sizing: border-box;
+background: rgb(250, 250, 250);
+border: 1px solid #eee;
+width: 100%;
+padding: 10px;
+font-size: 0.9em;
+/*white-space: pre;*/
+/*border-radius: 3px;*/
+}
+
+code, kbd, pre, samp {
+font-family: Consolas, Inconsolata, monospace;
+font-size: 1em;
+color: #333;
+}
+
+pre code, pre tt {
+font-size: inherit;
+/*white-space: -moz-pre-wrap;*/
+white-space: pre-wrap;
+background: transparent;
+border: none;
+padding: 0;
+}
+
+blockquote {
+margin: 1.6em 0;
+box-sizing: border-box;
+padding: 0 1.6em 0 1.6em;
+border-left: #edece4 0.6em solid;
+}
+
+#main {
+	padding-top: 30px; /* TODO If you add margin then you need to take that into account for the cursor */
+}
+
+div.modal #preview {
+	display: none;
+}
+
+#preview {
+	position: relative;
+	box-sizing: border-box;
+}
+
+#model {
+	height: 100px;
+	background: white;
+	border: 1px solid #efefef;
+}
+
+
+span.cursor {
+  position: absolute;
+  background: #111;
+  margin-right: -1px;
+  width: 1px;
+  display: block;
+  z-index: 100;
+ 
+  -webkit-animation: blink 2s linear 0s infinite;
+  -moz-animation: blink 2s linear 0s infinite;
+  -ms-animation: blink 2s linear 0s infinite;
+  -o-animation: blink 2s linear 0s infinite;
+}
+
+
+@-webkit-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #090 }
+}
+ 
+@-moz-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #999 }
+}
+ 
+@-ms-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #999 }
+}
+ 
+@-o-keyframes blink {
+  0%   { background: #aa0 }
+  47%  { background: #999 }
+  50%  { background: #000 }
+  97%  { background: #000 }
+  100% { background: #999 }
+}
+
+h1 span.before,
+h2 span.before,
+h3 span.before,
+h4 span.before,
+h5 span.before,
+blockquote span.before,
+li > span.before {
+	position: absolute;
+	right: 100%;
+	margin-right: 3px;
+}
+
+code > span > span.before {
+	position: absolute;
+	right: 100%;
+	margin-right: 13px;
+}
+
+code { position: relative; }
+code > span.before {
+position: absolute;
+top: -38px;
+}
+
+code > span.after {
+	position: absolute;
+	margin-top: 10px;
+}
+
+span.meta {
+	display: block;
+}
+
+span.result::before {
+	content: " = ";
+}
+
+div.result {
+	margin-bottom: 0.8em;
+}
+
+.result {
+	color: rgb(151, 168, 182);
+}
+
+span.meta {
+	color: rgb(151, 168, 182);
+}
+
+span.before,
+span.after {
+	color: rgb(202, 224, 243);
+}
+
+
+span.error {
+	color: rgb(235, 15, 136);
+	display: block;
+}
+
+code span.hide {
+	display: none;
+}
+
+
+tr.align td {
+	padding-top: 0;
+	padding-bottom: 0;
+}
+
+tr.align {
+	color: rgb(15, 135, 238);
+	position: 
+}
+
+
+.models {
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
+	padding-bottom: 3em;
+	text-align: center;
+}
+
+.models li {
+	padding: 0.8em 0;
+	background: #f7f7f7;
+	border-bottom: 1px solid #e7e7e7;
+}
+
+.models li a {
+	text-decoration: none;
+}
+
+
+.debug { 
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0px;
+	z-index: 100;
+}
+@media (min-width: 48em) {
+	.debug {
+		margin-left: 150px;	
+	}
+}
+
+div.selection {
+	top: 0;
+	left: 0;
+	position: absolute;
+	padding: 0;
+	margin: 0;
+	z-index: 100;
+	display: block;
+}
+
+div.selection div {
+	background: rgba(0, 128, 236, 0.51);
+	box-sizing: border-box;
+	position: absolute;
+	padding: 0;
+	margin: 0;
+}
+
+#menu .menu-modified {
+    border-right: 10px solid rgb(34, 92, 141);
+}
