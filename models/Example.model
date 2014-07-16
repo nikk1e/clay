@@ -1,25 +1,4 @@
-%package Clay
-%author Benjamin Norrington
-%note each key in this meta section may appear once only
-%tags Clay, Example, Computable, Document
-
 # Clay
-
-Given a table of city populations across America **\alpha\beta\gamma\delta** [Test](http://google.co.uk) and *stuff* and **other stuff**.
-
-## TODO
-
-* Reposition cursor after change (use cancellable timeout so you only do it infrequently)
-* Draw rects for selection (check previous width and left and just extend if they match)
-* Hide cursor if text area loses focus. (draw cursor/selection should probably be triggered by things including onfocus)
-* Add back invisible elements like → for tab and &#9251; \u2423 for space
-* Update parser to fully separate rendering
-* Track relationship between objects and markup without using an attribute
-
-## Features to add
-
-Live Editing
-:  Keep track of who else has the document open and show the changes they are making live.
 
 ## Abstract
 Clay takes the spreadsheet out of the grid. Rows and columns become dimensions meaningful to your model, like "Time" and "Fund". Formulas are written for humans first and models are made to be maintained, shared, and reused.
@@ -34,7 +13,7 @@ Start by defining the months of the year:
         Aug,Sep,Oct,Nov,Dec}
 
 
-"Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In paper we choose the dimensions.
+"Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In clay we choose the dimensions.
 
 > Note: Categories are just a list
 
@@ -53,7 +32,7 @@ Their product sells for £55 and costs £25 to manufacture. We also know they ha
     Unit Cost = 25
     Fixed Costs = 2000
 
-Now we can calculate Revenue, Cost of Goods Sold, and EBIT. In a spreadsheet we would need 36 formulas, in paper we need 3.
+Now we can calculate Revenue, Cost of Goods Sold, and EBIT. In a spreadsheet we would need 36 formulas, in clay we need 3.
 
 	Revenue = Unit Sales * Price
     COGS = Unit Sales * Price
@@ -74,7 +53,7 @@ Just four more formulas and we have net income.
 
 ### Scenario testing
 
-What if we want to show a graph of "Net Income" for five different growth rates? In a spreadsheet this would be a problem. Copy and paste or a macro. But in paper we just change Growth to a list of rates:
+What if we want to show a graph of "Net Income" for five different growth rates? In a spreadsheet this would be a problem. Copy and paste or a macro. But in clay we just change Growth to a list of rates:
 
 	Growth = {1%,2%,3%,4%,5%}
 	Graph.Line(Net Income,[Month],[Growth])
@@ -88,7 +67,7 @@ The **trick** to building reusable models is leaving things unspecified and bein
 
 
 ## Lookups
-In a spreadsheet you need a host of different lookup mechanisms (VLookup, HLookup, Sumif, Sumifs, Averageif, etc). In Paper the lookups are all handled by a single concept called slice `[]`.
+In a spreadsheet you need a host of different lookup mechanisms (VLookup, HLookup, Sumif, Sumifs, Averageif, etc). In clay the lookups are all handled by a single concept called slice `[]`.
 
 Given a table of city populations across America
 
@@ -105,12 +84,12 @@ FL|F|Orlando|2000
 
 We can find the population of Lawrence, Kansas by doing a sum on a slice (in a spreadsheet this would be a sumifs):
 
-	Sum(Data.Pop[Data.State=KS,Data.City=Lawrence]) // Data
+	Sum(Data.Pop[Data.State=KS,Data.City=Lawrence, Data])
 
 We can find the State for the city Miami using slice (in a spreadsheet this would need to use offset and match, since the table is in the wrong order to use vlookup):
 
-	Head(Data.State[Data.City=Miami] // Data)
-    
+	Head(Data.State[Data.City=Miami, Data])
+
 Note, We use `Head` because without it we get a list of all the items in Data.State where the corresponding item in Data.City is Miami. We could also replace `Head` with `Unique` to get all the States that have a City called Miami (in our dataset).
     
 > Geek Note: This works just like APL.
@@ -123,7 +102,7 @@ Because categories are just lists we can make them by hand or use a function tha
 We can now create a table of Population by State and Gender.
 
 	Population = Sum(Data.Pop[
-    	Data.State=State, Data.Gender=Gender]) // Data
+    	Data.State=State, Data.Gender=Gender, Data])
 
 In a spreadsheet we could have created the above `Population` using a pivot table or 6 calls to sumifs (given our 3 states and 2 genders). The advantage of slice is you can use an function that takes a list to aggregate.
 
@@ -142,9 +121,9 @@ function MySum(iter) {
 ```
 ## Special characters
 
-Want to look like a real mathematician? Paper uses standard notation for many concepts, so you can write \\neq in place of !=. For example:
+Want to look like a real mathematician? clay uses standard notation for many concepts, so you can write \\neq in place of !=. For example:
 
-    Early Costs[Month\in Jan..Mar] = 200
+    Early Costs[Month == Jan..Mar] = 200
 
 
 Code|Symbol
@@ -164,3 +143,7 @@ Code|Symbol
 \\delta|\delta
 \\epsion|\epsilon
 \\neg \\alpha|\neg\alpha
+
+%package Clay
+%author Benjamin Norrington
+%tags Clay, Example, Computable, Document

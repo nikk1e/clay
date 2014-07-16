@@ -17,259 +17,23 @@
 
 <script src="js/clay.js"></script>
 <script src="js/parser.js"></script>
-<style>
-html { font-family: "Open Sans","Segoe UI",verdana , sans-serif; 
-background: #fff; color: #777; }
-
-table {
-	min-width: 100%;
+<link rel="stylesheet" href="/css/clay.css"/>
+<style type="text/css">
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
 }
 
-h1, h2, h3, h4, h5, h6 {
-color: rgb(75, 75, 75);
-text-rendering: optimizeLegibility;
-line-height: 1;
-margin-top: 0;
-font-weight: 300;
+.x.axis path {
+  display: none;
 }
 
-#preview h1 { font-size: 50.66px;
-font-family: "Open Sans", "Segoe UI Light","Segoe WP Light", verdana , sans-serif; 
-}
-#preview h2 {  
-padding-top: 0.8em;
-margin-top: 0.8em;
-border-top: #edece4 1px solid;
-}
-
-#preview h1 {
-	padding-top: 0.8em;
-	margin-top: 0.8em;
-}
-
-pre {
-margin: 1.6em 0;
-box-sizing: border-box;
-background: rgb(250, 250, 250);
-border: 1px solid #eee;
-width: 100%;
-padding: 10px;
-font-size: 0.9em;
-/*white-space: pre;*/
-/*border-radius: 3px;*/
-}
-
-code, kbd, pre, samp {
-font-family: Consolas, Inconsolata, monospace;
-font-size: 1em;
-color: #333;
-}
-
-pre code, pre tt {
-font-size: inherit;
-/*white-space: -moz-pre-wrap;*/
-white-space: pre-wrap;
-background: transparent;
-border: none;
-padding: 0;
-}
-
-blockquote {
-margin: 1.6em 0;
-box-sizing: border-box;
-padding: 0 1.6em 0 1.6em;
-border-left: #edece4 0.6em solid;
-}
-
-#main {
-	padding-top: 30px; /* TODO If you add margin then you need to take that into account for the cursor */
-}
-
-div.modal #preview {
-	display: none;
-}
-
-#preview {
-	position: relative;
-	box-sizing: border-box;
-}
-
-#model {
-	height: 100px;
-	background: white;
-	border: 1px solid #efefef;
-}
-
-
-span.cursor {
-  position: absolute;
-  background: #111;
-  margin-right: -1px;
-  width: 1px;
-  display: block;
-  z-index: 100;
- 
-  -webkit-animation: blink 2s linear 0s infinite;
-  -moz-animation: blink 2s linear 0s infinite;
-  -ms-animation: blink 2s linear 0s infinite;
-  -o-animation: blink 2s linear 0s infinite;
-}
-
-
-@-webkit-keyframes blink {
-  0%   { background: #aa0 }
-  47%  { background: #999 }
-  50%  { background: #000 }
-  97%  { background: #000 }
-  100% { background: #090 }
-}
- 
-@-moz-keyframes blink {
-  0%   { background: #aa0 }
-  47%  { background: #999 }
-  50%  { background: #000 }
-  97%  { background: #000 }
-  100% { background: #999 }
-}
- 
-@-ms-keyframes blink {
-  0%   { background: #aa0 }
-  47%  { background: #999 }
-  50%  { background: #000 }
-  97%  { background: #000 }
-  100% { background: #999 }
-}
- 
-@-o-keyframes blink {
-  0%   { background: #aa0 }
-  47%  { background: #999 }
-  50%  { background: #000 }
-  97%  { background: #000 }
-  100% { background: #999 }
-}
-
-h1 span.before,
-h2 span.before,
-h3 span.before,
-h4 span.before,
-h5 span.before,
-blockquote span.before,
-li > span.before {
-	position: absolute;
-	right: 100%;
-	margin-right: 3px;
-}
-
-code > span > span.before {
-	position: absolute;
-	right: 100%;
-	margin-right: 13px;
-}
-
-code { position: relative; }
-code > span.before {
-position: absolute;
-top: -38px;
-}
-
-code > span.after {
-	position: absolute;
-	margin-top: 10px;
-}
-
-span.meta {
-	display: block;
-}
-
-span.result::before {
-	content: " = ";
-}
-
-div.result {
-	margin-bottom: 0.8em;
-}
-
-.result {
-	color: rgb(151, 168, 182);
-}
-
-span.meta {
-	color: rgb(151, 168, 182);
-}
-
-span.before,
-span.after {
-	color: rgb(202, 224, 243);
-}
-
-code span.hide {
-	display: none;
-}
-
-
-tr.align td {
-	padding-top: 0;
-	padding-bottom: 0;
-}
-
-tr.align {
-	color: rgb(15, 135, 238);
-	position: 
-}
-
-
-.models {
-	list-style-type: none;
-	margin: 0;
-	padding: 0;
-	padding-bottom: 3em;
-	text-align: center;
-}
-
-.models li {
-	padding: 0.8em 0;
-	background: #f7f7f7;
-	border-bottom: 1px solid #e7e7e7;
-}
-
-.models li a {
-	text-decoration: none;
-}
-
-
-.debug { 
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0px;
-	z-index: 100;
-}
-@media (min-width: 48em) {
-	.debug {
-		margin-left: 150px;	
-	}
-}
-
-div.selection {
-	top: 0;
-	left: 0;
-	position: absolute;
-	padding: 0;
-	margin: 0;
-	z-index: 100;
-	display: block;
-}
-
-div.selection div {
-	background: rgba(0, 128, 236, 0.51);
-	box-sizing: border-box;
-	position: absolute;
-	padding: 0;
-	margin: 0;
-}
-
-#menu .menu-modified {
-    border-right: 10px solid rgb(34, 92, 141);
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
 }
 </style>
 </head>
@@ -298,7 +62,7 @@ Requires Chrome, Firefox, or IE9>.
 <script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
 <script type="text/javascript" src="/js/react/react-with-addons.js"></script>
 <script type="text/javascript" src="/js/functions.js"></script>
-
+<script src="http://d3js.org/d3.v3.js"></script>
 <script type="text/javascript">
 var title = "Clay"
 var DOM = React.DOM,
@@ -313,16 +77,15 @@ if (typeof String.prototype.startsWith != 'function') {
   };
 }
 
-
 var _defaultPakageName = 'Main';
 
 var Model = function(name, source) {
 	this.name = name;
-	this.source = this.originalSource = source;
+	this.source = this.originalSource = source.replace(/\r\n/g,'\n');
 	this.package = _defaultPakageName
 	this.expressions = {};
 	this.functions =  {};
-	this.properties = {}; //store meta information like package
+	this.properties = {}; //meta
 	this.ast = {type: 'root', children: []};
 	this.recalculate();
 };
@@ -332,8 +95,18 @@ Model.prototype.isModified = function() {
 };
 
 Model.prototype.update = function(source) {
-	this.source = source;
-	this.recalculate();
+	var s = source.replace(/\r\n/g,'\n');
+	if (s != this.source) {
+		this.source = s;
+		this.recalculate();
+	}
+};
+
+Model.prototype.revert = function() {
+	if (this.originalSource != this.source) {
+		this.source = this.originalSource;
+		this.recalculate();
+	}
 };
 
 Model.prototype.recalculate = function() {
@@ -346,9 +119,9 @@ Model.prototype.recalculate = function() {
 		if (nodetype === 'meta') {
 			if (properties.hasOwnProperty(node.head)) {
 				//insert an error into the ast after the node.
-				parent.children[idx] = {type: 'error', 
+				parent.children[idx] = {type: 'error', pos: node.pos,
 					text: 'Property {' + node.head + '} already defined as: ' + properties[node.head],
-					child: node};
+					children: [node]};
 			} else {
 				properties[node.head] = node.value;
 			}
@@ -400,12 +173,14 @@ Model.prototype.charOffset = function(path, toff) {
 	return off + toff;
 };
 
+var Blank = new Model('Blank', '# Blank\n\nEnter your model here.');
+
 //f should return undefined to visit children
 // false to skip rest of tree
 // any other value to just skip children
 function depthFirstVisit(node, f, depth, parent, index) {
 	if (depth === undefined) depth = 0;
-	var r = f(node, depth);
+	var r = f(node, depth, parent, index);
 	if (r === undefined && node.hasOwnProperty('children')) {
 		depth += 1;
 		var i, cs = node.children, l = cs.length;
@@ -420,92 +195,164 @@ function depthFirstVisit(node, f, depth, parent, index) {
 
 
 var Clay = function() {
-	this._blank = true;
-	this.names = [{name:'Blank'}];
-	this._sources = {'Blank': '# Blank\n\nEnter your model here.'};
-	this._asts = {};
-	//this._rendered = {};
+	this.models = [Blank];
+	this._models = {'Blank': Blank};
 	this._environment;
 };
 
-Clay.prototype.getSource = function(name) {
-	return this._sources[name];
+
+var Graph = {};
+
+Graph.Line = function(matrix, x, series) {
+	var elem = document.createElement('div');
+
+// DUMMY graph to test the result concept
+
+	var margin = {top: 20, right: 30, bottom: 30, left: 30},
+    width = 800 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var parseDate = d3.time.format("%Y%m%d").parse;
+
+var x = d3.time.scale()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var color = d3.scale.category10();
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left");
+
+var line = d3.svg.line()
+    .interpolate("basis")
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.temperature); });
+
+var svg = d3.select(elem).append('svg')
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+d3.tsv("data.tsv", function(error, data) {
+  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "date"; }));
+
+  data.forEach(function(d) {
+    d.date = parseDate(d.date);
+  });
+
+  var cities = color.domain().map(function(name) {
+    return {
+      name: name,
+      values: data.map(function(d) {
+        return {date: d.date, temperature: +d[name]};
+      })
+    };
+  });
+
+  x.domain(d3.extent(data, function(d) { return d.date; }));
+
+  y.domain([
+    d3.min(cities, function(c) { return d3.min(c.values, function(v) { return v.temperature; }); }),
+    d3.max(cities, function(c) { return d3.max(c.values, function(v) { return v.temperature; }); })
+  ]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Net Income");
+
+  var city = svg.selectAll(".city")
+      .data(cities)
+    .enter().append("g")
+      .attr("class", "city");
+
+  city.append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { return line(d.values); })
+      .style("stroke", function(d) { return color(d.name); });
+
+  city.append("text")
+      .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+      .attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.temperature) + ")"; })
+      .attr("x", 3)
+      .attr("dy", ".35em")
+      .text(function(d) { return d.name; });
+});
+
+	return ['element', elem];
+};
+
+var dummy = {};
+dummy['(. (Symbol Graph) (Call (Symbol Line) (Symbol `Net Income`) (Slice (Symbol Month)) (Slice (Symbol Growth))))'] = Graph.Line();
+
+
+Clay.prototype.evaluate = function(package, expression) {
+	//TODO: replace this with real expression evaluation.
+	var e = clay.code.show(expression);
+	if (dummy.hasOwnProperty(e))
+		return dummy[e];
+	return null;
+};
+
+Clay.prototype.model = function(name) {
+	return this._models[name];
+};
+
+Clay.prototype.recalculate = function() {
+	//TODO: ... recalculate (not reparse)
+};
+
+Clay.prototype.addModel = function(model) {
+	if (this.models.length === 1 && this.models[0] === Blank && !Blank.isModified()) {
+		this.models = [];
+		this._models = {};
+	}
+	this.models.push(model);
+	this._models[model.name] = model;
+	this.recalculate();
 };
 
 Clay.prototype.close = function(name) {
-	delete this._sources[name];
-	delete this._asts[name];
-	//delete this._rendered[name];
-	var i = this.names.length;
+	var m = this._models[name];
+	delete this._models[name];
+	var i = this.models.length;
 	while (i--)
-		if (this.names[i].name == name) 
-				break;
+		if (this.models[i] === m) 
+			break;
 	if (i >= 0)
 		this.names.splice(i, 1);
-	//this.recalc()
-	if (this.names.length === 0) {
-		this.names = [{name:'Blank'}];
-		this._sources = {'Blank': '# Blank\n\nEnter your model here.'};
-		this._blank	= true;
-		this.recalc('Blank');
-	}
+	this.recalculate();
 };
 
 Clay.prototype.charOffset = function(name, path, toff) {
-	var node = {}, path = path.reverse(), cur, off = 0, row;
-	node.children = this._asts[name] || [];
-	while ((cur = path.pop()) !== undefined) {
-		if (cur === '_') continue;
-		else if (cur === 'result') return node.pos + node.length; //off + // no toff
-		node = node.children[cur];
-		if (node === undefined) return off + toff;
-		off = node.pos; //+= //change pos to be against level
-		if (node.type === 'table') {
-			switch(cur = path.pop()) {
-				case 'body':
-					row = path.pop();
-					cur = path.pop();
-					node = {children: node.cells[row][cur]};
-					break;
-				case 'head':
-					row = path.pop(); //should be 0
-					cur = path.pop();
-					if (row === 'align') {
-						off = node.align.pos;
-						for (var i = 0; i < cur; i++) {
-							off += node.alignText[i].length + 1;
-						}
-						return off + toff;
-					} else {
-						node = {children: node.header[cur]};
-					}
-					break;
-				//case 'foot': 
-				//	return off + toff; //TODO: don't support foot yet
-			}
-		}
-	}
-	return off + toff;
-};
-
-Clay.prototype.addModel = function(name, source) {
-	if (this._blank && !this.name('Blank').modified) {
-		this.names = [];
-		this._sources = {};
-		this._blank = false;
-	}
-	this._sources[name] = source;
-	this.names.push({name: name});
-	this.recalc(name);
+	return this.model(name).charOffset(path, toff);
 };
 
 Clay.prototype.openModel = function(name, callback) {
-	if (this._sources[name] !== undefined) {
+	if (this._models[name] !== undefined) {
 		if (callback) callback(name); //file already open just switch to it
 	} else {
 		fetchFile('/models/'+name + '.model', function(data) {
 			if (data !== undefined) {
-				this.addModel(name, data);
+				this.addModel(new Model(name, data));
 				if (callback) callback(name);
 			}
 		}.bind(this));
@@ -513,32 +360,12 @@ Clay.prototype.openModel = function(name, callback) {
 };
 
 Clay.prototype.revert = function(name, callback) {
-	fetchFile('/models/'+name + '.model', function(data) {
-		if (data !== undefined) {
-			this.update(name, data);
-			this.name(name).modified = false;
-			if (callback) callback(name);
-		}
-	}.bind(this));
-};
-
-Clay.prototype.recalc = function(name) {
-	var source = this._sources[name],
-		lex = clay.lexer(source);
-	this._asts[name] = clay.parser(lex);
+	this.model(name).revert();
+	if (callback) callback(name);
 };
 
 Clay.prototype.update = function(name, source) {
-	var s = this._sources[name];
-	if (s != source) {
-		this._sources[name] = source;
-		this.setModified(name);
-		this.recalc(name);
-	}
-};
-
-Clay.prototype.setModified = function(name) {
-	this.name(name).modified = true;
+	this.model(name).update(source);
 };
 
 Clay.prototype.name = function(name) {
@@ -564,7 +391,7 @@ var MenuItem = React.createClass({
 			classes = React.addons.classSet({
 			'menu-item-divided': this.props.divided,
 			'pure-menu-selected': this.props.selected,
-			'menu-modified': item.modified,
+			'menu-modified': item.isModified && item.isModified(),
 		});
 		return li({onClick: this.clicked, className: classes},
 			a({href:"#" + item.name}, item.name))
@@ -736,11 +563,29 @@ var Selection = React.createClass({
 	},
 });
 
+var Result = React.createClass({
+	componentDidMount: function() {
+		if (this.props.value instanceof Array && this.props.value[0] === 'element') {
+			var el = this.getDOMNode(), last;
+			while (last = el.lastChild) el.removeChild(last);
+			el.appendChild(this.props.value[1]);
+		}
+	},
+	componentDidUpdate: function() {
+	},
+	render: function() {
+		if (this.props.inline)
+			return span({className: 'result'});
+		else
+			return div({className: 'result'}, clay.code.show(this.props.value));
+	},
+});
+
 var Renderer = React.createClass({
 	rangeFor: function(start, end) {
 		var rootId = this._rootNodeID + '.',
 			range = document.createRange(),
-			ast = this.props.model._asts[this.props.name];
+			ast = this.props.model.model(this.props.name).ast.children;
 		function setEnd(items, pos, isStart) {
 			var item,
 			i,l,path = [];
@@ -865,15 +710,6 @@ var Renderer = React.createClass({
 	renderCode: function(item, idx) {
 		return DOM.pre({key: idx}, DOM.code({key: '_'}, item.children.map(this.renderTree)));
 	},
-	renderResult: function(item, idx) {
-		if (item.code.type === 'codespan') {
-			return span({className: 'result', key: idx}, 
-				item.code.result);
-		} else {
-			return div({className: 'result', key: idx}, 
-				item.code.result.map(function(c, i) { return div({key: i}, c); }));
-		}
-	},
 	renderTable: function(item, idx) {
 		var align = item.align, rtree = this.renderTree;
 		function renderCell(f) {
@@ -903,10 +739,28 @@ var Renderer = React.createClass({
 			//DOM.tfoot({key:'foot'})
 			);
 	},
+	renderResult: function(item, idx) {
+		var inline = false,
+			expressions = item.code.sexpr,
+			models = this.props.model,
+			model = models.model(this.props.name),
+			p = model.package;
+
+			if (item.code.type === 'codespan') {
+				inline = true;
+				expressions = [expressions];
+			}
+			
+			var results = clay.code.expressions(expressions)
+				.map(function(e,i) { return models.evaluate(p, e); })
+				.filter(function(r) { return r !== null; });
+
+			return results.map(function(r, i) { return Result({key: idx + '_' + i, value: r, inline: inline}); });
+
+	},
 	renderTree: function(item, idx) {
 		switch(item.type) {
-			case 'text': return span({key: idx},item.text.
-				replace(/  /g, '\u2423 '));
+			case 'text': return span({key: idx},item.text);
 			case 'escape': return span({key: idx, dangerouslySetInnerHTML:{__html: item.text}});
 			case 'span': return span({key: idx}, item.children.map(this.renderTree));
 			case 'meta': return span({key: idx, className: 'meta'}, item.text);
@@ -933,6 +787,10 @@ var Renderer = React.createClass({
 			case 'br': return DOM.br({key: idx}); //TODO
 			case 'code': return this.renderCode(item, idx);
 			case 'codespan': return DOM.code({key: idx}, item.text);
+			case 'error': 
+				var children = item.children.map(this.renderTree);
+				children.push(span({className: 'error'}, item.text));
+				return div({key: idx}, children);
 			case 'html': return div({key: idx,
 				dangerouslySetInnerHTML:{__html: item.raw}
 				});
@@ -941,15 +799,16 @@ var Renderer = React.createClass({
 		};
 	},
 	render: function() {
-		var ast = this.props.model._asts[this.props.name];
-		if (ast === undefined)
-			ast = [];
+		var model = this.props.model.model(this.props.name);
+		if (model === undefined)
+			ast = {type:'root', children: []};
+		else
+			ast = model.ast;
 		return div({id: 'preview', 
 			ref: 'preview',
 			onMouseUp: this.handleMouseUp,
 			className: 'editor', 
-			//dangerouslySetInnerHTML:{__html: this.props.model._rendered[this.props.name]}
-      		}, ast.map(this.renderTree)
+      		}, ast.children.map(this.renderTree)
       		); 
 	},
 });
@@ -959,7 +818,7 @@ var Editor = React.createClass({
 		return {
 			//TODO this should be an empty model
 			currentSource: 'Test of this',
-			selected: 'Example',
+			selected: 'Blank',
 			modal: null,
 		}
 	},
@@ -997,7 +856,7 @@ var Editor = React.createClass({
 	},
 	switchFile: function(name) { 
 		console.log('switchFile: ' + name);
-		var source = this.props.model.getSource(name),
+		var source = this.props.model.model(name).source,
 		    ta = this.refs.textarea.getDOMNode();
 		this.setState({ selected: name,
 			currentSource: source,
@@ -1027,11 +886,7 @@ var Editor = React.createClass({
 	updateCursor: function() {
 		//TODO might want this to ignore the 
 		var ta = this.refs.textarea.getDOMNode(),
-		    range = this.refs.preview.rangeFor(ta.selectionStart, ta.selectionEnd),
-		    rect = range.getClientRects()[0];
-		if (rect) {
-
-		}
+		    range = this.refs.preview.rangeFor(ta.selectionStart, ta.selectionEnd);
 		this.refs.selection.setState({selection: range});
 	},
 	handleKeyDown: function(e) {
@@ -1098,10 +953,10 @@ var Editor = React.createClass({
 						onBlur: this.handleBlur,
 						ref: "textarea", 
 						style: {opacity: '0', position: 'fixed', width: '100%', 'max-width': '800px'},
-						defaultValue: this.props.model.getSource(this.state.selected)}),
+						value: this.state.value}),
 			div({id:'layout'},
 				MenuToggle(null),
-				Menu({items: this.menu(), files:this.props.model.names, 
+				Menu({items: this.menu(), files:this.props.model.models, 
 					selected:this.state.selected, fileClick: this.switchFile}),
 				div({id:'main'},
 					div({className:'content'},
@@ -1118,13 +973,10 @@ var Editor = React.createClass({
 
 
 var models = new Clay();
-//models.addModel("Getting Started", "# Some stuff here\n\nOther stuff");
-//models.addModel("Benchmarks","# Benchmarks\n\nNothing to see here");
 var ed = Editor({model: models});
 React.renderComponent(ed, document.body);
 //ed.openFile('Example');
 </script>
 <script src="js/ui.js"></script>
-
 </body>
 </html>
