@@ -1,4 +1,4 @@
-%package clay
+%package Clay
 %author Benjamin Norrington
 %note each key in this meta section may appear once only
 %tags Clay, Example, Computable, Document
@@ -31,7 +31,7 @@ We want to model a simple manufacturer. Our goal is to project their "net income
 Start by defining the months of the year:
 
 	Month = {Jan,Feb,Mar,Apr,May,Jun,Jul,
-  		Aug,Sep,Oct,Nov,Dec}
+        Aug,Sep,Oct,Nov,Dec}
 
 
 "Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In paper we choose the dimensions.

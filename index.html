@@ -313,13 +313,119 @@ if (typeof String.prototype.startsWith != 'function') {
   };
 }
 
+
+var _defaultPakageName = 'Main';
+
+var Model = function(name, source) {
+	this.name = name;
+	this.source = this.originalSource = source;
+	this.package = _defaultPakageName
+	this.expressions = {};
+	this.functions =  {};
+	this.properties = {}; //store meta information like package
+	this.ast = {type: 'root', children: []};
+	this.recalculate();
+};
+
+Model.prototype.isModified = function() {
+	return this.source != this.originalSource;
+};
+
+Model.prototype.update = function(source) {
+	this.source = source;
+	this.recalculate();
+};
+
+Model.prototype.recalculate = function() {
+	var lex = clay.lexer(this.source);
+	this.ast.children = clay.parser(lex);
+	//collect properties, code, tables
+	var properties = {}, code = [], tables = [];
+	depthFirstVisit(this.ast, function(node, depth, parent, idx) {
+		var nodetype = node.type
+		if (nodetype === 'meta') {
+			if (properties.hasOwnProperty(node.head)) {
+				//insert an error into the ast after the node.
+				parent.children[idx] = {type: 'error', 
+					text: 'Property {' + node.head + '} already defined as: ' + properties[node.head],
+					child: node};
+			} else {
+				properties[node.head] = node.value;
+			}
+			return true; // don't recurse to children
+		} else if (nodetype === 'code' || nodetype === 'codespan') {
+			code.push(node);
+		} else if (nodetype === 'table') {
+			tables.push(node);
+		}
+	});
+	this.properties = properties;
+	this.package = this.properties['package'] || _defaultPakageName;
+};
+
+
+Model.prototype.charOffset = function(path, toff) {
+	var node = this.ast, path = path.reverse(), cur, off = 0, row;
+	while ((cur = path.pop()) !== undefined) {
+		if (cur === '_') continue;
+		else if (cur === 'result') return node.pos + node.length; //off + // no toff
+		node = node.children[cur];
+		if (node === undefined) return off + toff;
+		off = node.pos; //+= //change pos to be against level
+		if (node.type === 'table') {
+			switch(cur = path.pop()) {
+				case 'body':
+					row = path.pop();
+					cur = path.pop();
+					node = {children: node.cells[row][cur]};
+					break;
+				case 'head':
+					row = path.pop(); //should be 0
+					cur = path.pop();
+					if (row === 'align') {
+						off = node.align.pos;
+						for (var i = 0; i < cur; i++) {
+							off += node.alignText[i].length + 1;
+						}
+						return off + toff;
+					} else {
+						node = {children: node.header[cur]};
+					}
+					break;
+				//case 'foot': 
+				//	return off + toff; //TODO: don't support foot yet
+			}
+		}
+	}
+	return off + toff;
+};
+
+//f should return undefined to visit children
+// false to skip rest of tree
+// any other value to just skip children
+function depthFirstVisit(node, f, depth, parent, index) {
+	if (depth === undefined) depth = 0;
+	var r = f(node, depth);
+	if (r === undefined && node.hasOwnProperty('children')) {
+		depth += 1;
+		var i, cs = node.children, l = cs.length;
+		for (i = 0; i < l; i++) {
+			if (depthFirstVisit(cs[i],f, depth, node, i) === false) {
+				return false;
+			}
+		}
+	}
+	return r;
+}
+
+
 var Clay = function() {
 	this._blank = true;
 	this.names = [{name:'Blank'}];
 	this._sources = {'Blank': '# Blank\n\nEnter your model here.'};
 	this._asts = {};
-	this._rendered = {};
-	this._model;
+	//this._rendered = {};
+	this._environment;
 };
 
 Clay.prototype.getSource = function(name) {
@@ -329,7 +435,7 @@ Clay.prototype.getSource = function(name) {
 Clay.prototype.close = function(name) {
 	delete this._sources[name];
 	delete this._asts[name];
-	delete this._rendered[name];
+	//delete this._rendered[name];
 	var i = this.names.length;
 	while (i--)
 		if (this.names[i].name == name) 
@@ -877,11 +983,17 @@ var Editor = React.createClass({
 	openFile: function(path) {
 		this.props.model.openModel(path, this.switchFile);
 	},
+	newFile: function() {
+		this.setState({modal: this.newModal});
+	},
 	preview: function() {
 		return 
 	},
 	openModal: function() {
 		return FileList({clicked: this.openFile});
+	},
+	newModal: function() {
+		return div(null, p(null, 'TODO: put form here with a box for model name'));
 	},
 	switchFile: function(name) { 
 		console.log('switchFile: ' + name);
@@ -909,6 +1021,7 @@ var Editor = React.createClass({
 			{name: "Revert", func: this.revert},
 			{name: "Save", func: this.save, separator: true},
 			{name: "Save All", func: this.saveAll},
+			{name: "New", func: this.newFile, separator: true},
 			];
 	},
 	updateCursor: function() {
@@ -933,6 +1046,27 @@ var Editor = React.createClass({
 			//manually trigger update
 			this.props.model.update(this.state.selected, ta.value);
 			return false;
+		} else if (e.keyCode === 13 && !e.altKey && !e.ctrlKey && !e.shiftKey) { //return
+			var ta = this.refs.textarea.getDOMNode(),
+				val = ta.value,
+				start = ta.selectionStart,
+				end = ta.selectionEnd,
+				lineStart = val.lastIndexOf('\n',start-1) + 1;
+			if (start === end && /^\n\t(\n|$)/.test(val.slice(start-2,start+1))) {
+				ta.value = val.substring(0,start-1) + '\n' + val.substring(end);
+				ta.selectionStart = ta.selectionEnd = start;
+				this.setState({currentSource: ta.value});
+				//manually trigger update
+				this.props.model.update(this.state.selected, ta.value);
+				return false;
+			} else if (val.slice(lineStart,lineStart+1) === '\t' || val.slice(lineStart,lineStart + 4) === '    ') {
+				ta.value = val.substring(0,start) + '\n\t' + val.substring(end);
+				ta.selectionStart = ta.selectionEnd = start + 2;
+				this.setState({currentSource: ta.value});
+				//manually trigger update
+				this.props.model.update(this.state.selected, ta.value);
+				return false;
+			}
 		}
 		return true;
 	},

@@ -15,7 +15,7 @@
 
 var block = {
   newline: /^\n+/,
-  code: /^((?: {4}|\t)[^\n]+\n*)+/,
+  code: /^((?: {4}|\t)[^\n]*(?:\n|$))+/,
   fences: noop,
   hr: /^( *[-*_]){3,} *(?:\n+|$)/,
   heading: /^( *(#{1,6}) *)([^\n]+?)( *#* *(?:\n+|$))/,
@@ -1103,10 +1103,11 @@ Parser.prototype.parseCode = function() {
       var line = lines[i] + '\n',
         m = /^( {4}|\t)?(.*\n?)$/m.exec(line);
       if (m) {
+        var len = m[1] === undefined ? 0 : m[1].length;
         children.push({type: 'span', 
           pos: pos + index, 
           children: [{type: 'before', pos: pos + index, text: m[1]}
-                  ,{type: 'text', pos: pos + index + m[1].length, text: m[2]}]});
+                  ,{type: 'text', pos: pos + index + len, text: m[2]}]});
       } else {
         console.log('Error: m is null for line: ' + line);
       }

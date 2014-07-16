@@ -57,21 +57,6 @@ code.symbol = replace(code.symbol, 'i')
 ();
 
 
-//console.log(code.operator);
-
-//console.time("this");
-
-var src = 'Growth = {1%, 2%, 3% + 2 + 3 >= Stuff, 4%, 5%}\n' +
-	'Fred = "this is a multi line \n' +
-	'string"\n' +
-	'Growth = 0x77\n' +
-	'Unit Price = £ 55\n' +
-	'£ _Number -> X\n' +
-	'Sales[Month.Jan..Month.Feb] = // this is a comment\n' +
-	'  Sales[Month[Prev]] * (1.0e-1 + Growth) \n' +
-	'`Sum` This\n' +
-	'Something = sin(Growth,test, 4)';
-
 var tokenize = function(src) {
 	var tokens = []
 	  , cap;
@@ -195,8 +180,6 @@ var tokenize = function(src) {
 	return tokens;
 };
 
-//console.timeEnd("this");
-//console.log(tokens)
 
 /* M-Expr Parser */
 var prefixes = {},
@@ -647,10 +630,16 @@ var parseCode = function(src, multi) {
 	}
 };
 
+var expressions = function(prog) {
+	return prog.filter(function(n) { return !(n.head === 'Set' || n.head === 'Rule'); });
+}
+
 parseCode.show = show;
 parseCode.showp = showp;
 parseCode.parse = parse;
 parseCode.lex = tokenize;
+
+parseCode.expressions = expressions;
 
 clay.code = parseCode;
 
