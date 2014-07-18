@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Test</title>
+	<style type="text/css" media="screen">
+	/*code { 
+	  white-space: pre; 
+	}
+	code::after {
+		content: "⏎";
+	}*/
+	</style>
+</head>
+<body id="" onload="">
+	<div id="editor" contentEditable="true" >
+		<h1 id="first_file">First File</h1>
+		<p>Some first file text</p>
+		<pre><code>Some code.</code></pre>
+		<p>Some text with <code>inline code</code> and some other stuff after</p>
+		<p>Some text with <code>inline code at the end</code>
+</p>
+	</div>
+	<div>
+		<h1 id="second_file" contentEditable="true">Second File</h1>
+		<p contentEditable="true">Some second file text</p>
+		<code contentEditable="true">Some code.</code>
+		<p contentEditable="true">&nbsp;<p>
+	</div>
+	
+	<p>Probably better to not have all the files on screen at once. If you open a file it should import all the associated files. The should be saved as markdown but internally they should be an ast that renders and also mounts onto the DOM.
+</p>
+<p>Alternatively, we can mount the DOM elements to the ast. That way when the DOM changes we know which tree element changed too.</p>
+<p>Should we do a bare or a react-id style mapping?</p>
+<p>Imports are links? If you are good then most files will not import..</p>
+
+<p>metas are all at the root level so they act as a wrapper.</p>
+<p>System logically behaves like one big document.</p>
+<p>Breadcrumbs are from import path.</p>
+<p>Imports act like concatenation (there are no multiple levels)</p>
+<p>We render a table of contents at the start that we can hide like a menu in the corner</p>
+<p>You could have it so that the lower levels import only if the upper level is not going to import but the order will allways be as it is in the upper level. So you load the lower level imports and insert them after their files only if the top level has not already imported them. If the top level imports them then you move them to after the top level.
+<script type="text/javascript">
+var editor = document.getElementById('editor');
+
+function handleKeyup(event) {
+	if (event.keyCode === 13) {
+		var selection = document.getSelection(),
+		    anchor = selection.anchorNode;
+		//TODO we need to check we are actually on an editable bit
+		// and not a read only bit
+		if (anchor && anchor.nodeName === "DIV") {
+			document.execCommand("formatBlock", false, "p");
+		} else {
+			//var currentNodes = findNodes(selection.focusNode, editor);
+			//console.log(currentNodes);
+		}
+	}
+	//TODO capture delete key to fixup merged items
+}
+var lastEnter = false;
+function handleKeydown(event) {
+	if (event.keyCode === 13) {
+		var selection = document.getSelection()
+		  , range
+			, currentNodes = findNodes(selection.focusNode, editor);
+		if (!!currentNodes['CODE']) { 
+			//TODO (should include inline code as that doesn't do as you expect)
+			if (selection.rangeCount) {
+				var nl;
+				range = selection.getRangeAt(0);
+				if (range.collapsed) {
+					if  (range.endContainer.parentNode.lastChild 
+					=== range.endContainer && 
+					range.endContainer.textContent == '\n\n') {
+						range.endContainer.parentNode.removeChild(range.endContainer);
+						var pre = range.endContainer.parentNode; //TODO this is flaky
+						range.setStartAfter(pre);
+						range.setEndAfter(pre);
+						selection.removeAllRanges();
+						selection.addRange(range);
+						document.execCommand('insertParagraph',false);
+						event.preventDefault();
+					}
+				} else {
+					range.deleteContents();
+				}
+				if (range.endContainer.parentNode.lastChild 
+					=== range.endContainer
+					&& range.endContainer.length
+					=== range.endOffset) {
+						//TODO this should use execCommand('insertText',false, "\n\n");
+						// except on IE where this doesn't work (you could do a shim for IE)
+						//that does what the below does
+						nl = document.createTextNode("\n\n"); //put an extra newline at the end
+						range.setStartAfter(range.endContainer);
+					} else {
+						nl = document.createTextNode("\n");
+					}
+				range.insertNode(nl);
+				range = document.createRange();
+				range.setStart(nl, 1);
+				range.setEnd(nl, 1);
+				selection.removeAllRanges();
+				selection.addRange(range);
+				event.preventDefault();
+			}
+		}
+	}
+}
+
+function findNodes(node, root) {
+	var nodes = {};
+	while (node.parentNode && node !== root) {
+		nodes[node.nodeName] = true;
+		if (node.nodeName === "A") nodes.url = node.href;
+		node = node.parentNode;
+	}
+	return nodes;
+}
+
+editor.onkeyup = handleKeyup;
+editor.onkeydown = handleKeydown;
+</script>
+</body>
+</html>
