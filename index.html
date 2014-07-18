@@ -781,7 +781,7 @@ var Renderer = React.createClass({
 			case 'table': return this.renderTable(item, idx);
 			case 'blockquote': return DOM.blockquote({key: idx}, item.children.map(this.renderTree));
 			case 'ul': return ul({key: idx}, item.children.map(this.renderTree));
-			case 'ol': return ol({key: idx}, item.children.map(this.renderTree));
+			case 'ol': return DOM.ol({key: idx}, item.children.map(this.renderTree));
 			case 'li': return li({key: idx}, item.children.map(this.renderTree));
 			case 'hr': return DOM.hr({key: idx}); //TODO
 			case 'br': return DOM.br({key: idx}); //TODO

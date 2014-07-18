@@ -1175,13 +1175,13 @@ Parser.prototype.tok = function(prev) {
         return {type: 'blockquote', pos: pos, children: body};
       }
       case 'list_start': {
-        var body = [], item, pos = this.token.pos;
+        var body = [], item, pos = this.token.pos, ordered = this.token.ordered;
         while (this.next().type !== 'list_end') {
           item = this.tok();
           if (item)
             body.push(item);
         }
-        return {type: (this.token.ordered ? 'ol' : 'ul'), children: body, pos: pos};
+        return {type: (ordered ? 'ol' : 'ul'), children: body, pos: pos};
       }
       case 'list_item_start': {
         var pos = this.token.pos,

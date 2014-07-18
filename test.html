@@ -3,73 +3,266 @@
 <head>
 	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
 	<title>Test</title>
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="css/layouts/side-menu.css">
+<!--<![endif]-->
+<link rel="stylesheet" href="/css/clay.css"/>
+
 	<style type="text/css" media="screen">
-	/*code { 
+	code { 
 	  white-space: pre; 
 	}
+
+*:focus {
+				outline: none;
+}
+
+.token.keyword {
+				color: #66D9EF;
+}
+
+p.meta {
+				margin: 0;
+				color: rgb(202, 224, 243);
+}
+
+.options {
+		background-color: #262625;
+		border-radius: 5px;
+		z-index: 1000;
+		padding: 5px 4px 5px 5px;
+		transition: all 300ms ease-in-out;
+		height: 33px;
+		width: 270px;
+		font-family: Georgia, serif;
+}
+
+.options .italic {
+		font-style: italic;
+}
+
+.options button {
+float: left; /* to hide the input */
+width: 28px;
+height: 30px;
+border-radius: 3px;
+margin-right: 1px;
+}
+
+.options input {
+border-radius: 3px;
+overflow: hidden;
+outline: 0px;
+height: 30px;
+padding: 0px;
+margin: 0px;
+border: 0px;
+float: left;
+width: 0px;
+}
+
+.text-menu {
+-webkit-transition: opacity 180ms, margin 180ms;
+-ms-transition: opacity 180ms, margin 180ms;
+transition: opacity 180ms, margin 180ms;
+color: #fff;
+position: fixed;
+		top: 10px;
+		left: 50%;
+
+}
+
+
+.text-menu button {
+-webkit-transition: opacity 400ms;
+-ms-transition: opacity 400ms;
+transition: opacity 400ms;
+font-family: inherit;
+background: none;
+cursor: pointer;
+font-size: 16px;
+color: inherit;
+padding: 0px;
+height: 32px;
+width: 25px;
+border: 0px;
+outline: none;
+-webkit-touch-callout: none;
+-webkit-user-select: none;
+-khtml-user-select: none;
+-moz-user-select: none;
+-ms-user-select: none;
+user-select: none;
+}
+
+.options button {
+float: left;
+width: 28px;
+height: 30px;
+border-radius: 3px;
+margin-right: 1px;
+}
+
+
+.options:before {
+content: "";
+border-top: 5px solid rgba(0,0,0,0.9);
+border-bottom: 5px solid transparent;
+border-right: 5px solid transparent;
+border-left: 5px solid transparent;
+position: absolute;
+margin-left: -5px;
+bottom: -15px;
+height: 5px;
+width: 0px;
+left: 50%;
+}
+	/*
 	code::after {
 		content: "⏎";
 	}*/
 	</style>
 </head>
 <body id="" onload="">
-	<div id="editor" contentEditable="true" >
+<div class="text-menu active">
+<div class='options'> 
+          <span class='no-overflow'> 
+            <span class='ui-inputs'> 
+              <button class='bold'>B</button> 
+              <button class='italic'>i</button> 
+              <button class='header1'>h1</button> 
+              <button class='header2'>h2</button> 
+              <button class='header3'>h3</button> 
+              <button class='header4'>h4</button> 
+              <button class='quote'>&rdquo;</button> 
+							<button class='code'>&rang;</button> 
+              <button class='url useicons'>&#xe001;</button> 
+              <input class='url-input' type='text' placeholder='Paste or type a link'/> 
+            </span> 
+          </span> 
+        </div>
+</div>
+</div>
+<div id="layout">
+    <!-- Menu toggle -->
+
+    <div id="main">
+<div class="content">
+	
+	<div id="preview" contentEditable="true" >
 		<h1 id="first_file">First File</h1>
 		<p>Some first file text</p>
-		<pre><code>Some code.</code></pre>
+		<pre><code>Some <span class="token keyword">code</span>.
+
+</code></pre>
 		<p>Some text with <code>inline code</code> and some other stuff after</p>
 		<p>Some text with <code>inline code at the end</code>
 </p>
 	</div>
-	<div>
-		<h1 id="second_file" contentEditable="true">Second File</h1>
-		<p contentEditable="true">Some second file text</p>
-		<code contentEditable="true">Some code.</code>
-		<p contentEditable="true">&nbsp;<p>
-	</div>
-	
-	<p>Probably better to not have all the files on screen at once. If you open a file it should import all the associated files. The should be saved as markdown but internally they should be an ast that renders and also mounts onto the DOM.
-</p>
-<p>Alternatively, we can mount the DOM elements to the ast. That way when the DOM changes we know which tree element changed too.</p>
-<p>Should we do a bare or a react-id style mapping?</p>
-<p>Imports are links? If you are good then most files will not import..</p>
-
-<p>metas are all at the root level so they act as a wrapper.</p>
-<p>System logically behaves like one big document.</p>
-<p>Breadcrumbs are from import path.</p>
-<p>Imports act like concatenation (there are no multiple levels)</p>
-<p>We render a table of contents at the start that we can hide like a menu in the corner</p>
-<p>You could have it so that the lower levels import only if the upper level is not going to import but the order will allways be as it is in the upper level. So you load the lower level imports and insert them after their files only if the top level has not already imported them. If the top level imports them then you move them to after the top level.
+<img src="data:image/jpg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a
+HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy
+MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAUAB0DASIA
+AhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQA
+AAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3
+ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWm
+p6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEA
+AwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSEx
+BhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElK
+U1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3
+uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDi677T
+fhJr99py3UstraPJGHjgmLbwcjhwB8vy5Pc9AQOccDXs9h8ZdKNjD/aNheLebf3ot0Vo8+qksDg9
+cHp0yeteFho0ZN+1Z+r5zWzClCH1GN9devp9+p5TreiX3h7VJNP1CLZMnIYcrIvZlPcH/EHBBFZ1
+dF408T/8JX4ga+SDyYI4xDCp+8UBJBbtklj06cDnGTztYVFFSajselhJVpUISrq07arzCiiipOgK
+KKKAP//Z"> </img>	
+</div>
+</div>
+</div>
 <script type="text/javascript">
-var editor = document.getElementById('editor');
+var editor, meta;
+editor = document.getElementById('preview');
+
+var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+
+var getTextProp = (function() {
+	if (isFirefox)
+		return function(node) { return (node.nodeType === Node.TEXT_NODE) ? 'data' : 'textContent'; };
+	return function(node) { return (node.nodeType === Node.TEXT_NODE) ? 'data' : 'innerText'; };
+}());
 
 function handleKeyup(event) {
 	if (event.keyCode === 13) {
-		var selection = document.getSelection(),
-		    anchor = selection.anchorNode;
-		//TODO we need to check we are actually on an editable bit
-		// and not a read only bit
-		if (anchor && anchor.nodeName === "DIV") {
+		var sel = document.getSelection();
+		if (sel.anchor && sel.anchor.nodeName === "DIV") {
 			document.execCommand("formatBlock", false, "p");
-		} else {
-			//var currentNodes = findNodes(selection.focusNode, editor);
-			//console.log(currentNodes);
-		}
+		} 
 	}
-	//TODO capture delete key to fixup merged items
 }
-var lastEnter = false;
+
+//TODO fix for IEs
+var insertHtml = function(text) {
+	return document.execCommand('insertHtml',false,text);	
+};
+
+var getParentWithTag = function(node, tag) {
+	while (node) {
+		if (node.nodeName === tag) return node;
+		node = node.parentNode;
+	}
+};
+
 function handleKeydown(event) {
-	if (event.keyCode === 13) {
-		var selection = document.getSelection()
+	if (event.keyCode === 13) { //todo need to check for shift character
+		var sel = document.getSelection()
 		  , range
-			, currentNodes = findNodes(selection.focusNode, editor);
+			, currentNodes = findNodes(sel.focusNode, editor);
 		if (!!currentNodes['CODE']) { 
-			//TODO (should include inline code as that doesn't do as you expect)
-			if (selection.rangeCount) {
+			if (sel.rangeCount) {
+				range = sel.getRangeAt(0);
+				//TODO this doesn't work if we are in a span in code (walk up the last nodes)
+				var atEnd = (range.endContainer.parentNode.lastChild === range.endContainer) &&
+											(range.endContainer.length <= range.endOffset + 1) && !!currentNodes['PRE'];
+				//also need to do atEnd and currentNodes['P']
+				if (atEnd) {
+					if ((range.collapsed || sel.isCollapsed)
+													&& sel.anchorNode.textContent[sel.anchorOffset-1] === '\n') {
+						document.execCommand('delete')
+						var pre = getParentWithTag(range.endContainer, 'PRE');
+						range.setStartAfter(pre);
+						range.setEndAfter(pre); //collapse(true);
+						sel.removeAllRanges();
+						sel.addRange(range);
+						document.execCommand('insertParagraph');
+						sel.removeAllRanges();
+						sel.addRange(range);	
+					} else {
+						var ec = range.endContainer;
+						if (range.endContainer.length === range.endOffset) {
+										insertHtml("\n\n"); //because the last newline gets gobbled
+						} else {
+										insertHtml("\n");
+						}
+						range.setStart(ec, ec.length-1);
+						range.setEnd(ec, ec.length-1);
+					  sel.removeAllRanges();
+						sel.addRange(range);	
+					}
+				} else {
+					insertHtml("\n");
+				}
+				event.preventDefault();
+			}
+		}
+	} // enterKey
+			
+/*
+
 				var nl;
-				range = selection.getRangeAt(0);
-				if (range.collapsed) {
+								if (range.collapsed) {
 					if  (range.endContainer.parentNode.lastChild 
 					=== range.endContainer && 
 					range.endContainer.textContent == '\n\n') {
@@ -107,14 +300,16 @@ function handleKeydown(event) {
 			}
 		}
 	}
+	*/
 }
 
 function findNodes(node, root) {
 	var nodes = {};
-	while (node.parentNode && node !== root) {
+	while (node !== root) {
 		nodes[node.nodeName] = true;
 		if (node.nodeName === "A") nodes.url = node.href;
 		node = node.parentNode;
+		if (node === undefined) return {}; //not child of root
 	}
 	return nodes;
 }

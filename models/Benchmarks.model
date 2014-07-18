@@ -1,9 +1,65 @@
-# Benchmarks
+%package Benchmarks
+%ValidFrom 2014-01-01
 
-## Scheme Total
+# Benchmark Specifications
 
-    Wt[Portfolio=="Scheme"] = 100%
+## Introduction
 
-## Other
+The Scheme benchmark defines the strategic asset allocation for the scheme assets. This document describes the **current** specification of the Scheme benchmark weightings and details of the component benchmarks that are used to determine the scheme benchmark return. It describes the benchmark weights calculation, the reweighting scheme, component benchmark indices, currency hedging policy and any other information that is needed to calculate the benchmark weights and returns.
 
-Models are just markdown files with code segments.
+Changes to the benchmarks must be approved by the Investment Committee (and some changes must be approved by the Board). This document will be updated to reflect the changes once they have been approved.
+
+“Valid from” dates refer to the implementation date of the latest change(s).
+
+## Scheme Benchmark
+
+This section describes how the benchmark weights are formulated for the following benchmarks:
+
+1. Total Scheme Assets
+2. LGIM
+3. USSIM
+
+All three benchmarks will be used to monitor and manage the asset allocation across the scheme and the two manager components. The USSIM benchmark will be used to assess the performance of the USSIM portfolio.
+
+### TOTAL SCHEME BENCHMARK
+
+This benchmark sets the strategic allocations for the scheme. The table below sets out the calculation of the benchmark weights for each of the asset classes within this benchmark.
+
+#### Total Equities
+
+	Wt[Portfolio==EQ]                    = 46.0% + 
+	                                       (14% - Wt[Portfolio==ALTS_EX_INFRA]) + 
+	                                       0.7 x PROP_DIFF - 
+	                                       Max(0%, (Wt[Portfolio==INFRA] - 7%)) + 
+	                                       Max(0%, 3% - Wt[Portfolio==INFRA])
+
+	Wt[Portfolio==EQ_DM]                 = Wt[Porfolio==EQ] - Wt[Porfolio==EQ_GEMs]
+
+	Wt[Portfolio==EQ_DMUK]               = 40% * Wt[Portfolio==EQ_DM]
+	Wt[Portfolio==EQ_DMOS]               = 60% * Wt[Portfolio==EQ_DM]
+
+	Wt[Portfolio==EQ_DMOS Europe Ex UK]  = 40% * Wt[Portfolio==EQ_DMOS]
+	Wt[Portfolio==EQ_DMOS North America] = 30% * Wt[Portfolio==EQ_DMOS]
+	Wt[Portfolio==EQ_DMOS Pacific]       = 30% * Wt[Portfolio==EQ_DMOS]
+
+#### Total Alternatives
+
+	Wt[Portfolio==ALTS]                  = Wt[Portfolio=ALTS_EX_INFRA] 
+	                                     + Wt[Portfolio==INFRA]
+
+	Wt[Portfolio==ALTS_EX_INFRA]         = Portfolio Weight
+	Wt[Portfolio==INFRA]                 = Portfolio Weight
+
+#### Total Bonds
+
+	Wt[Portfolio==BD]                    = Wt[Portfolio In 
+	                                          {BD_GV, BD_GV_UK, BD_GV_US, IG, 
+	                                           EMD, USSIM_LAP, LGIM_Hedge, BD_TIPs}]
+
+	Wt[Portfolio==BD_GV]                 = 10% + 0.3 * PROP_DIFF
+	                                     + Max(0%, Min(2%, 
+	                                               0.5 * (7% - Wt[Portfolio==INFRA])))
+	                                     – Min(1%, 0.5 * Min(2%, 
+	                                               Max(0%, Wt[Portfolio==INFRA] – 5%)))
+	Wt[Portfolio==BD_GV_UK]              = 1.5%
+	Wt[Portfolio==BD_GV_US]              = 1.75%

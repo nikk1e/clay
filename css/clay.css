@@ -257,3 +257,7 @@ div.selection div {
 #menu .menu-modified {
     border-right: 10px solid rgb(34, 92, 141);
 }
+
+table.pure-table {
+	margin-bottom: 20px;
+}
