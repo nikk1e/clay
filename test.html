@@ -316,6 +316,401 @@ function findNodes(node, root) {
 
 editor.onkeyup = handleKeyup;
 editor.onkeydown = handleKeydown;
+
+
+function Namespace(name) {
+	//this.name = name; //Don't -- this introduces a keyword name.
+	Namespace.prototype[this.name] = this;
+}
+
+Namespace.get = function(name) {
+	return Namespace.prototype[name];
+};
+
+Namespace.getOrCreate = function(name) {
+	if (Namespace.prototype[name] === undefined)
+		return new Namespace(name);
+	return Namespace.prototype[name];
+};
+
+var camelCase = function(name) {
+	return (name
+		.toLowerCase()
+		.replace(/[^a-zA-Z]+([a-zA-Z]|$)/g, 
+			function(s,m) { return m.toUpperCase(); }));
+};
+
+var titleCase = function(name) {
+	return (name
+		.toLowerCase()
+		.replace(/(?:^|[^a-zA-Z]+)([a-zA-Z]|$)/g, 
+			function(s,m) { return m.toUpperCase(); }));
+};
+var makeGensyms = function() {
+	var _used = {};
+	var gs = function(hint) {
+		var used;
+		hint = hint || 'sym'; 
+		if ((used = _used[hint]) === undefined) {
+			_used[hint] = 1;
+			return hint;
+		} else {
+			_used[hint] = used + 1;
+			return hint + '_' + used;
+		}
+	};
+	gs.reset = function() { _used = {}; };
+	return gs;
+};
+
+var genSym = makeGensyms();
+
+//hasher functions for memoize
+var joinComma = function(items) { return Array.prototype.join.call(items, ','); };
+var first = function(items) { return items[0]; };
+
+//memoize assumes indirect recursion
+var memoize = function(func, hasher) {
+	hasher = (hasher !== undefined) ? hasher : joinComma;
+	var memo = function() {
+		var cache = memo.cache, args = hasher(arguments);
+		if (cache[args] === undefined) 
+			cache[args] = memo.func.apply(this, arguments);
+		return cache[args];
+	}
+	memo.func = func; //so we can replace the func
+	memo.clearCache = function() { memo.cache = {}; };
+	memo.cache = {};
+	return memo;
+};
+
+// used for memoize when X[] = ... is used
+//TODO: also need to be able to give this another dim to index over
+// i.e. X[Y] to say this is indexed over Y
+var indexed = function(func, hasher) {
+	hasher = (hasher !== undefined) ? hasher : joinComma;
+	var memo = function(i) { //function(i, ...rest)
+		var rest = Array.prototype.slice.call(arguments, 1);
+		var cache = memo.cache, args = hasher(rest);
+		if (cache[args] === undefined) 
+			cache[args] = memo.func.apply(this, rest);
+		//return list if i is undefined so we can do indexOf
+		return (i !== undefined) ? memo.cache[args][i] : memo.cache[args];
+	};
+	memo.func = func; //so we can replace the function
+	memo.clearCache = function() { memo.cache = {}; }
+	memo.cache = {};
+	return memo;
+};
+
+
+
+var benchmark = function(times, name, f) {
+	console.time(name);
+	for (; times > 0; times--) {
+		f();
+	}
+	console.timeEnd(name);
+};
+
+/* NOTES
+
+this['something with special characters'] is just as fast as this.something_without_special
+
+//build functions like 
+ns[<head>] = memoize(new Function('a','b','return this[<otherhead>](a) + b;'))
+
+*/
+
+//Example
+
+//Functions: note we assume sparse arrays and forEach only visits values in the array
+var Sum = function(list) {
+	var sum = 0;
+	list.forEach(function(v,i) { if (v !== undefined) sum += v; });
+	return sum;
+};
+
+var Head = function(list) {
+	var head;
+	list.some(function(v,i) { head = v; return true;});
+	return head;
+};
+
+var Unique = function(list) {
+	var included = {}, ret = [];
+	list.forEach(function(v, i) {
+		if (!included.hasOwnProperty(v)) {
+			ret.push(v);
+			included[v] = true;
+		}
+	});
+	return ret;
+};
+
+// returns only defined values
+var Values = function(list) {
+	return list.filter(function() { return true; });
+};
+
+//Make macros that run at compile time
+//First(Month) => #Month=0
+//Last(Month) => #Month=length(Month[])-1
+//Prev(Month) => #Month=#Month-1
+//Next(Month) => #Month=#Month+1
+//This(Month,offset) => #Month=#Month+offset
+
+var compile = function(args, body, index) {
+	if (index)
+		return indexed(new Function(args, body));
+	return memoize(new Function(args, body));
+};
+
+var category = function(body) {
+	return indexed(new Function(body));
+};
+
+var Clay = new Namespace('Clay');
+
+Clay['Month'] = category("return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];"); 
+//Clay['Month'].dimensions = [Clay['Month']];
+
+Clay['Unit Sales'] = compile(['month', 'growth'], "return (this['Month'](month) === 'Jan') ? 5000 : this['Unit Sales'](month - 1, growth) * (1 + this['Growth'](growth));");
+Clay['Growth'] = category("return [0.01,0.02,0.03,0.04,0.05];");
+Clay['Price'] = new Number(55);
+Clay['Unit Cost'] = new Number(25);
+Clay['Fixed Costs'] = new Number(2000);
+Clay['Revenue'] = compile(['month', 'growth'],"return this['Unit Sales'](month, growth) * this['Price'];");
+Clay['COGS'] = compile(['month', 'growth'],"return this['Unit Sales'](month, growth) * this['Unit Cost'];");
+Clay['EBIT'] = compile(['month', 'growth'],"return this['Revenue'](month, growth) - this['Fixed Costs'] - this['COGS'](month, growth);");
+Clay['Debt'] = new Number(10000);
+Clay['Interest Rate'] = new Number(0.08);
+Clay['Tax Rate'] = new Number(0.3);
+Clay['Interest'] = compile([],"return this['Debt'] * this['Interest Rate'] / 12");
+Clay['EBT'] = compile(['month', 'growth'],"return this['EBIT'](month, growth) - this['Interest']()");
+Clay['Tax'] = compile(['month', 'growth'],"return this['EBT'](month, growth) * this['Tax Rate']");
+Clay['Net Income'] = compile(['month', 'growth'],"return this['EBT'](month, growth) - this['Tax'](month, growth)");
+
+//Unit Sales[Month][Growth]
+var test_x = Clay['Growth']().map(function(v, growth) {
+	return Clay['Month']().map(function(v,month) { 
+		return Clay['Unit Sales'](month, growth); }); });
+
+//Unit Sales[Month,Growth]
+var test_y = (function() {
+	var ret = [];
+	Clay['Growth']().forEach(function(v, growth) {
+		Clay['Month']().forEach(function(v, month) {
+			ret.push(Clay['Unit Sales'](month, growth));
+		});
+	});
+	return ret;
+}());
+
+var index = function(list) {
+	return function(i) {
+		if (i === undefined) return list;
+		return list[i];
+	};
+};
+/* this cannot work as you cannot override length on a function
+var rowsC = function(n) {
+	var cat = function(i) {
+		if (i >= 0 && i < n) return i + 1;
+		if (i === undefined) return cat;
+	}
+	cat.indexOf = function(i) {
+		if (i > 0 && i <= n) return i - 1;
+	}
+	cat.forEach = function(f) {
+		for(var i = 0; i < n; i++)
+			f(i+1,i,cat);
+	};
+	cat.length = n;
+	cat.map = function(f) {
+		var i, cur, ret = [];
+		for(var i = 0; i < n; i++) {
+			if((cur = f(i+1,i,cat)) !== undefined)
+				ret[i] = cur;
+		}
+		return ret;
+	};
+	return cat;
+};*/
+
+var rowsC = function(n) {
+	var items = [], i = 0;
+	while(i < n)
+		items[i] = ++i;
+	return index(items);
+};
+
+//Parallel arrays version
+var Data = new Namespace('Data');
+Data['State'] = index(['WA','WA','KS','KS','FL','FL','FL','FL']);
+Data['Gender'] = index(['M','F','M','F','M','F','M','F']);
+Data['City'] = index(['Seattle', 'Seattle', 'Lawrence', 'Lawrence', 'Miami', 'Miami', 'Orlando', 'Orlando']);
+Data['Pop'] = index([2,23,4,345,546,2,1000,2000]);
+Data['Data'] = rowsC(8); //cannot have a matrix of the same name as a namespace (so this is safe);
+
+//Source(....) can actually be macro that expands at compile time to something else.
+//Source(Src, ...)
+//expands to Src.Src[] = source(...)
+
+//assume this is the data you get back from source
+data = [{State: 'WA', Gender:'M', City:'Seattle', Pop:2},
+ {State: 'WA', Gender:'F', City:'Seattle', Pop:23},
+ {State: 'KS', Gender:'M', City:'Lawrence', Pop:4},
+ {State: 'KS', Gender:'F', City:'Lawrence', Pop:345},
+ {State: 'FL', Gender:'M', City:'Miami', Pop:546},
+ {State: 'FL', Gender:'F', City:'Miami', Pop:2},
+ {State: 'FL', Gender:'M', City:'Orlando', Pop:1000},
+ {State: 'FL', Gender:'F', City:'Orlando', Pop:2000}];
+
+//Table (i.e. Row Key)
+var Table = new Namespace('Table');
+Table.Row = index(data);
+Table['State'] = function(row) { return data[row]['State']; };
+Table['Gender'] = function(row) { return data[row]['Gender']; };
+Table['City'] = function(row) { return data[row]['City']; };
+Table['Pop'] = function(row) { return data[row]['Pop']; };
+
+//NOTE :::: VERY IMPORTANT :::: when you are making a dimension you have head an package.
+
+//Dense (given Key (and perhaps an Aggregate (default to Sum)))
+//Assume given Key is ['State', 'Gender', 'City']
+var makeDense = function(ns, data, keys, aggregates) {
+	var dense = {}, key = {}, val = {};
+	keys.forEach(function(k) { key[k] = {}; dense[k] = []; });
+	data.forEach(function(d) {
+		var currentKey = keys.map(function(k) { 
+			var v = d[k], i = key[k][v];
+			if (i === undefined) {
+				//first time we have seen this key
+				i = key[k][v] = dense[k].length;
+				dense[k].push(v);
+			}
+			return i;
+		}).join(',');
+		for (var k in d) {
+			if (!key.hasOwnProperty(k)) {
+				if (!val.hasOwnProperty(k)) 
+					val[k] = dense[k] = {};
+				if (!dense[k].hasOwnProperty(currentKey))
+					dense[k][currentKey] = [];
+				dense[k][currentKey].push(d[k]);
+			}
+		}
+	});
+	//aggregate
+	for(var k in val) {
+		var agg = (aggregates !== undefined && aggregates[k] !== undefined) ? aggregates[k] : Sum;
+		for (var ky in dense[k])
+			dense[k][ky] = agg(dense[k][ky]);
+		ns[k] = function() { return dense[k][joinComma(arguments)]; };
+	}
+	keys.forEach(function(k) {
+		ns[k] = index(dense[k]);
+	});
+};
+
+var Dense = new Namespace('Dense');
+makeDense(Dense, data, ['State', 'Gender', 'City']);
+
+
+//return a sparse array
+var slice = function(dims, func) {
+	if (dims.length < 1) return [];
+	var ret = [], i = 0, lengths, args, last = dims.length - 1, end = 1, cur, point;
+	lengths = dims.map(function(dim) { return dim.length; });
+	args = lengths.map(function() { return 0; }); //initial start values
+	lengths.forEach(function(v) { end = end * v; });
+	while(i < end) {
+		if ((cur = func.apply(this, args)) !== undefined)
+			ret[i] = cur;
+		i += 1;
+		args[last] += 1;
+		point = last;
+		while(point >= 0 && args[point] === lengths[point]) {
+			args[point] = 0;
+			point -= 1
+			args[point] += 1;
+		}
+	}
+	return ret;
+};
+
+
+//Sum(Data.Pop[Data.State=KS,Data.City=Lawrence, Data])
+var test_z1 = Sum(Data['Data']().map(function(v, data) {
+	if (Data['State'](data) == 'KS' && Data['City'](data) == 'Lawrence')
+		return Data['Pop'](data);
+}));
+
+//Or
+var test_z2 = Sum(slice([Data['Data']()], function(data) {
+	if (Data['State'](data) == 'KS' && Data['City'](data) == 'Lawrence')
+		return Data['Pop'](data);
+}));
+
+var test_head = Head(slice([Data['Data']()], function(data) {
+	if (Data['City'](data) == 'Miami')
+		return Data['State'](data);
+}));
+
+Clay['Gender'] = compile([],"return ['M', 'F']",true);
+
+//TODO: this needs to be memoized and therefore callable.
+// but that causes a problem with the compile of Growth
+// do we make it Growth()[growth] or Growth(growth) with special memoization
+// the latter seems more sensible.
+// Or we can say that Growth[Growth] = ...
+// State[] => [State] 
+// [State] = Un... is function(state) {}
+Clay['State'] = compile([],"return Unique(slice([Data['Data']], function(data) { return Data['State'][data]; }));", true);
+
+//Really inefficient first try...
+Clay['Population'] = function(state, gender) {
+	return Sum(slice([Data['Data']()], function(data) {
+		if (Data['State'](data)  == Clay['State'](state) &&
+			Data['Gender'](data) == Clay['Gender'](gender))
+			return Data['Pop'](data);
+	}));
+};
+
+
+slice([Clay['Growth'](), Clay['Month']()],
+	function(growth, month) { 
+		if (month < 5) return Clay['Net Income'](month, growth); 
+	});
+
+//NOTE: Net Income[Month=Jan] != Net Income[Month==Jan]
+// Net Income[Month==Jan] is 
+var test_doubleEq = function(month, growth) { 
+	return (this['Month'](month) == 'Jan') ? this['Net Income'](month, growth) 
+		: undefined; 
+}.bind(Clay);
+
+// Net Income[Month=Jan] is 
+var test_singleEq = function(growth) { 
+	return this['Net Income'](this['Month']().indexOf('Jan'),growth); 
+}.bind(Clay);
+
+
+//Actual list 
+//CollectionRates = [40%, 50%, 10%, 0%, 0%]
+//Collections = Convolve(#Month, Sales[Month], CollectionRates)
+
+
+//test_f() !== test_f() ... so it runs every time.
+var test_f = function() {
+	return ['a','b','c'];
+};
+var test_fM = memoize(test_f);
+//but test_fM() === test_fM()
+
+//Probably need Growth()
+
 </script>
 </body>
 </html>
