@@ -31,10 +31,10 @@ p.meta {
 				color: rgb(202, 224, 243);
 }
 
-.options {
+div.options {
 		background-color: #262625;
 		border-radius: 5px;
-		z-index: 1000;
+		z-index: 100;
 		padding: 5px 4px 5px 5px;
 		transition: all 300ms ease-in-out;
 		height: 33px;
@@ -161,8 +161,68 @@ left: 50%;
 
 </code></pre>
 		<p>Some text with <code>inline code</code> and some other stuff after</p>
-		<p>Some text with <code>inline code at the end</code>
-</p>
+		<p>Some text with <code>inline code at the end</code></p>
+<table class="pure-table pure-table-horizontal">
+<thead>
+<tr>
+<th><span>Data.State[]</span></th>
+<th><span>.Gender[]</span></th>
+<th><span>.City[]</span></th>
+<th><span>.Pop[]</span></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span>WA</span></td>
+<td><span>M</span></td>
+<td><span>Seattle</span></td>
+<td><span>2</span></td>
+</tr>
+<tr>
+<td><span>WA</span></td>
+<td><span>F</span></td>
+<td><span>Seattle</span></td>
+<td><span>23</span></td>
+</tr>
+<tr>
+<td><span>KS</span></td>
+<td><span>M</span></td>
+<td><span>Lawrence</span></td>
+<td><span>4</span></td>
+</tr>
+<tr>
+<td><span>KS</span></td>
+<td><span>F</span></td>
+<td><span>Lawrence</span></td>
+<td><span>345</span></td>
+</tr>
+<tr>
+<td><span>FL</span></td>
+<td><span>M</span></td>
+<td><span>Miami</span></td>
+<td><span>546</span></td>
+</tr>
+<tr>
+<td><span>FL</span></td>
+<td><span>F</span></td>
+<td><span>Miami</span></td>
+<td><span>2</span></td>
+</tr>
+<tr>
+<td><span>FL</span></td>
+<td><span>M</span></td>
+<td><span>Orlando</span></td>
+<td><span>1000</span></td>
+</tr>
+<tr>
+<td><span>FL</span></td>
+<td><span>F</span></td>
+<td><span>Orlando</span></td>
+<td><span>2000</span></td>
+</tr>
+</tbody>
+</table>
+
 	</div>
 <img src="data:image/jpg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a
 HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy
@@ -575,10 +635,13 @@ Table['Gender'] = function(row) { return data[row]['Gender']; };
 Table['City'] = function(row) { return data[row]['City']; };
 Table['Pop'] = function(row) { return data[row]['Pop']; };
 
+//TODO: ast based table conversion/link
+
 //NOTE :::: VERY IMPORTANT :::: when you are making a dimension you have head an package.
 
 //Dense (given Key (and perhaps an Aggregate (default to Sum)))
 //Assume given Key is ['State', 'Gender', 'City']
+//TODO: Should really be called something like  pivot or tableToMatrix
 var makeDense = function(ns, data, keys, aggregates) {
 	var dense = {}, key = {}, val = {};
 	keys.forEach(function(k) { key[k] = {}; dense[k] = []; });
@@ -616,7 +679,6 @@ var makeDense = function(ns, data, keys, aggregates) {
 
 var Dense = new Namespace('Dense');
 makeDense(Dense, data, ['State', 'Gender', 'City']);
-
 
 //return a sparse array
 var slice = function(dims, func) {
@@ -670,6 +732,8 @@ Clay['Gender'] = compile([],"return ['M', 'F']",true);
 Clay['State'] = compile([],"return Unique(slice([Data['Data']], function(data) { return Data['State'][data]; }));", true);
 
 //Really inefficient first try...
+//Can make this fast with indexes on Data['State']
+// and Data['Gender'] and zigzag matching
 Clay['Population'] = function(state, gender) {
 	return Sum(slice([Data['Data']()], function(data) {
 		if (Data['State'](data)  == Clay['State'](state) &&

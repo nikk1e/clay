@@ -70,7 +70,7 @@ In a spreadsheet you need a host of different lookup mechanisms (VLookup, HLooku
 
 Given a table of city populations across America
 
-Data.State|.Gender|.City|.Pop
+Data.State\[]|.Gender\[]|.City\[]|.Pop\[]
 --|--|--|--
 WA|M|Seattle|2
 WA|F|Seattle|23
@@ -80,6 +80,8 @@ FL|M|Miami|546
 FL|F|Miami|2
 FL|M|Orlando|1000
 FL|F|Orlando|2000
+
+> Note: We could also consider this table dense and make State, Gender, City the key by doing Data.State=, .Gender=, .City=, .Pop\[] as the header. Columns which don't contain = or \[] are considered comments.
 
 We can find the population of Lawrence, Kansas by doing a sum on a slice (in a spreadsheet this would be a sumifs):
 
