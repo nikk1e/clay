@@ -27,7 +27,7 @@ var keywords = ['In', 'Skip']; //, 'Using', 'As']; //probably don't need any key
 var operators = [
 	'...', '..', '.', '->', '*', '/', '+', '-', '==',
 	'!=', '<>', '!', '^', '?', '%', '@', '#', '=', '&&', '||', '&',
-	'|', '>>', '<<', '<=', '>=', '<', '>'
+	'|', '>>', '<<', '<=', '>=', '<', '>',':'
 ]; //TODO move the lexer after the parser and generate these
 var blanks = ['___', '__', '_.', '_'];
 var brackets = ['[', ']', '(', ')', '{', '}'];
@@ -121,7 +121,7 @@ var tokenize = function(src) {
 		if (cap = code.keyword.exec(src)) {
 			src = src.substring(cap[0].length);
 			tokens.push({
-				type: "keyword",
+				type: "operator", //keyword
 				value: cap[0].toUpperCase()
 			});
 			continue;
@@ -227,6 +227,9 @@ var postfix = function(pattern, name, prec) {
 
 infix('.', '.', 7500, flat);
 
+//Type specifier
+infix(':','Type', 7450, right);
+
 infix('\_', 'Subscript', 7400, right);
 //\_ \% Power[Subscript]
 
@@ -298,6 +301,8 @@ infix('-', 'Subtract', 3700, left);
 infix('...','RangeEx',3100,flat);
 infix('..','Range',3100,flat);
 
+infix('IN', 'In', 3050, right);
+
 infix('==', 'Equal', 3000, flat);
 infix('!=', 'Unequal', 3000, flat);
 infix('\u2260', 'Unequal', 3000, flat);
@@ -338,7 +343,7 @@ infix('=', 'Set', 300, right);
 // >> Put //put to filename
 // >>> PutAppend
 
-var parse = function(ts,multi) {
+var parse = function(ts) { //,multi) {
 	var tokens = ts.reverse(),
 		token = tokens.pop(),
 		memo,
@@ -417,12 +422,24 @@ var parse = function(ts,multi) {
 		return (symb ? ['Pattern',symb,blnk] : blnk);
 	}
 
+	function getDotted(symb) {
+		getToken();
+		var rhs = getSymbol();
+		var temp = ['.', symb, rhs];
+		if (token.type === 'operator' && token.value === '.') {
+			return getDotted(temp);
+		}
+		return temp;
+	}
+
 	function getFactor() {
 		var temp;
 		if (token.type === 'symbol') {
 			temp = getSymbol();
 			if (token.type === 'blank') {
-				return getBlank(temp)
+				return getBlank(temp);
+			} else if (token.type === 'operator' && token.value === '.') {
+				return getDotted(temp);
 			}
 			return temp;
 		}
@@ -456,7 +473,7 @@ var parse = function(ts,multi) {
 	}
 
 	function getFunction(head) {
-		var ast = [head];
+		var ast = ['Slice', head];
 		getToken();
 		if (token.type === 'bracket' && token.value === ']') {
 			getToken();
@@ -579,7 +596,7 @@ var parse = function(ts,multi) {
 		return parseArguments(getFactor());
 	}
 	
-	if (multi) {
+	//if (multi) {
 		ast = [];
 		while (tokens.length > 0) {
 			memo = parseOperators(parsePrimary(), 0);
@@ -595,11 +612,11 @@ var parse = function(ts,multi) {
 			}
 			getToken();
 		} 
-	} else {
-		ast = parseOperators(parsePrimary(), 0);
-		if (tokens.length > 0 && token.type !== 'EOL')
-			throw new Error('End of line not reached. ' + tokens[0].type + ':' + tokens[0].value);
-	}
+	//} else {
+	//	ast = parseOperators(parsePrimary(), 0);
+	//	if (tokens.length > 0 && token.type !== 'EOL')
+	//		throw new Error('End of line not reached. ' + tokens[0].type + ':' + tokens[0].value);
+	//}
 	return ast;
 };
 
@@ -621,10 +638,11 @@ var showp = function(prog) {
 }
 
 // parse code and return ast
-var parseCode = function(src, multi) {
+var parseCode = function(src) {
 	try {
-		var tokens = tokenize(src)
-		return parse(tokens, multi);
+		var tokens = tokenize(src),
+			ast = parse(tokens);
+		return passOne(ast);
 	} catch (e) {
 		return ['Error', e];
 	}
@@ -632,7 +650,49 @@ var parseCode = function(src, multi) {
 
 var expressions = function(prog) {
 	return prog.filter(function(n) { return !(n.head === 'Set' || n.head === 'Rule'); });
+};
+
+//func takes non atom and path
+function transform(ast, func, path) {
+	if (path === undefined) path = [];
+	var ret = func(ast, path);
+	path.push(ast);
+	for(var i=0; i<ast.length; i++) {
+		var node = ret[i], node1;
+		if (node instanceof Array) {
+			node1 = transform(node, func, path);
+			if (node !== node1) ret[i] = node1; //NOTE (in place edit)
+		}
+	}
+	path.pop(ast);
+	return ret;
 }
+
+var head = function(node) {
+	if (node instanceof Array) return node[0];
+};
+
+//alternative is direct traversal
+function normaliseHead(node) {
+	switch (head(node)) {
+		case 'Set': {
+			var lhs = node[1], expr = node[2];
+			if (head(lhs)==='Slice') {
+				var guards = lhs.slice(0); //shallow copy
+				guards[0] = 'Guards';
+				guards[1] = expr;
+				return normaliseHead(['Set', lhs[1], guards]);
+			}
+			break;
+		}
+	}
+	return node;
+}
+
+var passOne = function(ast) {
+	return ast.map(normaliseHead);
+};
+
 
 parseCode.show = show;
 parseCode.showp = showp;
