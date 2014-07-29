@@ -425,7 +425,8 @@ var parse = function(ts) { //,multi) {
 	function getDotted(symb) {
 		getToken();
 		var rhs = getSymbol();
-		var temp = ['.', symb, rhs];
+		var temp = symb.slice(0);
+		temp.push(rhs[1]);
 		if (token.type === 'operator' && token.value === '.') {
 			return getDotted(temp);
 		}
@@ -637,9 +638,11 @@ var showp = function(prog) {
 	return prog.map(show).join('\n');
 }
 
+var state = {};
 // parse code and return ast
-var parseCode = function(src) {
+var parseCode = function(src, package) {
 	try {
+		state.package = package;
 		var tokens = tokenize(src),
 			ast = parse(tokens);
 		return passOne(ast);
@@ -673,7 +676,7 @@ var head = function(node) {
 };
 
 //alternative is direct traversal
-function normaliseHead(node) {
+function normaliseHead(node, index, parent) {
 	switch (head(node)) {
 		case 'Set': {
 			var lhs = node[1], expr = node[2];
@@ -683,14 +686,26 @@ function normaliseHead(node) {
 				guards[1] = expr;
 				return normaliseHead(['Set', lhs[1], guards]);
 			}
+			if (head(lhs)==='Symbol' && lhs.length === 2)
+				return ['Set', ['Symbol', state.package, lhs[1]], expr];
 			break;
 		}
 	}
 	return node;
 }
 
+function compose() {
+	var functions = arguments;
+	var l = functions.length;
+	return function(n, index, parent) {
+		for(var i=0; i<l; i++)
+			n = functions[i](n, index, parent);
+		return n;
+	};
+}
+
 var passOne = function(ast) {
-	return ast.map(normaliseHead);
+	return ast.map(compose(normaliseHead));
 };
 
 

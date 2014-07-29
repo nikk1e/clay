@@ -670,7 +670,11 @@ var makeDense = function(ns, data, keys, aggregates) {
 		var agg = (aggregates !== undefined && aggregates[k] !== undefined) ? aggregates[k] : Sum;
 		for (var ky in dense[k])
 			dense[k][ky] = agg(dense[k][ky]);
-		ns[k] = function() { return dense[k][joinComma(arguments)]; };
+		ns[k] = function(k) { 
+			return function() { 
+				return dense[k][joinComma(arguments)]; 
+			}; 
+		}(k);
 	}
 	keys.forEach(function(k) {
 		ns[k] = index(dense[k]);
@@ -744,6 +748,9 @@ function(data) { return Data['State'][data]; }));", true);
 
 //Jan01 < Month < Mar01 is all the elements of Month where that predicate
 // is true
+
+//Type specifier 
+//head:typed 
 
 
 //Really inefficient first try...

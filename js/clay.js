@@ -848,8 +848,9 @@ InlineLexer.prototype.output = function(src, pos) {
       src = src.substring(cap[0].length);
       aout.push({type: 'before', text: cap[1], pos: pos});
       out = {type: 'codespan', text: cap[2], pos: pos + cap[1].length}
-      out.sexpr = clay.code(cap[2], false);
-      out.result = clay.code.show(out.sexpr); //TODO: replace with real evaluate
+      out.code = out.text;
+      //out.sexpr = clay.code(cap[2], false);
+      //out.result = clay.code.show(out.sexpr); //TODO: replace with real evaluate
       aout.push(out); //TODO + length of backticks
       aout.push({type: 'after', text: cap[1], pos: pos + cap[1].length + cap[2].length});
       aout.push({type: 'result', code: out, pos: pos + cap[0].length + 1});
@@ -1118,8 +1119,9 @@ Parser.prototype.parseCode = function() {
     children.push({type: 'after', pos: pos + this.token.text.length, text: this.token.after})
   this.token.children = children;
   if (this.token.lang === undefined) {
-    this.token.sexpr = clay.code(this.token.text.replace(/^( {4}|\t)/gm,''), true);
-    this.token.result = clay.code.showp(this.token.sexpr).split('\n'); //TODO: replace with real evaluate
+    this.token.code = this.token.text.replace(/^( {4}|\t)/gm,'');
+    //this.token.sexpr = clay.code(this.token.text.replace(/^( {4}|\t)/gm,''), true);
+    //this.token.result = clay.code.showp(this.token.sexpr).split('\n'); //TODO: replace with real evaluate
   }
   return this.token;
 }

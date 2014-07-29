@@ -113,7 +113,7 @@ Model.prototype.recalculate = function() {
 	var lex = clay.lexer(this.source);
 	this.ast.children = clay.parser(lex);
 	//collect properties, code, tables
-	var properties = {}, code = [], tables = [];
+	var properties = {}, code = [], tables = [], functions = {}, expressions = {};
 	depthFirstVisit(this.ast, function(node, depth, parent, idx) {
 		var nodetype = node.type
 		if (nodetype === 'meta') {
@@ -134,6 +134,40 @@ Model.prototype.recalculate = function() {
 	});
 	this.properties = properties;
 	this.package = this.properties['package'] || _defaultPakageName;
+	//TODO: Create functions from tables
+
+	//TODO: Now parse code as you have package needed for pass one
+	for (var i = 0; i < code.length; i++) {
+		var node = code[i];
+		node.sexpr = clay.code(node.code, this.package);
+		node.sexpr
+
+        node.sexpr.forEach(function(sexpr, index) {
+        	sexpr.sourceNode = node;
+        	switch(sexpr[0]) {
+        		case 'Set':
+        			if (sexpr[1][0] !== 'Symbol') {
+        				node.sexpr[index] = ['Error', 'Cannot Set ', sexpr[1]];
+        			} else {
+        				var fkey = sexpr[1].slice(1).join('.');
+        				if (!functions.hasOwnProperty(fkey)) functions[fkey] = ['Func', sexpr[1]];
+        				functions[fkey].push(sexpr[2]); //just rhs
+        			}
+        			break;
+        		case 'Rule':
+        			node.sexpr[index] = ['Error', 'Rules not implemented', sexpr];
+        			break;
+        		default:
+        			//expression
+        			var ekey = clay.code.show(sexpr);
+        			if (!expressions.hasOwnProperty(ekey))
+        					expressions[ekey] = sexpr;
+        	}
+        });
+        node.result = clay.code.show(node.sexpr);
+	}
+	this.functions = functions;
+	this.expressions = expressions;
 };
 
 
@@ -301,7 +335,7 @@ d3.tsv("data.tsv", function(error, data) {
 };
 
 var dummy = {};
-dummy['(. (Symbol Graph) (Call (Symbol Line) (Symbol `Net Income`) (Slice (Symbol Month)) (Slice (Symbol Growth))))'] = Graph.Line();
+dummy['(Call (. (Symbol Graph) (Symbol Line)) (Slice (Slice (Symbol `Net Income`) (Symbol Month)) (Symbol Growth)))'] = Graph.Line();
 
 
 Clay.prototype.evaluate = function(package, expression) {
@@ -575,7 +609,7 @@ var Result = React.createClass({
 	},
 	render: function() {
 		if (this.props.inline)
-			return span({className: 'result'});
+			return span({className: 'result'}, clay.code.show(this.props.value));
 		else
 			return div({className: 'result'}, clay.code.show(this.props.value));
 	},
@@ -748,12 +782,12 @@ var Renderer = React.createClass({
 
 			if (item.code.type === 'codespan') {
 				inline = true;
-				expressions = [expressions];
+				//expressions = [expressions];
 			}
 			
-			var results = clay.code.expressions(expressions)
+			var results = expressions;/*= clay.code.expressions(expressions)
 				.map(function(e,i) { return models.evaluate(p, e); })
-				.filter(function(r) { return r !== null; });
+				.filter(function(r) { return r !== null; });*/
 
 			return results.map(function(r, i) { return Result({key: idx + '_' + i, value: r, inline: inline}); });
 
