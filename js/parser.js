@@ -26,7 +26,7 @@ function escapeRegExp(str) {
 var keywords = ['In', 'Skip']; //, 'Using', 'As']; //probably don't need any keywords
 var operators = [
 	'...', '..', '.', '->', '*', '/', '+', '-', '==',
-	'!=', '<>', '!', '^', '?', '%', '@', '#', '=', '&&', '||', '&',
+	'!=', '<>', '!', '^', '?', '%', '@', '##', '#', '=', '&&', '||', '&',
 	'|', '>>', '<<', '<=', '>=', '<', '>',':'
 ]; //TODO move the lexer after the parser and generate these
 var blanks = ['___', '__', '_.', '_'];
@@ -181,6 +181,26 @@ var tokenize = function(src) {
 };
 
 
+function hashOf() {
+	var ret = {};
+	for (var i = arguments.length - 1; i >= 0; i--) {
+		var k = arguments[i];
+		ret[k] = k;
+	};
+	return ret;
+}
+
+//everything that can go in the head of a Cons
+var heads = hashOf('Apply'
+	, 'Set'
+	, 'List'
+	, 'Slice'
+	, 'Optional'
+	, 'Pattern'
+	, 'Let'
+	, 'Call' //deprecated
+	);
+
 /* M-Expr Parser */
 var prefixes = {},
 	postfixes = {},
@@ -189,22 +209,27 @@ var prefixes = {},
 	right = 'right',
 	left = 'left';
 
+
+
 var infix = function(pattern, name, prec, assoc) {
+	if (!heads.hasOwnProperty(name)) heads[name] = name;
 	infixes[pattern] = {
-		'name': name,
+		'name': heads[name],
 		'prec': prec,
 		'assoc': assoc
 	};
 }
 var prefix = function(pattern, name, prec) {
+	if (!heads.hasOwnProperty(name)) heads[name] = name;
 	prefixes[pattern] = {
-		'name': name,
+		'name': heads[name],
 		'prec': prec
 	};
 }
 var postfix = function(pattern, name, prec) {
+	if (!heads.hasOwnProperty(name)) heads[name] = name;
 	postfixes[pattern] = {
-		'name': name,
+		'name': heads[name],
 		'prec': prec
 	};
 }
@@ -249,10 +274,17 @@ var applyPrec = 7200;
 
 //e1~e2~e3, 'e2[e1,e3]',6800,left
 
-infix('/@', 'Map', 6700, right);
-infix('//@', 'MapAll', 6700, right);
-infix('@@', 'Apply', 6700, right);
+prefix('#', 'Index', 7000); //index of dimension
+infix('#', 'IndexOf', 7100); //index of element in dimension
+prefix('##', 'Count', 6900); //can probably use @ for index
+
+//prefix('@', 'Name', 6800); //Don't really need this
+
+//infix('/@', 'Map', 6700, right);
+//infix('//@', 'MapAll', 6700, right);
+//infix('@@', 'Apply', 6700, right);
 //infix('@@@','Apply',6700,right) //Apply[e1,e2,{1}]
+
 
 postfix('!', 'Factorial', 6600);
 postfix('!!', 'Factorial2', 6600);
@@ -277,6 +309,7 @@ infix('^', 'Power', 6200, right);
 //infix('**','NonCommutativeMultiply', 5500, flat);
 //Cross
 //Dot
+
 
 prefix('-', 'Neg', 5200); //PreMinus
 prefix('+', 'Noop', 5200);
@@ -346,6 +379,7 @@ infix('=', 'Set', 300, right);
 var parse = function(ts) { //,multi) {
 	var tokens = ts.reverse(),
 		token = tokens.pop(),
+		inslice = false,
 		memo,
 		ast;
 
@@ -475,18 +509,21 @@ var parse = function(ts) { //,multi) {
 
 	function getFunction(head) {
 		var ast = ['Slice', head];
+		inslice = true;
 		getToken();
 		if (token.type === 'bracket' && token.value === ']') {
 			getToken();
+			inslice = false;
 			return parseArguments(ast); //we might be called again
 		}
 		getArguments(ast);
 		getOperator(']'); //expect ']'
+		inslice = false;
 		return parseArguments(ast); //we might be called again
 	}
 
 	function getFunctionCall(head) {
-		var ast = ['Call', head];
+		var ast = [heads.Call, head];
 		getToken();
 		if (token.type === 'bracket' && token.value === ')') {
 			getToken();
@@ -562,7 +599,10 @@ var parse = function(ts) { //,multi) {
 					if (op.prec >= min_prec) {
 						getToken();
 						rhs = parseLookaheadOperator(op.prec);
-						lhs = [op.name, lhs, rhs] //{head:op.name, tail:[lhs,rhs]}; //TODO flat?
+						if (inslice && op.name == 'Set')
+							lhs = ['Let', lhs, rhs];
+						else
+							lhs = [op.name, lhs, rhs]; //{head:op.name, tail:[lhs,rhs]}; //TODO flat?
 						lhs = parseArguments(lhs);
 						continue;
 					}
@@ -625,6 +665,12 @@ var parse = function(ts) { //,multi) {
 var simple = /^\S+$/;
 
 var show = function show(sexp) {
+	//if (sexp instanceof Cons)
+	//	return '(' + sexp.head + ' ' + sexp.tail.map(show).join(' ') + ')';
+	//if (typeof(sexp) === 'number')
+	//	return sexp.toString();
+	//if (typeof(sexp) === 'string')
+	//	return '"' + sexp + '"';
 	if (sexp instanceof Array)
 		return '(' + sexp.map(show).join(' ') + ')';
 	else if ((sexp instanceof String || typeof sexp === 'string'))
@@ -659,8 +705,9 @@ var expressions = function(prog) {
 function transform(ast, func, path) {
 	if (path === undefined) path = [];
 	var ret = func(ast, path);
+	if (ret === undefined) ret = [];
 	path.push(ast);
-	for(var i=0; i<ast.length; i++) {
+	for(var i=0; i<ret.length; i++) {
 		var node = ret[i], node1;
 		if (node instanceof Array) {
 			node1 = transform(node, func, path);
@@ -684,12 +731,22 @@ function normaliseHead(node, index, parent) {
 				var guards = lhs.slice(0); //shallow copy
 				guards[0] = 'Guards';
 				guards[1] = expr;
-				return normaliseHead(['Set', lhs[1], guards]);
+				if (guards.length === 2) {
+					guards[2] = lhs[1]; //add self if this was an empty slice
+					return normaliseHead(['Category', lhs[1], guards]);
+				} else {
+					return normaliseHead(['Set', lhs[1], guards]);
+				}
 			}
 			if (head(lhs)==='Symbol' && lhs.length === 2)
 				return ['Set', ['Symbol', state.package, lhs[1]], expr];
 			break;
 		}
+		case 'Category':
+			var lhs = node[1], expr = node[2];
+			if (head(lhs)==='Symbol' && lhs.length === 2)
+				return ['Category', ['Symbol', state.package, lhs[1]], expr];
+			break;
 	}
 	return node;
 }
@@ -708,11 +765,97 @@ var passOne = function(ast) {
 	return ast.map(compose(normaliseHead));
 };
 
+//func takes non atom and path
+function visit(ast, func, path, index) {
+	if (path === undefined) path = [];
+	func(ast, path, index);
+	path.push(ast[0]);
+	for(var i=0; i<ast.length; i++) {
+		var node = ast[i];
+		if (node instanceof Array) {
+			visit(node, func, path, i);
+		}
+	}
+	path.pop();
+}
 
+
+//TODO: this seems to be a more sensible structure
+function Cons(head, tail) {
+	this.head = head; //should be a string
+	this.tail = tail; //should be an array
+}
+
+
+function Set() {
+	for (var i = arguments.length - 1; i >= 0; i--) {
+		this[arguments[i]] = true;
+	};
+}
+
+Set.prototype.Clone = function() {
+	var ret = new Set();
+	for (k in this) {
+		if (this.hasOwnProperty(k))
+			ret[k] = true;
+	};
+};
+
+Set.prototype.Difference = function(set) {
+	var ret = this.Clone();
+	if (set instanceof Set) {
+		for (k in set) {
+			if (set.hasOwnProperty(k))
+				delete ret[k]
+		}
+	} else {
+		for (var i = arguments.length - 1; i >= 0; i--) {
+			delete ret[arguments[i]];
+		}
+	};
+	return ret;
+};
+
+Set.prototype.Union = function(set) {
+	var ret = this.Clone();
+	if (set instanceof Set) {
+		for (k in set) {
+			if (set.hasOwnProperty(k))
+				ret[k] = true
+		}
+	} else {
+		for (var i = arguments.length - 1; i >= 0; i--) {
+			ret[arguments[i]] = true;
+		}
+	};
+	return ret;
+};
+
+Set.prototype.Intersection = function(set) {
+	var ret = new Set();
+	if (set instanceof Set) {
+		for (k in set) {
+			if (set.hasOwnProperty(k) && this.hasOwnProperty(k))
+				ret[k] = true;
+		}
+	} else {
+		for (var i = arguments.length - 1; i >= 0; i--) {
+			var k = arguments[i];
+			if (this.hasOwnProperty(k))
+				ret[k] = true;
+		}
+	};
+	return ret;
+};
+
+parseCode.Set = Set; //use Set to find dimensions
+parseCode.state = state;
 parseCode.show = show;
 parseCode.showp = showp;
 parseCode.parse = parse;
 parseCode.lex = tokenize;
+parseCode.visit = visit;
+parseCode.transform = transform;
 
 parseCode.expressions = expressions;
 

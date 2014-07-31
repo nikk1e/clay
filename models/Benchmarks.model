@@ -8,4 +8,4 @@
 #### Total Equities
 
 	Wt[Portfolio==EQ]                    = 46.0% + 
-	                                       (14% - Wt[Portfolio==ALTS_EX_INFRA])
+	                                       (14% - Wt[Portfolio==ALTS EX INFRA])

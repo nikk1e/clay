@@ -87,6 +87,7 @@ var Model = function(name, source) {
 	this.functions =  {};
 	this.properties = {}; //meta
 	this.ast = {type: 'root', children: []};
+	this.packages = [this.package];
 	this.recalculate();
 };
 
@@ -109,11 +110,111 @@ Model.prototype.revert = function() {
 	}
 };
 
+
+var makeRecursion = function(func) {
+	return function(expr) {
+		var head = expr[0];
+		if (head == 'Symbol') {
+			return ['Let', ['Index', expr], func(expr)];
+		};
+		if (head == 'Subtract' || head == 'Plus') {
+			var lhs = expr[1], rhs = expr[2];
+			if (lhs[0] == 'Symbol' && rhs[0] == 'Number') {
+				return ['Let', ['Index', lhs], [head, func(lhs), rhs]];
+			}
+
+		}
+	}
+}
+
+var Macros = {
+	PREV: makeRecursion(function(symb) { return ['Subtract', ['Index', symb], ['Number', 1]];}),
+	NEXT: makeRecursion(function(symb) { return ['Plus', ['Index', symb], ['Number', 1]];}),
+	THIS: makeRecursion(function(symb) { return ['Index', symb];}),
+	FIRST: makeRecursion(function(symb) { return ['Number', 0];}),
+	LAST: makeRecursion(function(symb) { return ['Subtract', ['Count', symb], ['Number', 1]];}),
+}
+
+var expandMacros = function(expr, path) {
+	var symb, rep;
+	
+	if (expr[0] !== 'Call')
+		return expr;
+
+	var symb = expr[1];
+	
+	if (symb[0] !== 'Symbol' || 
+		symb.length !== 2 || 
+		!Macros.hasOwnProperty(symb[1].toUpperCase()))
+		return expr;
+
+	rep = Macros[symb[1].toUpperCase()].apply(this, expr.slice(2));
+
+	if (rep !== undefined) return rep;
+
+	return expr;
+};
+
+
+var expandSlice = function(expr, path) {
+	switch(expr[0]) {
+		case 'Slice': {
+			var ret = expr[1], overs = ['Over', 0];
+			for (var i = expr.length - 1; i >= 2; i--) {
+				var para = expr[i];
+				switch(para[0]) {
+					case 'Let':
+						ret = ['LetS', para[1], para[2], ret];
+						break;
+					case 'Symbol':
+						overs.push(para);
+						break;
+					default:
+						ret = ['Restrict', para, ret];
+				};
+			}
+			//wrap over on the outside
+			if (overs.length > 2) {
+				overs[1] = ret;
+				ret = overs;
+			}
+			return ret;
+		}
+		case 'Guards': {
+			var ret = expr[1], overs = ['Indexed', 0];
+			for (var i = expr.length - 1; i >= 2; i--) {
+				var para = expr[i];
+				if (para[0] === 'Symbol')
+					overs.push(para);
+			};
+			//wrap indexed on the inside
+			if (overs.length > 2) {
+				overs[1] = ret;
+				ret = overs;
+			}
+			for (var i = expr.length - 1; i >= 2; i--) {
+				var para = expr[i];
+				switch(para[0]) {
+					case 'Let':
+						ret = ['LetG', para[1], para[2], ret];
+						break;
+					case 'Symbol':
+						break;
+					default:
+						ret = ['Restrict', para, ret];
+				};
+			}
+			return ret;
+		}
+	}
+	return expr;
+};
+
 Model.prototype.recalculate = function() {
 	var lex = clay.lexer(this.source);
 	this.ast.children = clay.parser(lex);
 	//collect properties, code, tables
-	var properties = {}, code = [], tables = [], functions = {}, expressions = {};
+	var properties = {}, code = [], tables = [], functions = {}, expressions = {}, packages = {};
 	depthFirstVisit(this.ast, function(node, depth, parent, idx) {
 		var nodetype = node.type
 		if (nodetype === 'meta') {
@@ -134,13 +235,38 @@ Model.prototype.recalculate = function() {
 	});
 	this.properties = properties;
 	this.package = this.properties['package'] || _defaultPakageName;
+	packages[this.package] = true;
+
 	//TODO: Create functions from tables
 
-	//TODO: Now parse code as you have package needed for pass one
 	for (var i = 0; i < code.length; i++) {
 		var node = code[i];
 		node.sexpr = clay.code(node.code, this.package);
-		node.sexpr
+
+		//expand macros
+		node.sexpr.map(function(expr) {
+			//TODO: try catch for errors in macro expansion
+			return clay.code.transform(expr, expandMacros);
+		});
+
+		node.sexpr.map(function(expr) {
+			return clay.code.transform(expr, expandSlice);
+		});
+
+		//collect packages referenced
+		node.sexpr.forEach(function(f) {
+			clay.code.visit(f, function(ast, path, index) {
+				switch (ast[0]) {
+					case 'Symbol':
+						//namespace except for function calls
+						//does not support nested namespaces
+						if (ast.length === 3 && !(index === 1 && path[path.length-1] == 'Call')) {
+							packages[ast[1]] = true;
+						}
+						break;
+				}
+			});
+		});
 
         node.sexpr.forEach(function(sexpr, index) {
         	sexpr.sourceNode = node;
@@ -152,6 +278,15 @@ Model.prototype.recalculate = function() {
         				var fkey = sexpr[1].slice(1).join('.');
         				if (!functions.hasOwnProperty(fkey)) functions[fkey] = ['Func', sexpr[1]];
         				functions[fkey].push(sexpr[2]); //just rhs
+        			}
+        			break;
+        		case 'Category':
+        			if (sexpr[1][0] !== 'Symbol') {
+        				node.sexpr[index] = ['Error', 'Cannot create Category ', sexpr[1]];
+        			} else {
+        				var fkey = sexpr[1].slice(1).join('.');
+        				if (!functions.hasOwnProperty(fkey)) functions[fkey] = sexpr;
+        				else node.sexpr[index] = ['Error', 'Cannot redefine Category ', sexpr[1]];
         			}
         			break;
         		case 'Rule':
@@ -168,6 +303,11 @@ Model.prototype.recalculate = function() {
 	}
 	this.functions = functions;
 	this.expressions = expressions;
+	this.packages = [];
+	for (var p in packages) {
+		if (packages.hasOwnProperty(p))
+			this.packages.push(p);
+	}
 };
 
 
@@ -231,9 +371,9 @@ function depthFirstVisit(node, f, depth, parent, index) {
 var Clay = function() {
 	this.models = [Blank];
 	this._models = {'Blank': Blank};
-	this._environment;
+	this._environment = new Environment();
+	this._packages = {};
 };
-
 
 var Graph = {};
 
@@ -350,8 +490,195 @@ Clay.prototype.model = function(name) {
 	return this._models[name];
 };
 
+//Package is the ast representation of a Namespace
+var Package = function(name) {
+	this.name = name;
+	this.dimensions = {};
+	this.functions = {};
+	this.expressions = {};
+	this.unsatisfieds = {}; //dimensions that have no function
+};
+
+var Environment = function() {
+	//Dummy object to store all the functions
+	//and from which all the namespaces inherit
+};
+
+Environment.prototype.Graph = {
+	Line: Graph.Line,
+};
+
+Environment.prototype.Sum = function(list) {
+	var sum = 0;
+	list.forEach(function(v,i) { if (v !== undefined) sum += v; });
+	return sum;
+};
+
+Environment.prototype.Head = function(list) {
+	var head;
+	list.some(function(v,i) { head = v; return true;});
+	return head;
+};
+
+Environment.prototype.Unique = function(list) {
+	var included = {}, ret = [];
+	list.forEach(function(v, i) {
+		if (!included.hasOwnProperty(v)) {
+			ret.push(v);
+			included[v] = true;
+		}
+	});
+	return ret;
+};
+
+// returns only defined values
+Environment.prototype.Values = function(list) {
+	return list.filter(function() { return true; });
+};
+
 Clay.prototype.recalculate = function() {
-	//TODO: ... recalculate (not reparse)
+	var environment, packages = {};
+	
+	environment = new Environment();
+
+	//Namespace is the compiled equivalent of Package
+	function Namespace() {};
+	Namespace.prototype = environment;
+
+	this.models.forEach(function(model) {
+		//add missing packages
+		model.packages.forEach(function(p) {
+			if (!packages.hasOwnProperty(p)) {
+				packages[p] = new Package(p);
+			}
+		});
+		//collect functions
+		for (var k in model.functions) {
+			var func = model.functions[k];
+			var symb = func[1];
+			var p = symb[1];
+			var name = symb[2];
+			pack = packages[p];
+			if (pack.functions.hasOwnProperty(name)) {
+				func.length = 0;
+				func[0] = 'Error';
+				func[1] = 'Cannot redefine ' + name;
+			} else {
+				pack.functions[name] = func;
+			}
+		};
+
+		var pack = packages[model.package];
+		//collect expressions (after so we can get the errors)
+		for (var k in model.expressions) {
+			pack.expressions[k] = model.expressions[k];
+		};
+	});
+
+	//find all dimensions (here not in the package as it needs to go over package)
+	function findDimensions(expr, basepack) {
+		function addDimension(symb, parent) {
+			var pack, name;
+			if (symb.length > 2) {
+				pack = symb[1];
+				name = symb[2];
+			} else {
+				pack = basepack;
+				name = symb[1];
+			}
+			if (packages.hasOwnProperty(name)) pack = name; //for Data tables
+			if (!packages[pack].functions.hasOwnProperty(name)) {
+				//create dummy function for unsatisfied category
+				var sy = ['Symbol', pack, name];
+				packages[pack].functions[name] = ['Category', sy, ['Indexed', ['List'], sy]];
+				packages[pack].functions[name].dimensions = [sy];
+				packages[pack].unsatisfieds[name] = true;
+			}
+			packages[pack].dimensions[name] = packages[pack].functions[name];
+
+		}
+		//set dimensions on actual categories
+		if (expr[0] === 'Category') {
+			expr.dimensions = [expr[1]];
+		}
+
+		clay.code.visit(expr, function(ast, path, index) {
+			switch (ast[0]) {
+				case 'LetS':
+				case 'LetG': {
+					var lhs = ast[1];
+					if (lhs[0] === 'Symbol')
+						addDimension(lhs, ast);
+					break;
+				}
+				case 'Over':
+				case 'Indexed': {
+					//all symbols are dimensions (Over expr symb..)
+					for (var i = ast.length - 1; i >= 2; i--) {
+						addDimension(ast[i], ast);	
+					}
+					break;
+				}
+/*				case 'Guards':
+				case 'Slice':
+					//check the any Symbol or lhs of set
+					for (var i = ast.length - 1; i >= 2; i--) {
+						var para = ast[i];
+						switch (para[0]) {
+							case 'Let': //lhs of a Set must be a dimension (or index of dimension)
+								var lhs = para[1];
+								if (lhs[0] === 'Symbol')
+									addDimension(lhs);
+								break;
+							case 'Symbol': //lone symbol (wrap a predicate in !! to avoid compiler thinking it is a dimension)
+								addDimension(para);
+								break;
+						};
+					};
+					break;*/
+				case 'Count': //param must be a dimension
+				case 'Index': //param must be a dimension
+				case 'IndexOf': //lhs must be a dimension
+				case 'Name': //param must be a dimension
+					var lhs = ast[1];
+					if (lhs !== undefined && lhs[0] === 'Symbol')
+						addDimension(lhs, ast);
+					break;
+			};
+		});
+	}
+
+	this.models.forEach(function(model) {
+		for (var k in model.functions) 
+			if (model.functions.hasOwnProperty(k))
+				findDimensions(model.functions[k], model.package);
+		//definitions should not depend on expressions
+		/*for (var k in model.expressions) 
+			if (model.expressions.hasOwnProperty(k))
+				findDimensions(model.expressions[k], model.package);*/
+	});
+
+	//annotate dimensions of functions
+	function annotateDimensions(expr) {
+
+	}
+
+	this.models.forEach(function(model) {
+		for (var k in model.functions) 
+			if (model.functions.hasOwnProperty(k))
+				annotateDimensions(model.functions[k]);
+		for (var k in model.expressions) 
+			if (model.expressions.hasOwnProperty(k))
+				annotateDimensions(model.expressions[k]);
+	});
+	//compile functions
+
+	//compile expressions (and bind to namespace)
+
+	//TODO: add custom functions to namespace they were defined in
+
+	this._environment = environment;
+	this._packages = packages;
 };
 
 Clay.prototype.addModel = function(model) {
@@ -395,11 +722,13 @@ Clay.prototype.openModel = function(name, callback) {
 
 Clay.prototype.revert = function(name, callback) {
 	this.model(name).revert();
+	this.recalculate();
 	if (callback) callback(name);
 };
 
 Clay.prototype.update = function(name, source) {
 	this.model(name).update(source);
+	this.recalculate();
 };
 
 Clay.prototype.name = function(name) {

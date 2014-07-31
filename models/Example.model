@@ -18,8 +18,8 @@ Start by defining the months of the year:
 
 We can now project the "Unit sales" of the firm over the months of the year. Lets assume the firm will sell 5000 units in January and that sales will grow monthly at a constant rate.
 
-	Unit Sales[Jan] = 5000
-    Unit Sales = Unit Sales[Month[Prev]] * (1 + Growth)
+	Unit Sales[Month=Jan] = 5000
+    Unit Sales = Unit Sales[Prev(Month)] * (1 + Growth)
 
 Conservatively estimate a monthly growth rate of 1% based on our analysis of the firms position in the market.
 
@@ -85,11 +85,11 @@ FL|F|Orlando|2000
 
 We can find the population of Lawrence, Kansas by doing a sum on a slice (in a spreadsheet this would be a sumifs):
 
-	Sum(Data.Pop[Data.State=KS,Data.City=Lawrence, Data])
+	Sum(Data.Pop[Data.State==KS,Data.City==Lawrence, Data])
 
 We can find the State for the city Miami using slice (in a spreadsheet this would need to use offset and match, since the table is in the wrong order to use vlookup):
 
-	Head(Data.State[Data.City=Miami, Data])
+	Head(Data.State[Data.City==Miami, Data])
 
 Note, We use `Head` because without it we get a list of all the items in Data.State where the corresponding item in Data.City is Miami. We could also replace `Head` with `Unique` to get all the States that have a City called Miami (in our dataset).
     
@@ -103,7 +103,7 @@ Because categories are just lists we can make them by hand or use a function tha
 We can now create a table of Population by State and Gender.
 
 	Population = Sum(Data.Pop[
-    	Data.State=State, Data.Gender=Gender, Data])
+    	Data.State==State, Data.Gender==Gender, Data])
 
 In a spreadsheet we could have created the above `Population` using a pivot table or 6 calls to sumifs (given our 3 states and 2 genders). The advantage of slice is you can use an function that takes a list to aggregate.
 
