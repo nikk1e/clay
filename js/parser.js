@@ -799,6 +799,7 @@ Set.prototype.Clone = function() {
 		if (this.hasOwnProperty(k))
 			ret[k] = true;
 	};
+	return ret;
 };
 
 Set.prototype.Difference = function(set) {
@@ -847,6 +848,18 @@ Set.prototype.Intersection = function(set) {
 	};
 	return ret;
 };
+
+Set.prototype.Equal = function(set) {
+	for (k in set) {
+		if (set.hasOwnProperty(k) && !this.hasOwnProperty(k))
+			return false;
+	}
+	for (k in this) {
+		if (this.hasOwnProperty(k) && !set.hasOwnProperty(k))
+			return false;
+	}
+	return true;
+}
 
 parseCode.Set = Set; //use Set to find dimensions
 parseCode.state = state;

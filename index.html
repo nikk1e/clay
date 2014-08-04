@@ -244,12 +244,12 @@ Model.prototype.recalculate = function() {
 		node.sexpr = clay.code(node.code, this.package);
 
 		//expand macros
-		node.sexpr.map(function(expr) {
+		node.sexpr = node.sexpr.map(function(expr) {
 			//TODO: try catch for errors in macro expansion
 			return clay.code.transform(expr, expandMacros);
 		});
 
-		node.sexpr.map(function(expr) {
+		node.sexpr = node.sexpr.map(function(expr) {
 			return clay.code.transform(expr, expandSlice);
 		});
 
@@ -591,7 +591,7 @@ Clay.prototype.recalculate = function() {
 				//create dummy function for unsatisfied category
 				var sy = ['Symbol', pack, name];
 				packages[pack].functions[name] = ['Category', sy, ['Indexed', ['List'], sy]];
-				packages[pack].functions[name].dimensions = [sy];
+				packages[pack].functions[name].dimensions = [pack + '.' + name];
 				packages[pack].unsatisfieds[name] = true;
 			}
 			packages[pack].dimensions[name] = packages[pack].functions[name];
@@ -599,7 +599,7 @@ Clay.prototype.recalculate = function() {
 		}
 		//set dimensions on actual categories
 		if (expr[0] === 'Category') {
-			expr.dimensions = [expr[1]];
+			expr.dimensions = [expr[1][1] + '.' + expr[1][2]];
 		}
 
 		clay.code.visit(expr, function(ast, path, index) {
@@ -619,23 +619,6 @@ Clay.prototype.recalculate = function() {
 					}
 					break;
 				}
-/*				case 'Guards':
-				case 'Slice':
-					//check the any Symbol or lhs of set
-					for (var i = ast.length - 1; i >= 2; i--) {
-						var para = ast[i];
-						switch (para[0]) {
-							case 'Let': //lhs of a Set must be a dimension (or index of dimension)
-								var lhs = para[1];
-								if (lhs[0] === 'Symbol')
-									addDimension(lhs);
-								break;
-							case 'Symbol': //lone symbol (wrap a predicate in !! to avoid compiler thinking it is a dimension)
-								addDimension(para);
-								break;
-						};
-					};
-					break;*/
 				case 'Count': //param must be a dimension
 				case 'Index': //param must be a dimension
 				case 'IndexOf': //lhs must be a dimension
@@ -658,19 +641,141 @@ Clay.prototype.recalculate = function() {
 				findDimensions(model.expressions[k], model.package);*/
 	});
 
-	//annotate dimensions of functions
-	function annotateDimensions(expr) {
-
+	function union(l,r) {
+		var u = {}, ret = [];
+		for (var i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		};
+		for (var i = r.length - 1; i >= 0; i--) {
+			u[r[i]] = true;
+		};
+		for (var k in u) {
+			if (u.hasOwnProperty(k))
+				ret.push(k);
+		};
+		return ret;
 	}
 
-	this.models.forEach(function(model) {
-		for (var k in model.functions) 
-			if (model.functions.hasOwnProperty(k))
-				annotateDimensions(model.functions[k]);
-		for (var k in model.expressions) 
-			if (model.expressions.hasOwnProperty(k))
-				annotateDimensions(model.expressions[k]);
-	});
+	function equal(l, r) {
+		if (l.length !== r.length)
+			return false;
+		var u = {}, ret = [];
+		for (var i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		};
+		for (var i = r.length - 1; i >= 0; i--) {
+			if (!u.hasOwnProperty(r[i]))
+				return false;
+		};
+		return true;
+	}
+
+	function subtract(l, r) {
+		var u = {}, ret = [];
+		for (var i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		};
+		for (var i = r.length - 1; i >= 0; i--) {
+			if (u.hasOwnProperty(r[i]))
+				delete u[r[i]];
+		};
+		for (var k in u) {
+			if (u.hasOwnProperty(k))
+				ret.push(k);
+		};
+		return ret;
+	}
+
+	var hasChanged = true, pass = 0, maxPasses = 10;
+	//annotate dimensions of functions
+	function annotateDimensions(expr, pass, basepack) {
+		if (typeof(expr) === 'string')
+			return [];
+		if (expr.dimensions !== undefined) {
+			if (expr.pass === pass) {
+				return expr.dimensions;
+			}
+		} else {
+			expr.dimensions = [];
+		}
+		expr.pass = pass;
+		var ret = [];
+		switch(expr[0]) {
+			case 'LetS':
+				//(LetS symb value expr)
+				ret = annotateDimensions(expr[3], pass, basepack);
+				var symb = annotateDimensions(expr[1], pass, basepack);
+				var value = annotateDimensions(expr[2], pass, basepack);
+				if (symb.length > 1)
+					throw new Error('Category Error ' + clay.code.show(expr[1]) + ' used as category but has dimensions ' + symb);
+				ret = subtract(ret, symb);
+				ret = union(ret, value);
+				break;
+			case 'Category':
+				//TODO: might want to check that the rhs does have the correct dimensions
+				return expr.dimensions;
+			case 'Symbol':
+				var pack, name;
+				if (expr.length > 2) {
+					pack = expr[1];
+					name = expr[2];
+				} else {
+					pack = basepack;
+					name = expr[1];
+				}
+				//if symbol defined (then annotateDimensions of definition)
+				if (packages[pack] !== undefined && packages[pack].functions[name])
+					ret = annotateDimensions(packages[pack].functions[name], pass, basepack);
+				//else (nothing)
+				break;
+			case 'Number':
+				return expr.dimensions;
+			case 'String':
+				return expr.dimensions;
+			case 'Over':
+				var temp = annotateDimensions(expr[1], pass, basepack);
+				var u = {}, x;
+				for(var i=expr.length - 1; i > 1; i--) {
+					if (expr[i] instanceof Array)
+						x = annotateDimensions(expr[i],pass, basepack);
+						if (x.length > 1) {
+							throw new Error('Category Error: ' + clay.code.show(expr[i]) + ' use as category but has multiple dimensions');
+						}
+						u[x[0]] = true;
+				};
+				for (var i = temp.length - 1; i >= 0; i--) {
+					if (!u.hasOwnProperty(temp[i]))
+						ret.push(temp[i]);
+				};
+				break;
+			default:
+				for(var i=expr.length - 1; i > 0; i--) {
+					if (expr[i] instanceof Array)
+						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
+				};
+		};
+		if (!equal(ret,expr.dimensions)) {
+			expr.dimensions = ret;
+			hasChanged = true;
+		};
+		return expr.dimensions;
+	}
+
+	while (hasChanged && pass < maxPasses) {
+		hasChanged = false;
+		this.models.forEach(function(model) {
+			for (var k in model.functions) 
+				if (model.functions.hasOwnProperty(k))
+					annotateDimensions(model.functions[k],pass, model.package);
+			for (var k in model.expressions) 
+				if (model.expressions.hasOwnProperty(k))
+					annotateDimensions(model.expressions[k],pass, model.package);
+		});
+		pass = pass + 1;
+	}
+	if (pass === maxPasses) {
+		throw new Error('Dimensions Error: Could not infer dimensions');
+	}
 	//compile functions
 
 	//compile expressions (and bind to namespace)
