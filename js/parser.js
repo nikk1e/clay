@@ -732,8 +732,8 @@ function normaliseHead(node, index, parent) {
 				guards[0] = 'Guards';
 				guards[1] = expr;
 				if (guards.length === 2) {
-					guards[2] = lhs[1]; //add self if this was an empty slice
-					return normaliseHead(['Category', lhs[1], guards]);
+					//guards[2] = lhs[1]; //add self if this was an empty slice
+					return normaliseHead(['Category', lhs[1], expr]);
 				} else {
 					return normaliseHead(['Set', lhs[1], guards]);
 				}

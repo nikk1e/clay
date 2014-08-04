@@ -180,6 +180,15 @@ var expandSlice = function(expr, path) {
 			}
 			return ret;
 		}
+		case 'LetS': {
+			//(LetS symb value expr) -> (LetS (Index symb) (IndexOf symb value) expr)
+			if (expr[1][0] === 'Symbol')
+			{
+				var symb = expr[1], value = expr[2], exp = expr[3];
+				return ['LetS', ['Index', symb], ['IndexOf', symb, value], exp];
+			}
+			break;
+		}
 		case 'Guards': {
 			var ret = expr[1], overs = ['Indexed', 0];
 			for (var i = expr.length - 1; i >= 2; i--) {
@@ -368,11 +377,34 @@ function depthFirstVisit(node, f, depth, parent, index) {
 }
 
 
+var camelCase = function(name) {
+	return (name
+		.toLowerCase()
+		.replace(/[^a-zA-Z]+([a-zA-Z]|$)/g,
+			function(s,m) { return m.toUpperCase(); }));
+};
+
 var Clay = function() {
 	this.models = [Blank];
 	this._models = {'Blank': Blank};
 	this._environment = new Environment();
 	this._packages = {};
+	this._genSyms = {};
+	this._genSymCount = {};
+};
+
+Clay.prototype.Symbol = function(val) {
+	if (this._genSyms[val] !== undefined)
+		return this._genSyms[val];
+	var hint = camelCase(val);
+	if (this._genSymCount.hasOwnProperty(hint)) {
+		this._genSyms[val] = hint + '_' + this._genSymCount[hint];
+		this._genSymCount[hint] += 1;
+	} else {
+		this._genSymCount[hint] = 1;
+		this._genSyms[val] = hint;
+	}
+	return this._genSyms[val];
 };
 
 var Graph = {};
@@ -536,8 +568,74 @@ Environment.prototype.Values = function(list) {
 	return list.filter(function() { return true; });
 };
 
+
+Clay.prototype.compileOver = function(expr, basepack) {
+	var me = this;
+	var exp = this.compileExpr(expr[1], basepack);
+	var dims = expr.dimensions.map(function(d) {
+		return me.Symbol(d);
+	}).join(', ');
+	var overs = expr.slice(2).map(function(e) { 
+		return {typ: e.dimensions[0].split('.',1),
+				sym: this.Symbol(e.dimensions[0]) ,
+			};
+		});
+
+	return '(function(' + dims + ') { return "Overs"; }(' + dims + '))';
+};
+
+Clay.prototype.compileExpr = function(expr, basepack) {
+	var me = this;
+	switch(expr[0]) {
+		case 'Category':
+			return 'return (' + me.compileExpr(expr[2], basepack) + ');';
+		case 'Func':
+			return 'return "Function";';
+		case 'Call':
+			return 'this.' + expr[1].slice(1).join('.') + '(' +
+				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
+		case 'List':
+			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
+		case 'Over':
+			return me.compileOver(expr, basepack);
+		case 'Symbol':
+			var pack, name;
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				pack = basepack;
+				name = expr[1];
+			}
+			//if symbol defined (then annotateDimensions of definition)
+			if (me._packages[pack] !== undefined && me._packages[pack].functions[name]) {
+				var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+				return "this['" + pack + "']['" + name +"'](" + dims.join(', ') + ")";
+			} else {
+				return '"' + expr.slice(1).join('.') + '"';
+			}
+		case 'String':
+			return '"' + expr[1] + '"';
+		case 'Number':
+			return expr[1].toString();
+		default:
+			throw new Error('Compile Error: Not implemented for ' + clay.code.show(expr));
+	};
+};
+
+Clay.prototype.compileFunc = function(expr, basepack) {
+	var me = this;
+	switch(expr[0]) {
+		case 'Category':
+			return new Function(me.compileExpr(expr, basepack));
+		default:
+			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+			return new Function(dims, me.compileExpr(expr, basepack));
+	};
+};
+
 Clay.prototype.recalculate = function() {
-	var environment, packages = {};
+	var environment, packages = {}, pack;
 	
 	environment = new Environment();
 
@@ -712,7 +810,9 @@ Clay.prototype.recalculate = function() {
 				ret = union(ret, value);
 				break;
 			case 'Category':
-				//TODO: might want to check that the rhs does have the correct dimensions
+				var x = annotateDimensions(expr[2], pass, basepack);
+				if (x.length > 0)
+					throw new Error('Categories cannot vary over another category: ' + clay.code.show(expr));
 				return expr.dimensions;
 			case 'Symbol':
 				var pack, name;
@@ -776,14 +876,42 @@ Clay.prototype.recalculate = function() {
 	if (pass === maxPasses) {
 		throw new Error('Dimensions Error: Could not infer dimensions');
 	}
-	//compile functions
-
-	//compile expressions (and bind to namespace)
-
-	//TODO: add custom functions to namespace they were defined in
 
 	this._environment = environment;
 	this._packages = packages;
+
+	//compile functions
+	for (pack in packages) {
+		if (packages.hasOwnProperty(pack)) {
+			var packg = packages[pack];
+			environment[pack] = new Namespace();
+			for (var name in packg.functions) {
+				if (packg.functions.hasOwnProperty(name)) {
+					var func = packg.functions[name];
+					environment[pack][name] = this.compileFunc(func, pack)
+				}
+			}
+		}
+	}
+
+	//compile expressions (and bind to namespace)
+	for (pack in packages) {
+		if (packages.hasOwnProperty(pack)) {
+			var env = environment[pack];
+			var packg = packages[pack];
+			for (var name in packg.expressions) {
+				if (packg.expressions.hasOwnProperty(name)) {
+					var expr = packg.expressions[name];
+					if (expr.sourceNode !== undefined)
+						expr.sourceNode.compiled = this.compileFunc(expr, pack).bind(env);
+				}
+			}
+		}
+	}
+
+	//TODO: add custom functions to namespace they were defined in
+
+
 };
 
 Clay.prototype.addModel = function(model) {
