@@ -698,7 +698,7 @@ var parseCode = function(src, package) {
 };
 
 var expressions = function(prog) {
-	return prog.filter(function(n) { return !(n.head === 'Set' || n.head === 'Rule'); });
+	return prog.filter(function(n) { return !(n.head === 'Set' || n.head === 'Rule' || n.head === 'Category'); });
 };
 
 //func takes non atom and path

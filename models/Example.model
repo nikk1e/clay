@@ -7,6 +7,9 @@ Clay takes the spreadsheet out of the grid. Rows and columns become dimensions m
 
 We want to model a simple manufacturer. Our goal is to project their "net income" under different assumptions over the course of the year.
 
+    X = Unit Sales[Month=Jan, Growth=1%]
+    X
+
 Start by defining the months of the year:
 
 	Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,
@@ -66,7 +69,7 @@ The **trick** to building reusable models is leaving things unspecified and bein
 
 
 ## Lookups
-In a spreadsheet you need a host of different lookup mechanisms (VLookup, HLookup, Sumif, Sumifs, Averageif, etc). In clay the lookups are all handled by a single concept called slice `[]`.
+In a spreadsheet you need a host of different lookup mechanisms (VLookup, HLookup, Sumif, Sumifs, Averageif, etc). In clay the lookups are all handled by a single concept called slice \[].
 
 Given a table of city populations across America
 
@@ -124,7 +127,7 @@ function MySum(iter) {
 
 Want to look like a real mathematician? clay uses standard notation for many concepts, so you can write \\neq in place of !=. For example:
 
-    Early Costs[Month == Jan..Mar] = 200
+    // Early Costs[Month In Jan..Mar] = 200
 
 
 Code|Symbol

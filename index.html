@@ -133,6 +133,7 @@ var Macros = {
 	THIS: makeRecursion(function(symb) { return ['Index', symb];}),
 	FIRST: makeRecursion(function(symb) { return ['Number', 0];}),
 	LAST: makeRecursion(function(symb) { return ['Subtract', ['Count', symb], ['Number', 1]];}),
+	TABLE: function(expr) { return ['Call', ['Symbol', '_Table'], expr, ['Quote', expr]]; },
 }
 
 var expandMacros = function(expr, path) {
@@ -156,7 +157,7 @@ var expandMacros = function(expr, path) {
 };
 
 
-var expandSlice = function(expr, path) {
+var expandSlice = function expandSlice(expr, path) {
 	switch(expr[0]) {
 		case 'Slice': {
 			var ret = expr[1], overs = ['Over', 0];
@@ -164,7 +165,7 @@ var expandSlice = function(expr, path) {
 				var para = expr[i];
 				switch(para[0]) {
 					case 'Let':
-						ret = ['LetS', para[1], para[2], ret];
+						ret = expandSlice(['LetS', para[1], para[2], ret], path);
 						break;
 					case 'Symbol':
 						overs.push(para);
@@ -384,6 +385,51 @@ var camelCase = function(name) {
 			function(s,m) { return m.toUpperCase(); }));
 };
 
+var joinComma = function(items) { return Array.prototype.join.call(items, ','); };
+
+//memoize assumes indirect recursion
+var memoize = function(func, hasher) {
+	hasher = (hasher !== undefined) ? hasher : joinComma;
+	var memo = function() {
+		var cache = memo.cache, args = hasher(arguments);
+		if (cache[args] === undefined)
+			cache[args] = memo.func.apply(this, arguments);
+		return cache[args];
+	}
+	memo.func = func; //so we can replace the func
+	memo.clearCache = function() { memo.cache = {}; };
+	memo.cache = {};
+	return memo;
+};
+
+var indexed = function(func) {
+	var memo = function(i) {
+		if (memo.cache === undefined)
+			memo.cache = memo.func.apply(this);
+		return memo.cache[i];
+	};
+	memo.func = func; //so we can replace the function
+	memo.clearCache = function() { memo.cache = undefined; }
+	memo.cache = undefined;
+	memo.len = function() { 
+		if (memo.cache === undefined)
+			memo.cache = memo.func.apply(this);
+		return memo.cache.length;
+	};
+	memo.forEach = function(f) {
+		if (memo.cache === undefined)
+			memo.cache = memo.func.apply(this);
+		memo.cache.forEach(f);
+	};
+	memo.indexOf = function(v)  {
+		if (memo.cache === undefined)
+			memo.cache = memo.func.apply(this);
+		return memo.cache.indexOf(v); //TODO: cache the index of
+	};
+	return memo;
+};
+
+
 var Clay = function() {
 	this.models = [Blank];
 	this._models = {'Blank': Blank};
@@ -513,8 +559,15 @@ dummy['(Call (. (Symbol Graph) (Symbol Line)) (Slice (Slice (Symbol `Net Income`
 Clay.prototype.evaluate = function(package, expression) {
 	//TODO: replace this with real expression evaluation.
 	var e = clay.code.show(expression);
-	if (dummy.hasOwnProperty(e))
-		return dummy[e];
+	var exps = this._packages[package].expressions;
+	if (exps.hasOwnProperty(e)) {
+		try {
+			//TODO: need to know the dimensions and type of the expression first
+			return exps[e].compiled();
+		} catch(ex) {
+			console.log(e + ' resulted in ' + ex.message);
+		}
+	}
 	return null;
 };
 
@@ -535,6 +588,8 @@ var Environment = function() {
 	//Dummy object to store all the functions
 	//and from which all the namespaces inherit
 };
+
+Environment.prototype.Math = Math;
 
 Environment.prototype.Graph = {
 	Line: Graph.Line,
@@ -563,6 +618,11 @@ Environment.prototype.Unique = function(list) {
 	return ret;
 };
 
+Environment.prototype._Table = function(list, ast) {
+	//TODO: use the ast to figure out the table.
+	return clay.code.show(ast);
+};
+
 // returns only defined values
 Environment.prototype.Values = function(list) {
 	return list.filter(function() { return true; });
@@ -575,14 +635,52 @@ Clay.prototype.compileOver = function(expr, basepack) {
 	var dims = expr.dimensions.map(function(d) {
 		return me.Symbol(d);
 	}).join(', ');
+	var retDims = expr.slice(2).map(function(e) { return '"' + e.dimensions[0] + '"'; });
 	var overs = expr.slice(2).map(function(e) { 
-		return {typ: e.dimensions[0].split('.',1),
-				sym: this.Symbol(e.dimensions[0]) ,
+		var pack = e.dimensions[0].split('.',1)[0];
+		var name = e.dimensions[0].slice(pack.length+1);
+		return {pack: pack,
+				name: name,
+				sym: me.Symbol(e.dimensions[0]) ,
 			};
 		});
 
-	return '(function(' + dims + ') { return "Overs"; }(' + dims + '))';
+	var vars = '    var _k0m = 1'
+	var ends = [];
+	var starts = [];
+	var indexes = [];
+	overs.forEach(function(o, i) {
+		var obj = 'this["' + o.pack + '"]["' + o.name + '"]';
+		indexes.push('_k' + (i+1));
+		vars = vars + ', _k' + (i+1) + ', _k' + (i+1) +
+		'm = _k'+ i +'m * ' + obj +'.len()'; //.len must be defined on category
+		starts.push(obj + '.forEach(function(v, ' + o.sym + ') {\n\
+        _k' + (i+1) + ' = _k' + i +'m * ' + o.sym + ';');
+		ends.push('}.bind(this))');
+	});
+	var t = dims.length	> 0 ? 'this, ' : 'this'
+	var ov = '(function(' + dims + ') { var _ret=[], _val;\n\
+' + vars + ';\n\
+    ' + starts.join('\n    ') + '\n\
+        _val = '+exp+';\n\
+        if (_val !== undefined) _ret['+ indexes.join(' + ') +'] = _val;\n\
+    ' + ends.join('') +';\n\
+    _ret.dimensions = ['+ retDims.join(', ') +'];\n\
+    return _ret; \n\
+}.call('+ t + dims + '))';
+	return ov;
 };
+
+var quote = function quote(expr) {
+	if (expr instanceof Array) {
+		return '[' + expr.map(function(e) { return quote(e); }).join(', ') + ']';
+	} 
+	switch(typeof(expr)) {
+		case 'string': return "'" + expr + "'";
+		case 'number': return expr.toString();
+		default: return expr.toString();
+	};
+}
 
 Clay.prototype.compileExpr = function(expr, basepack) {
 	var me = this;
@@ -590,12 +688,67 @@ Clay.prototype.compileExpr = function(expr, basepack) {
 		case 'Category':
 			return 'return (' + me.compileExpr(expr[2], basepack) + ');';
 		case 'Func':
-			return 'return "Function";';
+			var exprs = expr.slice(2).map(function(e) {
+				return '_ret = (' + me.compileExpr(e, basepack) + ');'
+			});
+			var ov = 'var _ret;\n\
+' + exprs.join('\nif(_ret !== undefined) return _ret;\n') + '\n\
+return _ret;'
+			return ov;
+		case 'Quote':
+			return quote(expr[1]);
+		case 'LetG':
+			return '('+ me.compileExpr(expr[1], basepack) +' == '+ me.compileExpr(expr[2], basepack)+') ? (' + me.compileExpr(expr[3], basepack) + ') : undefined';
+		case 'LetS':
+			return '(function(' + me.compileExpr(expr[1], basepack) + ') { \nreturn ('+ me.compileExpr(expr[3], basepack) +'); \n}.call(this, '+me.compileExpr(expr[2], basepack)+'))';
+		case 'Restrict':
+			return '('+ me.compileExpr(expr[1], basepack) +') ? (' + me.compileExpr(expr[2], basepack) + ') : undefined';
 		case 'Call':
 			return 'this.' + expr[1].slice(1).join('.') + '(' +
 				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
 		case 'List':
 			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
+		case 'Times':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' * ') + ')';
+		case 'Plus':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' + ') + ')';
+		case 'Subtract':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' - ') + ')';
+		case 'Divide':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
+		case 'Equal':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
+		case 'Index':
+			if (expr[1][0] !== 'Symbol') throw new Error('Invalid index parameter ' + clay.code.show(expr));
+			expr = expr[1];
+			var pack, name;
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				name = expr[1];
+				if (me._packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
+			}
+			return me.Symbol(pack + '.' + name);
+		case 'IndexOf':
+			if (expr[1][0] !== 'Symbol') throw new Error('Invalid indexOf parameter ' + clay.code.show(expr));
+			var ex = me.compileExpr(expr[2], basepack);
+			expr = expr[1];
+			var pack, name;
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				name = expr[1];
+				if (me._packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
+			}
+			return "this['" + pack + "']['" + name +"'].indexOf(" + ex + ")";
 		case 'Over':
 			return me.compileOver(expr, basepack);
 		case 'Symbol':
@@ -604,12 +757,15 @@ Clay.prototype.compileExpr = function(expr, basepack) {
 				pack = expr[1];
 				name = expr[2];
 			} else {
-				pack = basepack;
 				name = expr[1];
+				if (me._packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
 			}
 			//if symbol defined (then annotateDimensions of definition)
 			if (me._packages[pack] !== undefined && me._packages[pack].functions[name]) {
-				var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+				var dims = me._packages[pack].functions[name].dimensions.map(function(d) { return me.Symbol(d); });
 				return "this['" + pack + "']['" + name +"'](" + dims.join(', ') + ")";
 			} else {
 				return '"' + expr.slice(1).join('.') + '"';
@@ -627,10 +783,15 @@ Clay.prototype.compileFunc = function(expr, basepack) {
 	var me = this;
 	switch(expr[0]) {
 		case 'Category':
-			return new Function(me.compileExpr(expr, basepack));
+			return indexed(new Function(me.compileExpr(expr, basepack)));
+		case 'Func':
+			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+			return memoize(new Function(dims, me.compileExpr(expr, basepack)));
 		default:
 			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
-			return new Function(dims, me.compileExpr(expr, basepack));
+			var ov = 'return (' + me.compileExpr(expr, basepack) + ');';
+			//console.log(ov);
+			return memoize(new Function(dims, ov));
 	};
 };
 
@@ -688,7 +849,7 @@ Clay.prototype.recalculate = function() {
 			if (!packages[pack].functions.hasOwnProperty(name)) {
 				//create dummy function for unsatisfied category
 				var sy = ['Symbol', pack, name];
-				packages[pack].functions[name] = ['Category', sy, ['Indexed', ['List'], sy]];
+				packages[pack].functions[name] = ['Category', sy, ['List']];
 				packages[pack].functions[name].dimensions = [pack + '.' + name];
 				packages[pack].unsatisfieds[name] = true;
 			}
@@ -809,6 +970,8 @@ Clay.prototype.recalculate = function() {
 				ret = subtract(ret, symb);
 				ret = union(ret, value);
 				break;
+			case 'IndexOf': // dim(IndexOf (Symb ..), value) is dim(value)
+				return annotateDimensions(expr[2], pass, basepack);
 			case 'Category':
 				var x = annotateDimensions(expr[2], pass, basepack);
 				if (x.length > 0)
@@ -820,8 +983,11 @@ Clay.prototype.recalculate = function() {
 					pack = expr[1];
 					name = expr[2];
 				} else {
-					pack = basepack;
 					name = expr[1];
+					if (packages.hasOwnProperty(name))
+						pack = name; //for Data tables
+					else
+						pack = basepack;
 				}
 				//if symbol defined (then annotateDimensions of definition)
 				if (packages[pack] !== undefined && packages[pack].functions[name])
@@ -902,8 +1068,7 @@ Clay.prototype.recalculate = function() {
 			for (var name in packg.expressions) {
 				if (packg.expressions.hasOwnProperty(name)) {
 					var expr = packg.expressions[name];
-					if (expr.sourceNode !== undefined)
-						expr.sourceNode.compiled = this.compileFunc(expr, pack).bind(env);
+					expr.compiled = this.compileFunc(expr, pack).bind(env);
 				}
 			}
 		}
@@ -1171,9 +1336,9 @@ var Result = React.createClass({
 	},
 	render: function() {
 		if (this.props.inline)
-			return span({className: 'result'}, clay.code.show(this.props.value));
+			return span({className: 'result'}, (this.props.value !== undefined) ? this.props.value.toString() : "NULL");
 		else
-			return div({className: 'result'}, clay.code.show(this.props.value));
+			return div({className: 'result'}, (this.props.value !== undefined) ? this.props.value.toString() : "NULL");
 	},
 });
 
@@ -1347,11 +1512,12 @@ var Renderer = React.createClass({
 				//expressions = [expressions];
 			}
 			
-			var results = expressions;/*= clay.code.expressions(expressions)
+			var results = expressions;
+			var rresults = clay.code.expressions(expressions)
 				.map(function(e,i) { return models.evaluate(p, e); })
-				.filter(function(r) { return r !== null; });*/
+				.filter(function(r) { return r !== null; });
 
-			return results.map(function(r, i) { return Result({key: idx + '_' + i, value: r, inline: inline}); });
+			return rresults.map(function(r, i) { return Result({key: idx + '_' + i, value: r, inline: inline}); });
 
 	},
 	renderTree: function(item, idx) {
@@ -1572,6 +1738,8 @@ var models = new Clay();
 var ed = Editor({model: models});
 React.renderComponent(ed, document.body);
 //ed.openFile('Example');
+
+
 </script>
 <script src="js/ui.js"></script>
 </body>
