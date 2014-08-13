@@ -601,6 +601,15 @@ Environment.prototype.Sum = function(list) {
 	return sum;
 };
 
+
+Environment.prototype.Max = function(list) {
+	var max;
+	list.forEach(function(v,i) { 
+		if (max === undefined || max < v) max = v; 
+	});
+	return max;
+};
+
 Environment.prototype.Head = function(list) {
 	var head;
 	list.some(function(v,i) { head = v; return true;});

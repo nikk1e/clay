@@ -7,13 +7,17 @@ Clay takes the spreadsheet out of the grid. Rows and columns become dimensions m
 
 We want to model a simple manufacturer. Our goal is to project their "net income" under different assumptions over the course of the year.
 
-    X = Unit Sales[Month=Jan, Growth=1%]
-    X
+    X = Net Income
+    Max(X[Assum,ConAssum, Month, Year])
 
 Start by defining the months of the year:
 
 	Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,
         Aug,Sep,Oct,Nov,Dec}
+    Year[] = {1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030}
+    Assum[] = {5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000}
+    ConAssum[] = {5000, 6000, 7000, 8000, 900, 1000, 1100, 1200, 13000, 14000}
+    ComAssum[] = {5000, 6000, 7000, 8000, 900, 1000, 1100, 1200, 13000, 14000} //add this to Unit Sales for mass load testing
 
 "Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In clay we choose the dimensions.
 
@@ -21,7 +25,8 @@ Start by defining the months of the year:
 
 We can now project the "Unit sales" of the firm over the months of the year. Lets assume the firm will sell 5000 units in January and that sales will grow monthly at a constant rate.
 
-	Unit Sales[Month=Jan] = 5000
+	Unit Sales[Year=1980, Month=Jan] = Assum
+    Unit Sales[Month=Jan] = Unit Sales[Month=Dec,Prev(Year)] * (1 + Growth) + ConAssum
     Unit Sales = Unit Sales[Prev(Month)] * (1 + Growth)
 
 Conservatively estimate a monthly growth rate of 1% based on our analysis of the firms position in the market.

@@ -126,6 +126,18 @@ left: 50%;
 	code::after {
 		content: "⏎";
 	}*/
+
+#preview > code {
+margin: 1.6em 0;
+box-sizing: border-box;
+background: rgb(250, 250, 250);
+border: 1px solid #eee;
+padding: 10px;
+font-size: 0.9em;
+/*white-space: pre;*/
+/*border-radius: 3px;*/
+display: block;
+}
 	</style>
 </head>
 <body id="" onload="">
@@ -140,7 +152,7 @@ left: 50%;
               <button class='header3'>h3</button>
               <button class='header4'>h4</button>
               <button class='quote'>&rdquo;</button>
-							<button class='code'>&rang;</button>
+              <button class='code'>&rang;</button>
               <button class='url useicons'>&#xe001;</button>
               <input class='url-input' type='text' placeholder='Paste or type a link'/>
             </span>
@@ -157,11 +169,13 @@ left: 50%;
 	<div id="preview" contentEditable="true" >
 		<h1 id="first_file">First File</h1>
 		<p>Some first file text</p>
-		<pre><code>Some <span class="token keyword">code</span>.
+		<code>Some <span class="token keyword">code</span>.
 
-</code></pre>
+</code>
 		<p>Some text with <code>inline code</code> and some other stuff after</p>
 		<p>Some text with <code>inline code at the end</code></p>
+
+		<div contentEditable="true" readonly="readonly">This is not editable in everything except IE8-11 where you need to set it to contentEditable="true"</div>
 <table class="pure-table pure-table-horizontal">
 <thead>
 <tr>
@@ -248,11 +262,15 @@ editor = document.getElementById('preview');
 
 var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
-var getTextProp = (function() {
-	if (isFirefox)
-		return function(node) { return (node.nodeType === Node.TEXT_NODE) ? 'data' : 'textContent'; };
-	return function(node) { return (node.nodeType === Node.TEXT_NODE) ? 'data' : 'innerText'; };
-}());
+if (isFirefox) {
+	var getTextProp = function(node) { 
+		return (node.nodeType === Node.TEXT_NODE) ? 'data' : 'textContent'; 
+	};
+} else {
+	var getTextProp = function(node) { 
+		return (node.nodeType === Node.TEXT_NODE) ? 'data' : 'innerText';
+	};
+}
 
 function handleKeyup(event) {
 	if (event.keyCode === 13) {
@@ -285,13 +303,13 @@ function handleKeydown(event) {
 				range = sel.getRangeAt(0);
 				//TODO this doesn't work if we are in a span in code (walk up the last nodes)
 				var atEnd = (range.endContainer.parentNode.lastChild === range.endContainer) &&
-											(range.endContainer.length <= range.endOffset + 1) && !!currentNodes['PRE'];
+											(range.endContainer.length <= range.endOffset + 1); // && !!currentNodes['PRE'];
 				//also need to do atEnd and currentNodes['P']
 				if (atEnd) {
 					if ((range.collapsed || sel.isCollapsed)
 													&& sel.anchorNode.textContent[sel.anchorOffset-1] === '\n') {
 						document.execCommand('delete')
-						var pre = getParentWithTag(range.endContainer, 'PRE');
+						var pre = getParentWithTag(range.endContainer, 'CODE'); // 'PRE');
 						range.setStartAfter(pre);
 						range.setEndAfter(pre); //collapse(true);
 						sel.removeAllRanges();
@@ -796,6 +814,10 @@ var test_fM = memoize(test_f);
 //but test_fM() === test_fM()
 
 //Probably need Growth()
+
+
+//Model ideas
+
 
 </script>
 </body>
