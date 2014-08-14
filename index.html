@@ -127,6 +127,15 @@ var makeRecursion = function(func) {
 	}
 }
 
+var showM = function(s) {
+	switch (s[0]) {
+		case 'Number':
+		case 'String': return s;
+		case 'Symbol': return ['String', s.slice(1).join('.')];
+		default: return ['String', clay.code.show(s)]; //TODO (clay.code.showM)
+	}
+};
+
 //This should only be called at the base level
 // as Flip(X, Line, {Net Income, etc})
 // or X = Flip(Line, {Net Income, etc})
@@ -135,10 +144,10 @@ var flip = function(symb, catSymb, expr) {
 		return ['Error', 'Flip joins a list of expr', sexpr];
 	var qexpr = ['List'];
 	expr.slice(1).forEach(function(s) {
-		qexpr.push(clay.show(s));
+		qexpr.push(showM(s));
 	});
 	var cat = ['Category', catSymb, qexpr];
-	var func = ['Set*', symb, ['Indexed*', expr, catSymb]]; //need Indexed* and Set* to not do memo
+	var func = ['Set*', symb, ['Indexed*', expr, ['Index', catSymb]]]; //need Indexed* and Set* to not do memo
 	return ['Do', cat, func]; //Do A B is same as A\nB
 };
 
@@ -211,7 +220,7 @@ var expandSlice = function expandSlice(expr, path) {
 			for (var i = expr.length - 1; i >= 2; i--) {
 				var para = expr[i];
 				if (para[0] === 'Symbol')
-					overs.push(para);
+					overs.push(['Index', para]);
 			};
 			//wrap indexed on the inside
 			if (overs.length > 2) {
@@ -262,7 +271,8 @@ Model.prototype.recalculate = function() {
 	this.properties = properties;
 	this.package = this.properties['package'] || _defaultPakageName;
 	packages[this.package] = true;
-
+	var basepack = this.package;
+	var normaliseHead = function(n) { return clay.code.normaliseHead(n, basepack); };
 	//TODO: Create functions from tables
 
 	for (var i = 0; i < code.length; i++) {
@@ -270,10 +280,17 @@ Model.prototype.recalculate = function() {
 		node.sexpr = clay.code(node.code, this.package);
 
 		//expand macros
-		node.sexpr = node.sexpr.map(function(expr) {
+		var sexpr = []
+		node.sexpr.forEach(function(expr) {
 			//TODO: try catch for errors in macro expansion
-			return clay.code.transform(expr, expandMacros);
+			var nodes = clay.code.transform(expr, expandMacros);
+			if (nodes[0] === 'Do') {
+				Array.prototype.push.apply(sexpr, nodes.slice(1).map(normaliseHead));
+			} else {
+				sexpr.push(nodes);
+			}
 		});
+		node.sexpr = sexpr;
 
 		node.sexpr = node.sexpr.map(function(expr) {
 			return clay.code.transform(expr, expandSlice);
@@ -418,6 +435,16 @@ var memoize = function(func, hasher) {
 	memo.func = func; //so we can replace the func
 	memo.clearCache = function() { memo.cache = {}; };
 	memo.cache = {};
+	return memo;
+};
+
+//place to store dependedOn
+var unmemoize = function(func) {
+	var memo = function() {
+		return memo.func.apply(this, arguments);
+	}
+	memo.func = func; //so we can replace the func
+	memo.clearCache = function() { };
 	return memo;
 };
 
@@ -747,30 +774,16 @@ return _ret;'
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
 		case 'Equal':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
-		case 'Indexed':
-		case 'Indexed*': //TODO... fixme as this will have very poor performance
-			//Either introduce GenSym anonymous function or some kind of closure
-			// when making a function so the list can be built once.
-			// Indexed* should do something like return a list once of function calls
-			// which it can then call.
-
-			//IDEA: change Indexed so the last parameter is Index not Symbol so we simplify.
-			// the compile.
-			if (expr[2][0] !== 'Symbol') throw new Error('Invalid indexed parameter ' + clay.code.show(expr));
+		case 'Indexed*':
+			if (expr[1][0] !== 'List') throw new Error('Indexed* requires literal list');
+			if (expr.length > 3) throw new Error('Indexed* does not yet support multiple args');
+			return '(function() {\nswitch (' + me.compileExpr(expr[2], basepack) + ') {\n' +
+				expr[1].slice(1).map(function(e,i) { return '  case ' + i + ': return ' + me.compileExpr(e, basepack) + ';\n'}).join('') +
+				'}; }).call(this)'
+		case 'Indexed': 
+			if (expr.length > 3) throw new Error('Indexed does not yet support multiple args');
 			var ex = me.compileExpr(expr[1], basepack);
-			expr = expr[2];
-			var pack, name;
-			if (expr.length > 2) {
-				pack = expr[1];
-				name = expr[2];
-			} else {
-				name = expr[1];
-				if (me._packages.hasOwnProperty(name))
-					pack = name; //for Data tables
-				else
-					pack = basepack;
-			}
-			return '(' + ex + ')[' + me.Symbol(pack + '.' + name) + ']';
+			return '(' + ex + ')[' + me.compileExpr(expr[2], basepack) + ']';
 		case 'Index':
 			if (expr[1][0] !== 'Symbol') throw new Error('Invalid index parameter ' + clay.code.show(expr));
 			expr = expr[1];
@@ -837,7 +850,9 @@ Clay.prototype.compileFunc = function(expr, basepack) {
 	switch(expr[0]) {
 		case 'Category':
 			return indexed(new Function(me.compileExpr(expr, basepack)));
-		case 'Func*': //TODO Func* should not be memoized
+		case 'Func*':
+			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+			return unmemoize(new Function(dims, me.compileExpr(expr, basepack)));
 		case 'Func':
 			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
 			return memoize(new Function(dims, me.compileExpr(expr, basepack)));

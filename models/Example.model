@@ -5,10 +5,14 @@ Clay takes the spreadsheet out of the grid. Rows and columns become dimensions m
 
 ## Building a model
 
+    Flip(Test,Line,{Net Income, Tax, Revenue})
+    Line[Line]
+
 We want to model a simple manufacturer. Our goal is to project their "net income" under different assumptions over the course of the year.
 
     X = Net Income
     Max(X[Assum, Month, Year])
+    Days of Month[Month=Feb]
 
 Start by defining the months of the year:
 

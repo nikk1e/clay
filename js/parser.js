@@ -722,10 +722,12 @@ var head = function(node) {
 	if (node instanceof Array) return node[0];
 };
 
-//alternative is direct traversal
-function normaliseHead(node, index, parent) {
+
+function normaliseHeadToPackage(node, basepackage) {
 	switch (head(node)) {
+		case 'Set*':
 		case 'Set': {
+			var s = head(node);
 			var lhs = node[1], expr = node[2];
 			if (head(lhs)==='Slice') {
 				var guards = lhs.slice(0); //shallow copy
@@ -733,22 +735,27 @@ function normaliseHead(node, index, parent) {
 				guards[1] = expr;
 				if (guards.length === 2) {
 					//guards[2] = lhs[1]; //add self if this was an empty slice
-					return normaliseHead(['Category', lhs[1], expr]);
+					return normaliseHeadToPackage(['Category', lhs[1], expr], basepackage);
 				} else {
-					return normaliseHead(['Set', lhs[1], guards]);
+					return normaliseHeadToPackage([s, lhs[1], guards], basepackage);
 				}
 			}
 			if (head(lhs)==='Symbol' && lhs.length === 2)
-				return ['Set', ['Symbol', state.package, lhs[1]], expr];
+				return [s, ['Symbol', basepackage, lhs[1]], expr];
 			break;
 		}
 		case 'Category':
 			var lhs = node[1], expr = node[2];
 			if (head(lhs)==='Symbol' && lhs.length === 2)
-				return ['Category', ['Symbol', state.package, lhs[1]], expr];
+				return ['Category', ['Symbol', basepackage, lhs[1]], expr];
 			break;
 	}
 	return node;
+}
+
+//alternative is direct traversal
+function normaliseHead(node, index, parent) {
+	return normaliseHeadToPackage(node, state.package);
 }
 
 function compose() {
@@ -869,6 +876,7 @@ parseCode.parse = parse;
 parseCode.lex = tokenize;
 parseCode.visit = visit;
 parseCode.transform = transform;
+parseCode.normaliseHead = normaliseHeadToPackage;
 
 parseCode.expressions = expressions;
 
