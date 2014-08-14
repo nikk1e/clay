@@ -127,6 +127,21 @@ var makeRecursion = function(func) {
 	}
 }
 
+//This should only be called at the base level
+// as Flip(X, Line, {Net Income, etc})
+// or X = Flip(Line, {Net Income, etc})
+var flip = function(symb, catSymb, expr) {
+	if (expr[0] !== 'List')
+		return ['Error', 'Flip joins a list of expr', sexpr];
+	var qexpr = ['List'];
+	expr.slice(1).forEach(function(s) {
+		qexpr.push(clay.show(s));
+	});
+	var cat = ['Category', catSymb, qexpr];
+	var func = ['Set*', symb, ['Indexed*', expr, catSymb]]; //need Indexed* and Set* to not do memo
+	return ['Do', cat, func]; //Do A B is same as A\nB
+};
+
 var Macros = {
 	PREV: makeRecursion(function(symb) { return ['Subtract', ['Index', symb], ['Number', 1]];}),
 	NEXT: makeRecursion(function(symb) { return ['Plus', ['Index', symb], ['Number', 1]];}),
@@ -134,7 +149,8 @@ var Macros = {
 	FIRST: makeRecursion(function(symb) { return ['Number', 0];}),
 	LAST: makeRecursion(function(symb) { return ['Subtract', ['Count', symb], ['Number', 1]];}),
 	TABLE: function(expr) { return ['Call', ['Symbol', '_Table'], expr, ['Quote', expr]]; },
-}
+	FLIP: flip,
+};
 
 var expandMacros = function(expr, path) {
 	var symb, rep;
@@ -281,12 +297,15 @@ Model.prototype.recalculate = function() {
         node.sexpr.forEach(function(sexpr, index) {
         	sexpr.sourceNode = node;
         	switch(sexpr[0]) {
+        		case 'Set*':
         		case 'Set':
         			if (sexpr[1][0] !== 'Symbol') {
         				node.sexpr[index] = ['Error', 'Cannot Set ', sexpr[1]];
         			} else {
         				var fkey = sexpr[1].slice(1).join('.');
-        				if (!functions.hasOwnProperty(fkey)) functions[fkey] = ['Func', sexpr[1]];
+        				if (!functions.hasOwnProperty(fkey)) {
+        					functions[fkey] = [(sexpr[0] === 'Set*' ? 'Func*' : 'Func'), sexpr[1]];
+        				}
         				functions[fkey].push(sexpr[2]); //just rhs
         			}
         			break;
@@ -696,6 +715,7 @@ Clay.prototype.compileExpr = function(expr, basepack) {
 	switch(expr[0]) {
 		case 'Category':
 			return 'return (' + me.compileExpr(expr[2], basepack) + ');';
+		case 'Func*':
 		case 'Func':
 			var exprs = expr.slice(2).map(function(e) {
 				return '_ret = (' + me.compileExpr(e, basepack) + ');'
@@ -727,6 +747,30 @@ return _ret;'
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
 		case 'Equal':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
+		case 'Indexed':
+		case 'Indexed*': //TODO... fixme as this will have very poor performance
+			//Either introduce GenSym anonymous function or some kind of closure
+			// when making a function so the list can be built once.
+			// Indexed* should do something like return a list once of function calls
+			// which it can then call.
+
+			//IDEA: change Indexed so the last parameter is Index not Symbol so we simplify.
+			// the compile.
+			if (expr[2][0] !== 'Symbol') throw new Error('Invalid indexed parameter ' + clay.code.show(expr));
+			var ex = me.compileExpr(expr[1], basepack);
+			expr = expr[2];
+			var pack, name;
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				name = expr[1];
+				if (me._packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
+			}
+			return '(' + ex + ')[' + me.Symbol(pack + '.' + name) + ']';
 		case 'Index':
 			if (expr[1][0] !== 'Symbol') throw new Error('Invalid index parameter ' + clay.code.show(expr));
 			expr = expr[1];
@@ -793,6 +837,7 @@ Clay.prototype.compileFunc = function(expr, basepack) {
 	switch(expr[0]) {
 		case 'Category':
 			return indexed(new Function(me.compileExpr(expr, basepack)));
+		case 'Func*': //TODO Func* should not be memoized
 		case 'Func':
 			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
 			return memoize(new Function(dims, me.compileExpr(expr, basepack)));
