@@ -151,13 +151,19 @@ var flip = function(symb, catSymb, expr) {
 	return ['Do', cat, func]; //Do A B is same as A\nB
 };
 
+//pages should be list of symb=value
+var table = function(expr, pages, cols, rows, descriptions) {
+	//TODO: ..
+	return ['Call', ['Symbol', '_Table'], showM(expr), expr]; 
+};
+
 var Macros = {
 	PREV: makeRecursion(function(symb) { return ['Subtract', ['Index', symb], ['Number', 1]];}),
 	NEXT: makeRecursion(function(symb) { return ['Plus', ['Index', symb], ['Number', 1]];}),
 	THIS: makeRecursion(function(symb) { return ['Index', symb];}),
 	FIRST: makeRecursion(function(symb) { return ['Number', 0];}),
 	LAST: makeRecursion(function(symb) { return ['Subtract', ['Count', symb], ['Number', 1]];}),
-	TABLE: function(expr) { return ['Call', ['Symbol', '_Table'], expr, ['Quote', expr]]; },
+	TABLE: table,
 	FLIP: flip,
 };
 
