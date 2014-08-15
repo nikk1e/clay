@@ -13,6 +13,7 @@ We want to model a simple manufacturer. Our goal is to project their "net income
     X = Net Income
     Max(X[Assum, Month, Year])
     Days of Month[Month=Feb]
+    NoDim(Quote(Days of Month[Month=Feb]))
 
 Start by defining the months of the year:
 

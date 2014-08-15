@@ -133,13 +133,27 @@ var makeRecursion = function(func) {
 	}
 }
 
-var showM = function(s) {
+//TODO: this needs to take a prec so we can
+// avoid too many brackets in output.
+function showMr(s) {
 	switch (s[0]) {
-		case 'Number':
-		case 'String': return s;
-		case 'Symbol': return ['String', s.slice(1).join('.')];
-		default: return ['String', clay.code.show(s)]; //TODO (clay.code.showM)
-	}
+		case 'Number': return s[1].toString();
+		case 'String': return s[1];
+		case 'Symbol': return s.slice(1).join('.');
+		case 'List':   return '{' + s.slice(1).map(showMr).join(', ') + '}';
+		case 'Slice':  return showMr(s[1]) + '[' + s.slice(2).map(showMr).join(', ') + ']';
+		case 'Call':   return showMr(s[1]) + '(' + s.slice(2).map(showMr).join(', ') + ')';
+		case 'Set':
+		case 'Set*':
+		case 'Let': return showMr(s[1]) +'=' + showMr(s[2]);
+		case 'Plus': return '(' + s.slice(1).map(showMr).join(' + ') + ')';
+		//TODO: make the infix check 
+		default: return clay.code.show(s);
+	};
+}
+
+var showM = function(s) {
+	return ['String', showMr(s)];
 };
 
 //This should only be called at the base level
@@ -182,8 +196,20 @@ var postPivot = function(expr, quoted, pages, cols, rows, descriptions) {
 	return ['Call', ['Symbol', '_Pivot'], showM(expr), expr]; 
 };
 
-var quote = function(expr) {
+var quoteM = function(expr) {
 	return showM(expr);
+};
+
+var expand = function(expr) {
+	return expandMacros(expr);
+};
+
+var quoteS = function(expr) {
+	return clay.code.show(expr);
+};
+
+var nodim = function(expr) {
+	return ['NoDim', expr];
 };
 
 //most macros are applied before 
@@ -195,7 +221,10 @@ var Macros = {
 	LAST: makeRecursion(function(symb) { return ['Subtract', ['Count', symb], ['Number', 1]];}),
 	TABLE: table,
 	PIVOT: pivot,
-	QUOTE: quote,
+	QUOTE: quoteM,
+	QUOTES: quoteS,
+	EXPAND: expand, //usage Expand(QuoteS(...))
+	NODIM: nodim,
 	FLIP: flip,
 };
 
@@ -846,6 +875,8 @@ Clay.prototype.compileExpr = function(expr, basepack) {
 ' + exprs.join('\nif(_ret !== undefined) return _ret;\n') + '\n\
 return _ret;'
 			return ov;
+		case 'NoDim':
+			return me.compileExpr(expr[1], basepack);
 		case 'Quote':
 			return quote(expr[1]);
 		case 'LetG':
@@ -1178,6 +1209,9 @@ Clay.prototype.recalculate = function() {
 						ret.push(temp[i]);
 				};
 				break;
+			case 'NoDim': //NoDim has no dimensions
+				annotateDimensions(expr[1], pass, basepack);
+				ret = [];
 			default:
 				for(var i=expr.length - 1; i > 0; i--) {
 					if (expr[i] instanceof Array)
