@@ -1231,7 +1231,7 @@ Clay.prototype.openModel = function(name, callback) {
 	if (this._models[name] !== undefined) {
 		if (callback) callback(name); //file already open just switch to it
 	} else {
-		fetchFile('/models/'+name + '.model', function(data) {
+		fetchFile('models/'+name + '.model', function(data) {
 			if (data !== undefined) {
 				this.addModel(new Model(name, data));
 				if (callback) callback(name);
