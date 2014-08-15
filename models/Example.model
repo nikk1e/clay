@@ -30,8 +30,7 @@ Start by defining the months of the year:
 
 We can now project the "Unit sales" of the firm over the months of the year. Lets assume the firm will sell 5000 units in January and that sales will grow monthly at a constant rate.
 
-	Unit Sales[Year=1980, Month=Jan] = Assum
-    Unit Sales[Month=Jan] = Unit Sales[Month=Dec,Prev(Year)] * (1 + Growth)// + ConAssum
+    Unit Sales[Month=Jan] = 5000
     Unit Sales = Unit Sales[Prev(Month)] * (1 + Growth)
 
 Conservatively estimate a monthly growth rate of 1% based on our analysis of the firms position in the market.
@@ -62,6 +61,7 @@ Just four more formulas and we have net income.
     EBT = EBIT - Interest
     Tax = EBT * Tax Rate
     Net Income = EBT - Tax
+    BasicTable({"Year","Graph.Line(Net Income[Month])"},{Year,Graph.Line(Net Income[Month][Growth])}[Year],1)
 
 ### Scenario testing
 

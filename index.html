@@ -70,6 +70,13 @@ var DOM = React.DOM,
 	h1 = DOM.h1, h2 = DOM.h2, a = DOM.a, span = DOM.span;
 
 
+function isElement(o){
+  return (
+    typeof HTMLElement === "object" ? o instanceof HTMLElement : //DOM2
+    o && typeof o === "object" && o !== null && o.nodeType === 1 && typeof o.nodeName==="string"
+);
+}
+
 //helper string functions
 if (typeof String.prototype.startsWith != 'function') {
   String.prototype.startsWith = function (str){
@@ -166,6 +173,8 @@ var Macros = {
 	TABLE: table,
 	FLIP: flip,
 };
+
+
 
 var expandMacros = function(expr, path) {
 	var symb, rep;
@@ -540,8 +549,11 @@ var line = d3.svg.line()
     .y(function(d) { return y(d.temperature); });
 
 var svg = d3.select(elem).append('svg')
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
+	//.attr("height", height + margin.top + margin.bottom)
+	.attr("style", "width: 100%;")
+	.attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+    //.attr("width", width + margin.left + margin.right)
+    
   .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
@@ -601,11 +613,8 @@ d3.tsv("data.tsv", function(error, data) {
       .text(function(d) { return d.name; });
 });
 
-	return ['element', elem];
+	return elem;
 };
-
-var dummy = {};
-dummy['(Call (. (Symbol Graph) (Symbol Line)) (Slice (Slice (Symbol `Net Income`) (Symbol Month)) (Symbol Growth)))'] = Graph.Line();
 
 
 Clay.prototype.evaluate = function(package, expression) {
@@ -683,6 +692,41 @@ Environment.prototype._Table = function(list, ast) {
 	//TODO: use the ast to figure out the table.
 	return clay.code.show(ast);
 };
+
+Environment.prototype.BasicTable = function(headers, rows, highlight) {
+	var c = document.createElement.bind(document);
+	var table = c('table'), head = table.createTHead(), body = table.createTBody();
+	table.className = 'pure-table pure-table-horizontal';
+	if (highlight === undefined) highlight = 0;
+
+	var hr = head.insertRow();
+
+	headers.forEach(function(h, i) {
+		var th = c('th');
+		hr.appendChild(th);
+		if (i < highlight) th.className = 'highlight';
+		if (isElement(h)) {
+			th.appendChild(h);
+		} else {
+			th.appendChild(document.createTextNode(h.toString()));
+		}
+	});
+
+	rows.forEach(function(r, j) {
+		var tr = body.insertRow();
+		r.forEach(function(e, i) {
+			var th = tr.insertCell();
+			if (i < highlight) th.className = 'highlight';
+			if (isElement(e)) {
+				th.appendChild(e);
+			} else {
+				th.appendChild(document.createTextNode(e.toString()));
+			}
+		});
+	});
+
+	return table;
+}
 
 // returns only defined values
 Environment.prototype.Values = function(list) {
@@ -1404,10 +1448,10 @@ var Selection = React.createClass({
 
 var Result = React.createClass({
 	componentDidMount: function() {
-		if (this.props.value instanceof Array && this.props.value[0] === 'element') {
+		if (isElement(this.props.value)) { // instanceof Array && this.props.value[0] === 'element') {
 			var el = this.getDOMNode(), last;
 			while (last = el.lastChild) el.removeChild(last);
-			el.appendChild(this.props.value[1]);
+			el.appendChild(this.props.value);
 		}
 	},
 	componentDidUpdate: function() {

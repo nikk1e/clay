@@ -261,3 +261,17 @@ div.selection div {
 table.pure-table {
 	margin-bottom: 20px;
 }
+
+/************* custom stuff *******/
+
+th.empty {
+	border-bottom: 0px;
+}
+
+th.highlight {
+background-color: rgb(255, 234, 133);
+}
+
+td.highlight {
+background-color: rgb(255, 250, 229);
+}
