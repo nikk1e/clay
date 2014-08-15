@@ -129,7 +129,6 @@ var makeRecursion = function(func) {
 			if (lhs[0] == 'Symbol' && rhs[0] == 'Number') {
 				return ['Let', ['Index', lhs], [head, func(lhs), rhs]];
 			}
-
 		}
 	}
 }
@@ -158,12 +157,36 @@ var flip = function(symb, catSymb, expr) {
 	return ['Do', cat, func]; //Do A B is same as A\nB
 };
 
-//pages should be list of symb=value
-var table = function(expr, pages, cols, rows, descriptions) {
-	//TODO: ..
-	return ['Call', ['Symbol', '_Table'], showM(expr), expr]; 
+var table = function(expr) {
+	if (expr[0] !== 'List') {
+		expr = ['List', expr];
+	}
+	var quoteds = expr.map(function(e, i) { return (i > 0) ? showM(e) : e });
+	return ['NoDim', ['Call', ['Symbol', ''], expr, quoteds]]; 
 };
 
+var postTable = function(exprs, quoteds) {
+	//exprs and quoteds are both expected to be list literals
+	//TODO.. implement
+	return ['Call', ['Symbol', 'BasicTable'], quoteds, exprs]; 
+};
+
+//pages should be of form {symb=value,...}
+var pivot = function(expr, pages, cols, rows, descriptions) {
+	return ['NoDim', ['Call', ['Symbol', '_PostPivot'], expr, 
+		showM(expr), pages, cols, rows, descriptions]]; 
+};
+
+var postPivot = function(expr, quoted, pages, cols, rows, descriptions) {
+	//TODO: .. implement this
+	return ['Call', ['Symbol', '_Pivot'], showM(expr), expr]; 
+};
+
+var quote = function(expr) {
+	return showM(expr);
+};
+
+//most macros are applied before 
 var Macros = {
 	PREV: makeRecursion(function(symb) { return ['Subtract', ['Index', symb], ['Number', 1]];}),
 	NEXT: makeRecursion(function(symb) { return ['Plus', ['Index', symb], ['Number', 1]];}),
@@ -171,9 +194,18 @@ var Macros = {
 	FIRST: makeRecursion(function(symb) { return ['Number', 0];}),
 	LAST: makeRecursion(function(symb) { return ['Subtract', ['Count', symb], ['Number', 1]];}),
 	TABLE: table,
+	PIVOT: pivot,
+	QUOTE: quote,
 	FLIP: flip,
 };
 
+//macros applied after analyse dimensions
+// cannot be used in definitions as they 
+// change the dimensions
+var PostMacros = {
+	_POSTTABLE: postTable,
+	_POSTPIVOT: postPivot,
+}
 
 
 var expandMacros = function(expr, path) {
@@ -191,13 +223,17 @@ var expandMacros = function(expr, path) {
 
 	rep = Macros[symb[1].toUpperCase()].apply(this, expr.slice(2));
 
-	if (rep !== undefined) return rep;
+	if (rep !== undefined) {
+		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
+		return rep;
+	}
 
 	return expr;
 };
 
 
 var expandSlice = function expandSlice(expr, path) {
+	var ret;
 	switch(expr[0]) {
 		case 'Slice': {
 			var ret = expr[1], overs = ['Over', 0];
@@ -219,14 +255,14 @@ var expandSlice = function expandSlice(expr, path) {
 				overs[1] = ret;
 				ret = overs;
 			}
-			return ret;
+			break;
 		}
 		case 'LetS': {
 			//(LetS symb value expr) -> (LetS (Index symb) (IndexOf symb value) expr)
 			if (expr[1][0] === 'Symbol')
 			{
 				var symb = expr[1], value = expr[2], exp = expr[3];
-				return ['LetS', ['Index', symb], ['IndexOf', symb, value], exp];
+				ret = ['LetS', ['Index', symb], ['IndexOf', symb, value], exp];
 			}
 			break;
 		}
@@ -254,9 +290,14 @@ var expandSlice = function expandSlice(expr, path) {
 						ret = ['Restrict', para, ret];
 				};
 			}
-			return ret;
+			break;
 		}
 	}
+	if (ret !== undefined) {
+		ret.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr;
+		return ret;
+	}
+
 	return expr;
 };
 
@@ -300,7 +341,9 @@ Model.prototype.recalculate = function() {
 			//TODO: try catch for errors in macro expansion
 			var nodes = clay.code.transform(expr, expandMacros);
 			if (nodes[0] === 'Do') {
-				Array.prototype.push.apply(sexpr, nodes.slice(1).map(normaliseHead));
+				nodes = nodes.slice(1);
+				//nodes.forEach(function(n) { n.originalSexpr = expr; })
+				Array.prototype.push.apply(sexpr, nodes.map(normaliseHead));
 			} else {
 				sexpr.push(nodes);
 			}
@@ -308,7 +351,9 @@ Model.prototype.recalculate = function() {
 		node.sexpr = sexpr;
 
 		node.sexpr = node.sexpr.map(function(expr) {
-			return clay.code.transform(expr, expandSlice);
+			var nexpr = clay.code.transform(expr, expandSlice);
+			//nexpr.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr;
+			return nexpr;
 		});
 
 		//collect packages referenced
