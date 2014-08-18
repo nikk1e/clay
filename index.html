@@ -176,19 +176,36 @@ var table = function(expr) {
 	if (expr[0] !== 'List') {
 		expr = ['List', expr];
 	}
-	var quoteds = expr.map(function(e, i) { return (i > 0) ? showM(e) : e });
-	return ['NoDim', ['Call', ['Symbol', ''], expr, quoteds]]; 
+	var quoteds = expr.map(function(e, i) { return (i > 0) ? ['String', showM(e)] : e });
+	return ['NoDim', ['PostMacro', ['Symbol', 'Table'], expr, quoteds]]; 
 };
 
 var postTable = function(exprs, quoteds) {
 	//exprs and quoteds are both expected to be list literals
 	//TODO.. implement
-	return ['Call', ['Symbol', 'BasicTable'], quoteds, exprs]; 
+	//Lookup dimensions of expression
+	var dims = exprs.dimensions.map(function(d) { 
+		var s = d.split('.'); s.unshift('Symbol'); return s; });
+	//quote them
+	var dimns = dims.map(function(d) { return d[2]; });
+	//put length where 1 is.
+	var len = ['Number', dims.length];
+	//BasicTable({"Year","Graph.Line(Net Income[Month])"},{Year,Graph.Line(Net Income[Month][Growth])}[Year],1)
+	var heads = ['List'];
+	heads.dimensions = []
+	var fexpr = ['List'];
+	fexpr.dimensions = [];
+	var over = ['Over', fexpr];
+	over.dimensions = [];
+	dims.forEach(function(d) { fexpr.push(d); over.push(d); heads.push(['String', d[2]]); });
+	exprs.slice(1).forEach(function(d) { fexpr.push(d); });
+	quoteds.slice(1).forEach(function(d) { heads.push(d); });
+	return ['Call', ['Symbol', 'BasicTable'], heads, over, len]; 
 };
 
 //pages should be of form {symb=value,...}
 var pivot = function(expr, pages, cols, rows, descriptions) {
-	return ['NoDim', ['Call', ['Symbol', '_PostPivot'], expr, 
+	return ['NoDim', ['PostMacro', ['Symbol', 'Pivot'], expr, 
 		showM(expr), pages, cols, rows, descriptions]]; 
 };
 
@@ -233,8 +250,8 @@ var Macros = {
 // cannot be used in definitions as they 
 // change the dimensions
 var PostMacros = {
-	_POSTTABLE: postTable,
-	_POSTPIVOT: postPivot,
+	TABLE: postTable,
+	PIVOT: postPivot,
 }
 
 
@@ -252,6 +269,29 @@ var expandMacros = function(expr, path) {
 		return expr;
 
 	rep = Macros[symb[1].toUpperCase()].apply(this, expr.slice(2));
+
+	if (rep !== undefined) {
+		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
+		return rep;
+	}
+
+	return expr;
+};
+
+var expandPostMacros = function(expr) {
+	var symb, rep;
+	
+	if (expr[0] !== 'PostMacro')
+		throw new Exception('Cannot expand non post macro' + clay.code.show(expr));
+
+	var symb = expr[1];
+	
+	if (symb[0] !== 'Symbol' || 
+		symb.length !== 2 || 
+		!PostMacros.hasOwnProperty(symb[1].toUpperCase()))
+		return expr;
+
+	rep = PostMacros[symb[1].toUpperCase()].apply(this, expr.slice(2));
 
 	if (rep !== undefined) {
 		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
@@ -867,6 +907,8 @@ var quote = function quote(expr) {
 Clay.prototype.compileExpr = function(expr, basepack) {
 	var me = this;
 	switch(expr[0]) {
+		case 'PostMacro':
+			return me.compileExpr(expandPostMacros(expr), basepack);
 		case 'Category':
 			return 'return (' + me.compileExpr(expr[2], basepack) + ');';
 		case 'Func*':
