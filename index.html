@@ -2,6 +2,7 @@
 <html>
 <head>
 	<meta charset="UTF-8">
+	<meta http-equiv="Content-Type" content="application/xhtml+xml">
 	<title></title>
 	<script src="http://code.jquery.com/jquery-1.10.0.min.js"></script>
 <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
@@ -592,6 +593,8 @@ var Graph = {};
 
 Graph.Line = function(matrix, x, series) {
 	var elem = document.createElement('div');
+
+	d3.select(elem).attr("style", "width: 100%; min-width: 400px; min-height: 250px;")
 
 // DUMMY graph to test the result concept
 
