@@ -792,7 +792,7 @@ Environment.prototype.BasicTable = function(headers, rows, highlight) {
 	rows.forEach(function(r, j) {
 		var tr = body.insertRow();
 		r.forEach(function(e, i) {
-			var th = tr.insertCell();
+			var th = tr.insertCell(-1);
 			if (i < highlight) th.className = 'highlight';
 			if (isElement(e)) {
 				th.appendChild(e);
