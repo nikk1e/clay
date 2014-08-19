@@ -137,6 +137,7 @@ var makeRecursion = function(func) {
 //TODO: this needs to take a prec so we can
 // avoid too many brackets in output.
 function showMr(s) {
+	if (s.originalSexpr !== undefined) return showMr(s.originalSexpr);
 	switch (s[0]) {
 		case 'Number': return s[1].toString();
 		case 'String': return s[1];
@@ -194,12 +195,9 @@ var table = function(expr, opt_dims) {
 //Y = Table({Graph.Line(Net Income[Month][Growth])})
 var postTable = function(exprs, quoteds, dims) {
 	//exprs and quoteds are both expected to be list literals
-	//TODO.. implement
-	//Lookup dimensions of expression
-	//var dims = .map(function(d) { 
-	//	var s = d.split('.'); s.unshift('Symbol'); return s; });
-	//quote them
-	//put length where 1 is.
+
+	// ***** TODO : don't bother with all this dimension stuff
+	//    just call annotateDimentions on it during compile.
 	if (dims === undefined) {
 		dims = exprs.dimensions;
 	} else {
@@ -209,7 +207,6 @@ var postTable = function(exprs, quoteds, dims) {
 	}
 
 	var len = ['Number', dims.length];
-	//BasicTable({"Year","Graph.Line(Net Income[Month])"},{Year,Graph.Line(Net Income[Month][Growth])}[Year],1)
 	var heads = ['List'];
 	heads.dimensions = []
 	var fexpr = ['List'];
