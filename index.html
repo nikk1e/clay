@@ -1355,9 +1355,6 @@ Clay.prototype.recalculate = function() {
 		}
 	}
 
-	//TODO: Fixup expressions with non empty dimensions..
-	// turn them into basic tables...
-
 	//compile expressions (and bind to namespace)
 	for (pack in packages) {
 		if (packages.hasOwnProperty(pack)) {
@@ -1366,6 +1363,16 @@ Clay.prototype.recalculate = function() {
 			for (var name in packg.expressions) {
 				if (packg.expressions.hasOwnProperty(name)) {
 					var expr = packg.expressions[name];
+					if (expr.dimensions.length > 0) {
+						//Wrap expressions with table
+						//TODO: use original expression
+						//Graph.Line(Net Income[Month])
+						expr = table(expr);
+						packg.expressions[name] = expr;
+						annotateDimensions(expr, pass-1, pack);
+						console.log(clay.code.show(expr) + ' has ' + expr.dimensions.join(', '));
+
+					}
 					expr.compiled = this.compileFunc(expr, pack).bind(env);
 				}
 			}
