@@ -183,10 +183,11 @@ var table = function(expr, opt_dims) {
 	var pm = ['PostMacro', ['Symbol', 'Table'], expr, quoteds];
 	if (opt_dims !== undefined) {
 		pm.push(opt_dims);
+		return ['RemDims', pm, opt_dims];
 	}
 	return ['NoDim', pm]; 
 };
-
+//Table({Table({Graph.Line(Net Income[Month])},{Assum})})
 //Table({Graph.Line(Net Income[Month][Growth]*Year)})
 //Table({Graph.Line(Net Income[Month][Growth])})
 //Table({Graph.Line(Net Income[Month][Growth])},{Year})
@@ -948,6 +949,7 @@ Clay.prototype.compileExpr = function(expr, basepack) {
 ' + exprs.join('\nif(_ret !== undefined) return _ret;\n') + '\n\
 return _ret;'
 			return ov;
+		case 'RemDims':
 		case 'NoDim':
 			return me.compileExpr(expr[1], basepack);
 		case 'Quote':
@@ -1289,9 +1291,23 @@ Clay.prototype.recalculate = function() {
 						ret.push(temp[i]);
 				};
 				break;
+			case 'RemDims':
+				var temp = annotateDimensions(expr[1], pass, basepack);
+				var rem = annotateDimensions(expr[2], pass, basepack);
+				ret = [];
+				temp.forEach(function(d) {
+					if (rem.indexOf(d) === -1) ret.push(d);
+				});
+				break;
 			case 'NoDim': //NoDim has no dimensions
 				annotateDimensions(expr[1], pass, basepack);
 				ret = [];
+				break;
+			case 'Func':
+				for(var i=expr.length - 1; i > 1; i--) {
+					if (expr[i] instanceof Array)
+						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
+				};
 				break;
 			default:
 				for(var i=expr.length - 1; i > 0; i--) {

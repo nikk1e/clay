@@ -59,3 +59,5 @@ Clay requires a library to implement opening of models (json), saving etc are up
 (Set symb expr) // from symb = expr or symb[...] = expr
 
 (Category symb expr) //from symb[] = expr
+
+(RemDims expr (List dims...)) // removes dims of dims from expr dims
