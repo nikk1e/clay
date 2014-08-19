@@ -148,6 +148,7 @@ function showMr(s) {
 		case 'Set*':
 		case 'Let': return showMr(s[1]) +'=' + showMr(s[2]);
 		case 'Plus': return '(' + s.slice(1).map(showMr).join(' + ') + ')';
+		case 'Times': return '(' + s.slice(1).map(showMr).join(' + ') + ')';
 		//TODO: make the infix check 
 		default: return clay.code.show(s);
 	};
@@ -176,7 +177,7 @@ var table = function(expr) {
 	if (expr[0] !== 'List') {
 		expr = ['List', expr];
 	}
-	var quoteds = expr.map(function(e, i) { return (i > 0) ? ['String', showM(e)] : e });
+	var quoteds = expr.map(function(e, i) { return (i > 0) ? showM(e) : e });
 	return ['NoDim', ['PostMacro', ['Symbol', 'Table'], expr, quoteds]]; 
 };
 
@@ -184,20 +185,24 @@ var postTable = function(exprs, quoteds) {
 	//exprs and quoteds are both expected to be list literals
 	//TODO.. implement
 	//Lookup dimensions of expression
-	var dims = exprs.dimensions.map(function(d) { 
-		var s = d.split('.'); s.unshift('Symbol'); return s; });
+	//var dims = .map(function(d) { 
+	//	var s = d.split('.'); s.unshift('Symbol'); return s; });
 	//quote them
-	var dimns = dims.map(function(d) { return d[2]; });
 	//put length where 1 is.
-	var len = ['Number', dims.length];
+	var len = ['Number', exprs.dimensions.length];
 	//BasicTable({"Year","Graph.Line(Net Income[Month])"},{Year,Graph.Line(Net Income[Month][Growth])}[Year],1)
 	var heads = ['List'];
 	heads.dimensions = []
 	var fexpr = ['List'];
-	fexpr.dimensions = [];
+	fexpr.dimensions = exprs.dimensions;
 	var over = ['Over', fexpr];
 	over.dimensions = [];
-	dims.forEach(function(d) { fexpr.push(d); over.push(d); heads.push(['String', d[2]]); });
+	exprs.dimensions.forEach(function(d) { 
+		var s = d.split('.'); 
+		s.unshift('Symbol');
+		s.dimensions = [d];
+		fexpr.push(s); over.push(s); heads.push(['String', s[2]]); 
+	});
 	exprs.slice(1).forEach(function(d) { fexpr.push(d); });
 	quoteds.slice(1).forEach(function(d) { heads.push(d); });
 	return ['Call', ['Symbol', 'BasicTable'], heads, over, len]; 
@@ -857,7 +862,8 @@ Clay.prototype.compileOver = function(expr, basepack) {
 	var dims = expr.dimensions.map(function(d) {
 		return me.Symbol(d);
 	}).join(', ');
-	var retDims = expr.slice(2).map(function(e) { return '"' + e.dimensions[0] + '"'; });
+	var retDims = expr.slice(2).map(function(e) { 
+		return '"' + e.dimensions[0] + '"'; });
 	var overs = expr.slice(2).map(function(e) { 
 		var pack = e.dimensions[0].split('.',1)[0];
 		var name = e.dimensions[0].slice(pack.length+1);
@@ -1257,6 +1263,7 @@ Clay.prototype.recalculate = function() {
 			case 'NoDim': //NoDim has no dimensions
 				annotateDimensions(expr[1], pass, basepack);
 				ret = [];
+				break;
 			default:
 				for(var i=expr.length - 1; i > 0; i--) {
 					if (expr[i] instanceof Array)
