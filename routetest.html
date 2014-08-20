@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
+	<title>Test</title>
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="css/layouts/side-menu.css"/>
+<!--<![endif]-->
+<link rel="stylesheet" href="/css/clay.css"/>
+<style type="text/css">
+#menu {
+	margin-left: -180px;
+	width: 180px;
+	left: 180px; /* on big screen */
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	z-index: 1000;
+	background: #191818;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+div, input {
+	-moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box;
+}
+
+div.pad {
+	padding-top: 48px;
+}
+
+div#container {
+	width: 100%;
+	overflow: hidden;
+}
+
+div#filewrap {
+	width: 450px;
+	left: 180px; /* on big screen */
+	position: fixed;
+	top: 0;
+	bottom: 0;
+}
+div#filewrapx {
+	position: relative;
+	height: 100%;
+	width: 450px;
+	overflow: hidden;
+	border-right: 1px solid #edece4;
+}
+
+div.left-pane {
+	width: 470px; /* or 100% on small screen */
+	height: 100%;
+	/*background: #191818; */
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+div.right-pane {
+	margin-left: 450px;
+}
+
+div#layoutx {
+	position: relative;
+	padding-left: 180px; /* size of menu */
+	left: 0;
+}
+div#files {
+	border-right: 1px solid #edece4;
+}
+div.hist,
+div.file {
+	width: 100%;
+	border-bottom: 1px solid #edece4;
+}
+
+div.file {
+	height: 44px;
+	padding: 10px;
+}
+
+div.hist {
+	height: 88px;
+	padding: 5px 10px;
+}
+
+input {
+	border: 0px;
+}
+
+span.pure-menu-subheading {
+	line-height: 1.5em;
+	display: block;
+	padding: 0.6em 0 0.6em 0.6em;
+}
+
+</style>
+</head>
+<body>
+<div id='layoutx'>
+<div id="menu" data-reactid=".0.1.1">
+<div class="pure-menu pure-menu-open"><a class="pure-menu-heading" href="#">Clay</a>
+<ul>
+<li class=""><span class='pure-menu-subheading'>Projects</span></li>
+<li class=""><a href="#Close">123 Model</a></li>
+<li class="pure-menu-selected"><a href="#Revert">AA Latest</a></li>
+<li class=""><a href="#Revert">Some Model</a></li>
+<li class="menu-item-divided"><span class='pure-menu-subheading'>Branches</span></li>
+<li class="pure-menu-selected"><a href="#Close">Master</a></li>
+<li class=""><a href="#Revert">Tag 1</a></li>
+<li class=""><a href="#Revert">Branch 2</a></li>
+<li class=""><a href="#Revert">+ Add Branch</a></li>
+
+</ul></div></div>
+<div id='container'>
+<div class='conentx'>
+<section id='root' class='active'>
+<div id="filewrap">
+<div style="height: 48px; border-bottom: 1px solid #edece4; padding: 10px; padding-top: 15px; ">
+<h3 style="color: rgb(134, 192, 241);">Models</h3>
+</div>
+<div id="filewrapx">
+<div id="files" class="pane left-pane">
+	<div class="file"><input placeholder="Create new model"/></div>
+	<div class="file">Lorem ipsum.</div>
+	<div class="file">Deleniti, earum.</div>
+	<div class="file">Et, ipsam.</div>
+	<div class="file">Eaque, odio.</div>
+	<div class="file">Aperiam, iure.</div>
+	<div class="file">Eius, ut.</div>
+	<div class="file">Labore, earum!</div>
+	<div class="file">Quis, ex.</div>
+	<div class="file">TestThis/Veritatis, laboriosam!</div>
+	<div class="file">TestThis/Nulla, id.</div>
+	<div class="file">TestThis/Quia, maiores.</div>
+	<div class="file">TestThis/Quis, optio!</div>
+	<div class="file">TestThis/Natus, quis.</div>
+	<div class="file">Doloremque, ut.</div>
+	<div class="file">Cupiditate, atque.</div>
+	<div class="file">Modi, deleniti!</div>
+	<div class="file">Vel, unde?</div>
+	<div class="file">Dicta, adipisci?</div>
+	<div class="file">Illo, recusandae.</div>
+	<div class="file">Expedita, debitis!</div>
+	<div class="file">Quisquam, nostrum.</div>
+	<div class="file">Laboriosam, odit?</div>
+	<div class="file">Asperiores, blanditiis.</div>
+	<div class="file">Totam, cupiditate.</div>
+	<div class="file">Dolorum, in!</div>
+	<div class="file">Lorem ipsum.</div>
+	<div class="file">Deleniti, earum.</div>
+	<div class="file">Et, ipsam.</div>
+	<div class="file">Eaque, odio.</div>
+	<div class="file">Aperiam, iure.</div>
+	<div class="file">Eius, ut.</div>
+	<div class="file">Labore, earum!</div>
+	<div class="file">Quis, ex.</div>
+	<div class="file">Veritatis, laboriosam!</div>
+	<div class="file">Nulla, id.</div>
+	<div class="file">Quia, maiores.</div>
+	<div class="file">Quis, optio!</div>
+	<div class="file">Natus, quis.</div>
+	<div class="file">Doloremque, ut.</div>
+	<div class="file">Cupiditate, atque.</div>
+	<div class="file">Modi, deleniti!</div>
+	<div class="file">Vel, unde?</div>
+	<div class="file">Dicta, adipisci?</div>
+	<div class="file">Illo, recusandae.</div>
+	<div class="file">Expedita, debitis!</div>
+	<div class="file">Quisquam, nostrum.</div>
+	<div class="file">Laboriosam, odit?</div>
+	<div class="file">Asperiores, blanditiis.</div>
+	<div class="file">Totam, cupiditate.</div>
+	<div class="file">Dolorum, in!</div>
+</div>
+</div>
+</div>
+<div id="history" class='pane right-pane'>
+<div style="height: 48px; border-bottom: 1px solid #edece4; padding: 10px; padding-top: 15px; position: fixed; background-color: white; z-index: 1000; width: 100%;">
+<h3 style="color: rgb(134, 192, 241);">History</h3>
+</div>
+<div class='pad'>
+	<div class='hist'>
+		<input placeholder="Changes to commit"/>
+	</div>
+	<div class='hist'>
+		<div class="name">Lorem.</div>
+		<div class="comment">Lorem ipsum dolor sit amet, consectetur adipisicing elit. Dignissimos, accusantium.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Repellendus.</div>
+		<div class="comment">At obcaecati quia corporis sequi ut doloribus placeat, consequatur est.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Esse.</div>
+		<div class="comment">Deserunt quibusdam, fugit non porro reiciendis animi. Adipisci fugiat, magni!</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Temporibus.</div>
+		<div class="comment">Alias illo odit libero repellat minima at. Sunt libero, sint.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Nostrum.</div>
+		<div class="comment">Accusamus nam animi vel eum maxime, sequi totam natus nemo.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Quae!</div>
+		<div class="comment">Nulla non voluptate, recusandae a atque asperiores sed sint totam?</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Fugit!</div>
+		<div class="comment">Dolores quas soluta iusto, repellendus, error amet adipisci aliquid consectetur!</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Harum.</div>
+		<div class="comment">Libero, vitae eaque corporis alias nulla, rem minima numquam enim.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Vel.</div>
+		<div class="comment">Amet veritatis iste rem itaque iure nesciunt sequi asperiores illum?</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Eos.</div>
+		<div class="comment">Beatae, recusandae expedita, porro ipsum tempora ratione cupiditate nesciunt quos.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+		<div class='hist'>
+		<div class="name">Repellendus.</div>
+		<div class="comment">At obcaecati quia corporis sequi ut doloribus placeat, consequatur est.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Esse.</div>
+		<div class="comment">Deserunt quibusdam, fugit non porro reiciendis animi. Adipisci fugiat, magni!</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Temporibus.</div>
+		<div class="comment">Alias illo odit libero repellat minima at. Sunt libero, sint.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Nostrum.</div>
+		<div class="comment">Accusamus nam animi vel eum maxime, sequi totam natus nemo.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Quae!</div>
+		<div class="comment">Nulla non voluptate, recusandae a atque asperiores sed sint totam?</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Fugit!</div>
+		<div class="comment">Dolores quas soluta iusto, repellendus, error amet adipisci aliquid consectetur!</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Harum.</div>
+		<div class="comment">Libero, vitae eaque corporis alias nulla, rem minima numquam enim.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Vel.</div>
+		<div class="comment">Amet veritatis iste rem itaque iure nesciunt sequi asperiores illum?</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+	<div class='hist'>
+		<div class="name">Eos.</div>
+		<div class="comment">Beatae, recusandae expedita, porro ipsum tempora ratione cupiditate nesciunt quos.</div>
+		<div class="date">2014-08-14 12:23</div>
+	</div>
+</div>
+</div>
+</section>
+<section id='edit' class='inactive'>
+</section>
+<section id='help' class='inactive'>
+</section>
+</div>
+</div>
+</div>
+</body>
+<script type="text/javascript">
+//Dummy history data
+var history = [
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Added some stuff that we wanted' },
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Lorem ipsum dolor sit amet.' },
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Eveniet architecto, fuga eos pariatur.' },
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Molestiae, possimus aliquam quasi incidunt.' },
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Facere nobis corrupti quidem inventore?' },
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Excepturi ipsum esse error omnis!' },
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Incidunt tempora autem, commodi dolorem!' },
+{ author: 'Benjamin Norrington <bnorrington@uss.co.uk>', date: '2014-08-19 09:26:01', comment: 'Optio enim quibusdam, cum voluptas!' },
+];
+
+//Dummy file list data
+var tree = [
+{"type": "file", "name": "Benchmarks.model"}, 
+{"type": "file", "name": "Example.model"}, 
+{"type": "file", "name": "Getting-Started.model"}, 
+{"type": "file", "name": "Help.model"}, 
+{"type": "directory", "name": "code.example.com", "children": [
+	{"type": "directory", "name": "p", "children": [
+		{"type": "file", "name": "somemodel.model"}
+	]}
+]}
+];
+
+
+//route based on url hash
+//treat the #... as the stack #rootfile/include/
+// final / indicates the directory shows
+function route(e) {
+	var path = window.location.hash.slice(1).split('/');
+
+}
+window.addEventListener('hashchange', route);
+
+
+</script>
+</html>
