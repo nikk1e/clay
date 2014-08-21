@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Test</title>
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="css/layouts/side-menu.css">
+<!--<![endif]-->
+<link rel="stylesheet" href="/css/clay.css"/>
+<style type="text/css">
+#editor p {
+	/* min-height: 1.5em;
+	min-width: 1px; DO not give editable elements a fixed size or they get resize handles in IE */
+	border: 1px solid #edece4; 
+}
+
+*:focus {
+	outline: none;
+}
+</style>
+</head>
+<body>
+<div id="layout">
+    <!-- Menu toggle -->
+
+    <div id="main">
+<div class="content">
+<div id='editor' contentEditable='true' onresizestart='return false;'>
+		<p name='3a34'><br></p>
+		<p name='34a3'><br></p>
+</div>
+
+</div>
+</div>
+</div>
+<script type="text/javascript">
+	// select the target node
+var target = document.querySelector('#editor');
+ 
+// create an observer instance
+var observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(mutation) {
+    console.log(mutation);
+    if (mutation.type == 'characterData') console.log(mutation.target.data);
+  });    
+});
+ 
+// configuration of the observer:
+var config = { attributes: true, childList: true, characterData: true, subtree: true };
+ 
+// pass in the target node, as well as the observer options
+observer.observe(target, config);
+ 
+// later, you can stop observing
+//observer.disconnect();
+
+function route(e) {
+	var path = window.location.hash.slice(1).split('/');
+
+}
+window.addEventListener('hashchange', route);
+
+
+function selectionChanged(e) {
+	var selected = window.getSelection();
+	console.log(selected);
+
+}
+window.addEventListener('selectionchange', selectionChanged); //IE only
+//TODO: can listen to this on a timeout every few 100 milliseconds
+//   ??? do we need to know anyway. We only really need to know if the selection
+//       is something different from what we thought it should be.
+
+// selection { section: 0, paragraph: }
+
+// selection { path: [...], offset: 9 } store in data-path
+
+//or linear model?
+var model = {
+	type: 'root',
+	children: [
+		{type: 'h1', children: ["Some text here"]},
+		{type: 'p', children: ["Some text here"]},
+		{type: 'code', children: ["Code here"]}
+	]
+}
+
+</script>
+</body>
+</html>
