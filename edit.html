@@ -30,22 +30,20 @@
 
     <div id="main">
 <div class="content">
-<div id='editor' contentEditable='true' onresizestart='return false;'>
-		<p name='3a34'><br></p>
-		<p name='34a3'><br></p>
-</div>
-
+<div id='preview' contentEditable='true'>
+	<p><br></p>
+	<p><br></p>
 </div>
 </div>
 </div>
 <script type="text/javascript">
 	// select the target node
-var target = document.querySelector('#editor');
+var editor = document.getElementById('preview');
  
 // create an observer instance
 var observer = new MutationObserver(function(mutations) {
   mutations.forEach(function(mutation) {
-    console.log(mutation);
+    console.log(mutation.type);
     if (mutation.type == 'characterData') console.log(mutation.target.data);
   });    
 });
@@ -54,15 +52,267 @@ var observer = new MutationObserver(function(mutations) {
 var config = { attributes: true, childList: true, characterData: true, subtree: true };
  
 // pass in the target node, as well as the observer options
-observer.observe(target, config);
+observer.observe(editor, config);
  
 // later, you can stop observing
 //observer.disconnect();
+
+function handlePaste(e) {
+	console.log('paste');
+	// Cannot prevent default because the only
+	// way to find what has been pasted is to
+	// let it happen
+	//e.preventDefault();
+
+	setTimeout(function() {
+	rerenderDocument(parseDocument(editor), editor);
+	}, 10); 
+}
+
+function handleCut(e) {
+	console.log('cut');
+	// Cannot prevent default because there
+	// is no easy way to then put the data
+	// in the clipboard
+	//e.preventDefault();
+	setTimeout(function() {
+	rerenderDocument(parseDocument(editor), editor);
+	}, 10); 
+}
+
+function handleClick(e) {
+	//make links clickable in the editor
+	if (e.target.nodeName === 'A')
+		window.location = e.target.href; //TODO: need a better way to do this
+}
+
+editor.addEventListener('paste', handlePaste);
+editor.addEventListener('cut', handleCut);
+editor.addEventListener('click', handleClick);
+
+function makeGensym(seed) {
+	var func = function() {
+		func.seed = func.seed + 1;
+		return func.seed;
+	}
+	func.seed = seed || 0;
+	return func;
+}
+
+function base36(n) {
+	return n.toString(36);
+}
+
+function from36(s) {
+	return parseInt(s, 36);
+}
+
+function flatten(aofas) {
+	return Array.prototype.concat.apply([], aofas);
+}
+
+// apply function to array like return dense result array
+// no undefined elements
+function map(arraylike, func) {
+	var result = [];
+	for (var i = 0; i < arraylike.length; i++) {
+		var elem = arraylike[i];
+		var res = func(elem, i);
+		if (res !== undefined) result.push(res);
+	}
+	return result;
+}
+
+function parseDocument(node) {
+	var doc   = {type: 'root'};
+	doc.children = flatten(map(node.childNodes, 
+		function(elem) { 
+			if (elem.nodeType !== 3) return parseNode(elem); 
+		}));
+	return doc;
+}
+
+function parsePara(node) {
+	switch (node.nodeName) {
+		case 'STRONG':
+		case 'B': return {type: 'strong', children: parseParas(node)};
+		case 'EM':
+		case 'I': return {type: 'em', children: parseParas(node)};
+		case 'A': return {type: 'a', href: node.href, children: parseParas(node)};
+		case '#text': return {type: 'text', text: node.textContent};
+		case 'CODE': return {type: 'inlinecode', text: node.innerText}; //inline code.
+		default: return {type: 'text', text: node.innerText};
+	};
+}
+
+function parseCode(node) {
+	switch (node.nodeName) {
+		case 'CODE': return {type: 'code', text: node.innerText }; 
+		case '#text': return {type: 'code', text: node.textContent};
+		default: return {type: 'code', text: node.innerText};
+	};
+}
+
+function mergeSame(nodes) {
+	var result = [];
+	var last;
+	var lastType;
+	nodes.forEach(function(node) {
+		if (node.type === lastType) {
+			switch (node.type) {
+				case 'text':
+					last.text = last.text + node.text;
+					break;
+				case 'strong':
+				case 'em':
+					last.children = last.children.concat(node.children);
+					break;
+				default:
+					last = node;
+					result.push(node);
+			}
+		} else {
+			lastType = node.type;
+			last = node;
+			result.push(node);
+		}
+	});
+	return result;
+}
+
+function parseParas(node) {
+	return mergeSame(map(node.childNodes,parsePara));
+}
+
+function parseCodes(node) {
+	return map(node.childNodes,parseCode);
+}
+
+function parseListItems(node, type) {
+	return map(node.childNodes, function(n) {
+		if (n.nodeName === 'LI') return {type: type, children: parseParas(n)};
+	});
+}
+
+function parseNode(node, allowText) {
+	switch (node.nodeName) {
+		case 'UL':
+			return parseListItems(node, 'ulli');
+		case 'OL':
+			return parseListItems(node, 'olli');
+		case 'BLOCKQUOTE':
+			return [{type: node.nodeName.toLowerCase(), children: parseParas(node)}];
+		case 'DIV':
+			//TODO: need to do something with a div that just contains text. Need these together.
+			return flatten(map(node.childNodes, function(elem) { return parseNode(elem, true); }));
+		case '#text':
+			return (allowText ? [{type: 'p', children: [{type: 'text', text: node.textContent}]}] : []);
+		case 'P':
+			return [{type: 'p', children: parseParas(node)}];
+		case 'PRE':
+			return parseCodes(node);
+		case 'TABLE':
+			return [{type: 'table', children: []}]; //parse the table.
+		case 'H1':
+		case 'H2':
+		case 'H3':
+		case 'H4':
+		case 'H5':
+		case 'H6':
+			return [{type: 'header', 
+				level: parseInt(node.nodeName.slice(1)), 
+				children: parseParas(node)
+			}];
+		case 'CODE':
+			return [{type: 'code', text: node.innerText}];
+		case 'STRONG':
+		case 'B': return [{type: 'p', children: [{type: 'strong', children: parseParas(node)}]}];
+		case 'EM':
+		case 'I': return [{type: 'p', children: [{type: 'strong', children: parseParas(node)}]}];
+		case 'A': return [{type: 'p', 
+			children: [{type: 'a', href: node.href, children: parseParas(node)}]}];
+		default: //convert all other top level pastes into a p element
+			return [{type: 'p', children: parseParas(node)}]
+	};
+}
+
+function renderChildren(node, tag, attribs) {
+	var elem = document.createElement(tag);
+	if (attribs !== undefined) {
+		for (var k in attribs) {
+			elem[k] = attribs[k];
+		}
+	}
+	return gatherChildren(node.children, elem);
+}
+
+function gatherChildren(nodes, elem) {
+	var sTag;
+	var lastTag;
+	var sElem = elem;
+	for (var i = 0; i < nodes.length; i++) {
+		var node = nodes[i];
+		sTag = surround[node.type];
+		if (sTag !== undefined) {
+			if (sTag !== lastTag) {
+				sElem = document.createElement(sTag);
+				elem.appendChild(sElem);
+			}
+		} else {
+			sElem = elem;
+		}
+		sElem.appendChild(render[node.type](node));
+		lastTag = sTag;
+	}
+	return elem;
+}
+
+var surround = {
+	ulli: 'UL',
+	olli: 'OL',
+	code: 'PRE',
+}
+
+//TODO: need some newlines here
+function renderCode(e) {
+	var text = document.createTextNode(e.text);
+	var elem = document.createElement('CODE');
+	elem.appendChild(text);
+	return elem;
+}
+
+function renderLI(e) { return renderChildren(e, 'LI'); }
+
+var render = {
+	text:       function(e) { return document.createTextNode(e.text); },
+	code:       renderCode,
+	inlinecode: renderCode,
+	ulli:       renderLI,
+	olli:       renderLI,
+	header:     function(e) { return renderChildren(e, 'H' + e.level); },
+	strong:     function(e) { return renderChildren(e, 'STRONG'); },
+	em:         function(e) { return renderChildren(e, 'EM'); },
+	blockquote: function(e) { return renderChildren(e, 'BLOCKQUOTE'); },
+	p:          function(e) { return renderChildren(e, 'P'); },
+	a:          function(e) { return renderChildren(e, 'A', {href: e.href}); },
+	root:       function(e) {
+		return gatherChildren(e.children, document.createDocumentFragment());
+	},
+}
+
+function rerenderDocument(doc, elem) {
+	var fragment = render.root(doc);
+	while (elem.hasChildNodes()) {
+    	elem.removeChild(elem.lastChild);
+	}
+	elem.appendChild( fragment ); // might need .cloneNode(true) );
+}
 
 function route(e) {
 	var path = window.location.hash.slice(1).split('/');
 
 }
+
 window.addEventListener('hashchange', route);
 
 
@@ -84,9 +334,9 @@ window.addEventListener('selectionchange', selectionChanged); //IE only
 var model = {
 	type: 'root',
 	children: [
-		{type: 'h1', children: ["Some text here"]},
-		{type: 'p', children: ["Some text here"]},
-		{type: 'code', children: ["Code here"]}
+		{type: 'h1', id: 1, children: ["Some text here"]},
+		{type: 'p', id: 2, children: ["Some text here"]},
+		{type: 'code', id: 3, children: ["Code here"]}
 	]
 }
 
