@@ -30,23 +30,117 @@
 
     <div id="main">
 <div class="content">
-<div id='preview' contentEditable='true'>
-	<p><br></p>
-	<p><br></p>
+<div id='preview' contentEditable='true'><p><br></p><p><br></p>
+</div>
+<div id='pasteTarget' contentEditable='true' style='width: 0; height: 0; overflow: hidden;'>&nbsp;
 </div>
 </div>
 </div>
 <script type="text/javascript">
 	// select the target node
 var editor = document.getElementById('preview');
+var pasteTarget = document.getElementById('pasteTarget');
+
+var selection = { 
+	start: {path:[], offet:0 },
+};
+selection.end = selection.start;
  
 // create an observer instance
+var ignoreMutations = false;
 var observer = new MutationObserver(function(mutations) {
+  if (ignoreMutations) {
+  	ignoreMutations = false;
+  	return;
+  }
+  //var redraw = false;
+  var path;
+  var addedNodes = 0
+  console.log('Mutation Event')
   mutations.forEach(function(mutation) {
-    console.log(mutation.type);
-    if (mutation.type == 'characterData') console.log(mutation.target.data);
-  });    
+    //if (mutation.type !== 'characterData') redraw = true;
+    if (mutation.type == 'childList') {
+    	if (mutation.addedNodes.length > 0) {
+    		for (var i = 0; i < mutation.addedNodes.length; i++) {
+    			var n = mutation.addedNodes[i];
+    			if (n.nextSibling && n.nextSibling.nodeName == 'BR') {
+    				//skip dummy 'BR'
+    			} else {
+					addedNodes = addedNodes + 1;
+    			}
+			}
+			//console.log('addedNodes: ' + mutation.addedNodes.length);
+    		//console.log(mutation.addedNodes);
+    	}
+    	for (var i = 0; i < mutation.removedNodes.length; i++) {
+    		var n = mutation.removedNodes[i]
+    		if (n.nodeName == 'BR') {
+    			addedNodes = addedNodes - 1;
+    		} else if (path) {
+    			addedNodes = addedNodes + 1;
+    		}
+    	};
+
+    }
+    if (mutation.type == 'characterData') {
+    	//console.log(mutation.target.data);
+    	path = findPath(model, mutation.target);
+    	if (path !== undefined) {
+    		//console.log(path);
+    		modifyNode(model, path, {text: mutation.target.data}); //TODO: make command object
+    	} else {
+    		console.log('Error: selection not found');
+    		console.log(mutation.target);
+    	}
+    }
+  }); 
+  if (addedNodes > 0) {
+  	console.log('reparse');
+  	model = parseDocument(editor);
+  //}
+  //if (redraw) {
+  	console.log('redraw');
+  	ignoreMutations = true;
+  	rerenderDocument(model, editor);
+  	//TODO: fixup selection
+  }
+
 });
+
+function modifyNode(model, path, update) {
+	var n = model;
+	path.forEach(function(i) {
+		if (n.type !== 'code') //TODO: This needs to be factored out into a fixup path.
+			n = n.children[i];
+	});
+	for (var k in update) {
+		if (update.hasOwnProperty(k)) {
+			n[k] = update[k];
+		}
+	}
+}
+
+function insertNode(model, path, node) {
+	var ind = path.pop();
+	var n = model;
+	path.forEach(function(i) {
+		if (n.type !== 'code') //TODO: This needs to be factored out into a fixup path.
+			n = n.children[i];
+	});
+	n.children.splice(ind, 0, node);
+	path.push(ind);
+}
+
+function removeNode(model, path) {
+	var ind = path.pop();
+	var n = model;
+	path.forEach(function(i) {
+		if (n.type !== 'code') //TODO: This needs to be factored out into a fixup path.
+			n = n.children[i];
+	});
+	n.children.splice(ind, 1);
+	path.push(ind);
+}
  
 // configuration of the observer:
 var config = { attributes: true, childList: true, characterData: true, subtree: true };
@@ -68,7 +162,31 @@ function handlePaste(e) {
 	// let it happen
 	//e.preventDefault();
 
-	after(function() { rerenderDocument(parseDocument(editor), editor); }); 
+	//move the selection to a hidden div.
+	var sel = window.getSelection();
+	var range = document.createRange();
+	range.setStart(pasteTarget, 0);
+	range.setEnd(pasteTarget, 0);
+	sel.removeAllRanges();
+    sel.addRange(range);
+
+	after(function() {
+		//TODO: this should do a merge (and a removal of the current selection)
+		model = parseDocument(pasteTarget, true);
+		ignoreMutations = true;
+		rerenderDocument(model, editor);
+		pasteTarget.innerHTML = '&nbsp;';
+
+		//Set selection back to where it should be
+		//TODO: this just sets to start
+		var sel = window.getSelection();
+		var range = document.createRange();
+		range.setStart(editor, 0);
+		range.setEnd(editor, 0);
+		//range.selectNodeContents(pasteTarget);
+		sel.removeAllRanges();
+    	sel.addRange(range);
+	}); 
 }
 
 function handleCut(e) {
@@ -78,7 +196,9 @@ function handleCut(e) {
 	// in the clipboard
 	//e.preventDefault();
 	setTimeout(function() {
-	rerenderDocument(parseDocument(editor), editor);
+		model = parseDocument(editor); //sets global model
+		ignoreMutations = true;
+		rerenderDocument(model, editor);
 	}, 10); 
 }
 
@@ -91,6 +211,33 @@ function handleClick(e) {
 editor.addEventListener('paste', handlePaste);
 editor.addEventListener('cut', handleCut);
 editor.addEventListener('click', handleClick);
+
+function findPath(model, elem) {
+	var path = [];
+	while(elem && elem !== editor) {
+		if (elem.dataset !== undefined && elem.dataset.id !== undefined) {
+			var id = from36(elem.dataset.id);
+			for (var i = model.children.length - 1; i >= 0; i--) {
+				if (model.children[i].id == id) {
+					path.push(i);
+					return path.reverse();
+				}
+			};
+			return;
+			//return {id: , path: path.reverse()};
+		}
+		if (elem.parentNode) {
+			var i = 0, n=elem;
+			while (n.previousElementSibling) {
+				n = n.previousElementSibling;
+				i += 1;
+			}
+			path.push(i);
+		}
+		elem = elem.parentNode;
+	}
+	return;
+}
 
 function makeGensym(seed) {
 	var func = function() {
@@ -132,11 +279,27 @@ function forEach(arraylike, func) {
 	}
 }
 
-function parseDocument(node) {
+
+//TODO: this should be per document
+var sym = makeGensym();
+
+function parseDocument(node, allowText) {
 	var doc   = {type: 'root'};
 	doc.children = flatten(map(node.childNodes, 
 		function(elem) { 
-			if (elem.nodeType !== 3) return parseNode(elem); 
+			if (elem.nodeType !== 3) {
+				var n = parseNode(elem, allowText);
+				if (n.length > 0) {
+					if (elem.dataset.id !== undefined)
+						n[0].id = from36(elem.dataset.id);
+					else
+						n[0].id = sym();
+					for (var i = n.length - 1; i >= 1; i--) {
+						n[i].id = sym();
+					};
+				}
+				return n;
+			}
 		}));
 	return doc;
 }
@@ -150,16 +313,17 @@ function parsePara(node) {
 		case 'A': return {type: 'a', href: node.href, children: parseParas(node)};
 		case '#text': return {type: 'text', text: node.textContent};
 		case 'CODE': return {type: 'inlinecode', text: node.textContent}; //inline code.
+		case 'SPAN': return (node.style['font-weight'] > 600) ? 
+			{type: 'strong', children: parseParas(node)} : 
+			{type: 'text', text: node.textContent};
 		default: return {type: 'text', text: node.textContent};
 	};
 }
 
 function parseCode(node) {
-	switch (node.nodeName) {
-		case 'CODE': return {type: 'code', text: node.textContent }; 
-		case '#text': return {type: 'code', text: node.textContent};
-		default: return {type: 'code', text: node.textContent};
-	};
+	var cont = node.textContent;
+	if (cont.length === 0 || cont[cont.length-1] != '\n') cont = cont + '\n';
+	return {type: 'code', text: cont}; 
 }
 
 function mergeSame(nodes) {
@@ -273,32 +437,41 @@ function parseNode(node, allowText) {
 				children: parseParas(node)
 			}];
 		case 'CODE':
-			return [{type: 'code', text: node.textContent}];
+			return [parseCode(node)];
 		case 'STRONG':
 		case 'B': return [{type: 'p', children: [{type: 'strong', children: parseParas(node)}]}];
 		case 'EM':
 		case 'I': return [{type: 'p', children: [{type: 'strong', children: parseParas(node)}]}];
 		case 'A': return [{type: 'p', 
 			children: [{type: 'a', href: node.href, children: parseParas(node)}]}];
+		case 'LI':
+			return [{type: (node.parentNode.nodeName === 'OL' ? 'olli' : 'ulli'), 
+				children:parseParas(node) }];
 		default: //convert all other top level pastes into a p element
 			return [{type: 'p', children: parseParas(node)}]
 	};
 }
 
-function renderChildren(node, tag, attribs) {
+
+function renderChildren(node, tag, attribs, addbreak) {
 	var elem = document.createElement(tag);
 	if (attribs !== undefined) {
 		for (var k in attribs) {
 			elem[k] = attribs[k];
 		}
 	}
-	return gatherChildren(node.children, elem);
+	elem = gatherChildren(node.children, elem);
+	if (addbreak && elem.textContent == '') {
+		elem.appendChild(document.createElement('BR'));
+	}
+	return elem;
 }
 
 function gatherChildren(nodes, elem) {
 	var sTag;
 	var lastTag;
 	var sElem = elem;
+	var curr;
 	for (var i = 0; i < nodes.length; i++) {
 		var node = nodes[i];
 		sTag = surround[node.type];
@@ -310,7 +483,9 @@ function gatherChildren(nodes, elem) {
 		} else {
 			sElem = elem;
 		}
-		sElem.appendChild(render[node.type](node));
+		curr = render[node.type](node);
+		if (node.id !== undefined) curr.dataset.id = base36(node.id); //dataset IE11+
+		sElem.appendChild(curr);
 		lastTag = sTag;
 	}
 	return elem;
@@ -322,7 +497,6 @@ var surround = {
 	code: 'PRE',
 }
 
-//TODO: need some newlines here
 function renderCode(e) {
 	var text = document.createTextNode(e.text);
 	var elem = document.createElement('CODE');
@@ -338,11 +512,11 @@ var render = {
 	inlinecode: renderCode,
 	ulli:       renderLI,
 	olli:       renderLI,
-	header:     function(e) { return renderChildren(e, 'H' + e.level); },
+	header:     function(e) { return renderChildren(e, 'H' + e.level,undefined, true); },
 	strong:     function(e) { return renderChildren(e, 'STRONG'); },
 	em:         function(e) { return renderChildren(e, 'EM'); },
-	blockquote: function(e) { return renderChildren(e, 'BLOCKQUOTE'); },
-	p:          function(e) { return renderChildren(e, 'P'); },
+	blockquote: function(e) { return renderChildren(e, 'BLOCKQUOTE',undefined , true); },
+	p:          function(e) { return renderChildren(e, 'P',undefined, true); },
 	a:          function(e) { return renderChildren(e, 'A', {href: e.href}); },
 	root:       function(e) {
 		return gatherChildren(e.children, document.createDocumentFragment());
@@ -352,9 +526,9 @@ var render = {
 	thead:      function(e) { return renderChildren(e, 'THEAD'); },
 	tfoot:      function(e) { return renderChildren(e, 'TFOOT'); },
 	tbody:      function(e) { return renderChildren(e, 'TBODY'); },
-	tr:      function(e) { return renderChildren(e, 'TR'); },
-	td:      function(e) { return renderChildren(e, 'TD'); },
-	th:      function(e) { return renderChildren(e, 'TH'); },
+	tr:         function(e) { return renderChildren(e, 'TR'); },
+	td:         function(e) { return renderChildren(e, 'TD'); },
+	th:         function(e) { return renderChildren(e, 'TH'); },
 }
 
 function rerenderDocument(doc, elem) {
@@ -391,11 +565,14 @@ window.addEventListener('selectionchange', selectionChanged); //IE only
 var model = {
 	type: 'root',
 	children: [
-		{type: 'h1', id: 1, children: ["Some text here"]},
-		{type: 'p', id: 2, children: ["Some text here"]},
-		{type: 'code', id: 3, children: ["Code here"]}
+		{type: 'header', level: 1, id: 1, children: [{type: 'text', text: "Title here"}]},
+		{type: 'p', id: 2, children: [{type: 'text', text: "Some text here"}]},
+		{type: 'code', id: 3, text: "Code here\n"},
 	]
 }
+
+ignoreMutations = true;
+rerenderDocument(model, editor);
 
 //fix firefox (don't allow content resizing)
 document.execCommand("enableObjectResizing", false, "false");
