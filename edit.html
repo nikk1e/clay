@@ -57,6 +57,10 @@ observer.observe(editor, config);
 // later, you can stop observing
 //observer.disconnect();
 
+function after(func) {
+	setTimeout(func, 0);
+}
+
 function handlePaste(e) {
 	console.log('paste');
 	// Cannot prevent default because the only
@@ -64,9 +68,7 @@ function handlePaste(e) {
 	// let it happen
 	//e.preventDefault();
 
-	setTimeout(function() {
-	rerenderDocument(parseDocument(editor), editor);
-	}, 10); 
+	after(function() { rerenderDocument(parseDocument(editor), editor); }); 
 }
 
 function handleCut(e) {
@@ -123,6 +125,13 @@ function map(arraylike, func) {
 	return result;
 }
 
+function forEach(arraylike, func) {
+	for (var i = 0; i < arraylike.length; i++) {
+		var elem = arraylike[i];
+		func(elem, i);
+	}
+}
+
 function parseDocument(node) {
 	var doc   = {type: 'root'};
 	doc.children = flatten(map(node.childNodes, 
@@ -140,16 +149,16 @@ function parsePara(node) {
 		case 'I': return {type: 'em', children: parseParas(node)};
 		case 'A': return {type: 'a', href: node.href, children: parseParas(node)};
 		case '#text': return {type: 'text', text: node.textContent};
-		case 'CODE': return {type: 'inlinecode', text: node.innerText}; //inline code.
-		default: return {type: 'text', text: node.innerText};
+		case 'CODE': return {type: 'inlinecode', text: node.textContent}; //inline code.
+		default: return {type: 'text', text: node.textContent};
 	};
 }
 
 function parseCode(node) {
 	switch (node.nodeName) {
-		case 'CODE': return {type: 'code', text: node.innerText }; 
+		case 'CODE': return {type: 'code', text: node.textContent }; 
 		case '#text': return {type: 'code', text: node.textContent};
-		default: return {type: 'code', text: node.innerText};
+		default: return {type: 'code', text: node.textContent};
 	};
 }
 
@@ -194,6 +203,46 @@ function parseListItems(node, type) {
 	});
 }
 
+function parseTable(node) {
+	//NOTE: we ignore colspans etc.
+	function parseRow(subnode) {
+		return map(subnode.childNodes, function(n) {
+			if (n.nodeName === 'TD') return {type: 'td', children: parseParas(n)};
+			if (n.nodeName === 'TH') return {type: 'th', children: parseParas(n)}; 
+		});
+	}
+
+	function parseRows(subnode, tnode) {
+		forEach(subnode.childNodes, function(n, i) {
+			if (n.nodeName === 'TR') {
+				tnode.children.push({type: 'tr', children: parseRow(n)});
+			}
+		});
+	}
+
+	var thead = {type: 'thead', children: []};
+	var tbody = {type: 'tbody', children: []};
+	var tfoot = {type: 'tfoot', children: []};
+	var table = {type: 'table', children: [thead, tbody, tfoot]};
+
+	for (var i = 0; i < node.childNodes.length; i++) {
+		var n = node.childNodes[i];
+		switch (n.nodeName) {
+			case 'THEAD':
+				parseRows(n, thead);
+				break;
+			case 'TBODY':
+				parseRows(n, tbody);
+				break;
+			case 'TFOOT':
+				parseRows(n, tfoot);
+				break;
+		}
+	};
+	parseRows(node, tbody); //catch rows in table
+	return [table];
+}
+
 function parseNode(node, allowText) {
 	switch (node.nodeName) {
 		case 'UL':
@@ -212,7 +261,7 @@ function parseNode(node, allowText) {
 		case 'PRE':
 			return parseCodes(node);
 		case 'TABLE':
-			return [{type: 'table', children: []}]; //parse the table.
+			return parseTable(node);
 		case 'H1':
 		case 'H2':
 		case 'H3':
@@ -224,7 +273,7 @@ function parseNode(node, allowText) {
 				children: parseParas(node)
 			}];
 		case 'CODE':
-			return [{type: 'code', text: node.innerText}];
+			return [{type: 'code', text: node.textContent}];
 		case 'STRONG':
 		case 'B': return [{type: 'p', children: [{type: 'strong', children: parseParas(node)}]}];
 		case 'EM':
@@ -298,6 +347,14 @@ var render = {
 	root:       function(e) {
 		return gatherChildren(e.children, document.createDocumentFragment());
 	},
+	table:      function(e) { return renderChildren(e, 'TABLE', 
+		{className: 'pure-table pure-table-bordered'}); },
+	thead:      function(e) { return renderChildren(e, 'THEAD'); },
+	tfoot:      function(e) { return renderChildren(e, 'TFOOT'); },
+	tbody:      function(e) { return renderChildren(e, 'TBODY'); },
+	tr:      function(e) { return renderChildren(e, 'TR'); },
+	td:      function(e) { return renderChildren(e, 'TD'); },
+	th:      function(e) { return renderChildren(e, 'TH'); },
 }
 
 function rerenderDocument(doc, elem) {
@@ -339,6 +396,10 @@ var model = {
 		{type: 'code', id: 3, children: ["Code here"]}
 	]
 }
+
+//fix firefox (don't allow content resizing)
+document.execCommand("enableObjectResizing", false, "false");
+document.execCommand("enableInlineTableEditing", false, "false");
 
 </script>
 </body>
