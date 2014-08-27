@@ -5,26 +5,14 @@ Clay takes the spreadsheet out of the grid. Rows and columns become dimensions m
 
 ## Building a model
 
-    Flip(Test,Line,{Net Income, Tax, Revenue})
-    Line[Line]
-    Graph.LineB("Net Income", Net Income[Month][Growth], Month[Month], Growth[Growth])
-
 We want to model a simple manufacturer. Our goal is to project their "net income" under different assumptions over the course of the year.
 
-    X = Net Income
-    Max(X[Assum, Month, Year])
-    Days of Month[Month=Feb]
-    NoDim(Quote(Days of Month[Month=Feb]))
+
 
 Start by defining the months of the year:
 
 	Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,
         Aug,Sep,Oct,Nov,Dec}
-    Days of Month[Month] = {31,28,31,30,31,30,31,31,30,31,30,31}
-    Year[] = {1980, 1981, 1982, 1983, 1984, 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030}
-    Assum[] = {5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000, 13000, 14000}
-    ConAssum[] = {5000, 6000, 7000, 8000, 900, 1000, 1100, 1200, 13000, 14000}
-    ComAssum[] = {5000, 6000, 7000, 8000, 900, 1000, 1100, 1200, 13000, 14000} //add this to Unit Sales for mass load testing
 
 "Month" is a category which we will use as the first dimension of our model. A spreadsheet normally has two dimensions, rows and columns. In clay we choose the dimensions.
 
@@ -48,8 +36,8 @@ Their product sells for £55 and costs £25 to manufacture. We also know they ha
 Now we can calculate Revenue, Cost of Goods Sold, and EBIT. In a spreadsheet we would need 36 formulas, in clay we need 3.
 
 	Revenue = Unit Sales * Price
-    COGS = Unit Sales * Price
-    EBIT = Revenue - Fixed Costs - COGS
+    COGS = Unit Sales * Unit Cost
+    EBIT = (Revenue - Fixed Costs) - COGS
 
 The firm has £10,000 of debt on which it pays interest monthly at an annual rate of 8%. They also have a corporate tax rate of 30%.
 
@@ -63,7 +51,6 @@ Just four more formulas and we have net income.
     EBT = EBIT - Interest
     Tax = EBT * Tax Rate
     Net Income = EBT - Tax
-    BasicTable({"Year","Graph.Line(Net Income[Month])"},{Year,Graph.Line(Net Income[Month][Growth])}[Year],1)
 
 ### Scenario testing
 
@@ -71,7 +58,10 @@ What if we want to show a graph of "Net Income" for five different growth rates?
 
 	Growth[] = {1%,2%,3%,4%,5%}
 	Graph.Line(Net Income[Month][Growth])
+    Graph.LineB("Net Income", Net Income[Month][Growth], Month[Month], Growth[Growth])
 
+
+    {Net Income, Unit Sales}
 
 ## Reusable Models
 
