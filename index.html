@@ -1627,14 +1627,18 @@ var Selection = React.createClass({
 });
 
 var Result = React.createClass({
-	componentDidMount: function() {
+	updateElementContent: function() {
 		if (isElement(this.props.value)) { // instanceof Array && this.props.value[0] === 'element') {
 			var el = this.getDOMNode(), last;
 			while (last = el.lastChild) el.removeChild(last);
 			el.appendChild(this.props.value);
 		}
 	},
+	componentDidMount: function() {
+		this.updateElementContent();
+	},
 	componentDidUpdate: function() {
+		this.updateElementContent();
 	},
 	render: function() {
 		if (this.props.inline)
