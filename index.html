@@ -615,10 +615,10 @@ var unmemoize = function(func) {
 	return memo;
 };
 
-var indexed = function(func) {
+var indexed = function(func, athis) {
 	var memo = function(i) {
 		if (memo.cache === undefined)
-			memo.cache = memo.func.apply(this);
+			memo.cache = memo.func.apply(athis);
 		return memo.cache[i];
 	};
 	memo.func = func; //so we can replace the function
@@ -626,17 +626,17 @@ var indexed = function(func) {
 	memo.cache = undefined;
 	memo.len = function() { 
 		if (memo.cache === undefined)
-			memo.cache = memo.func.apply(this);
+			memo(0);
 		return memo.cache.length;
 	};
 	memo.forEach = function(f) {
 		if (memo.cache === undefined)
-			memo.cache = memo.func.apply(this);
+			memo(0);
 		memo.cache.forEach(f);
 	};
 	memo.indexOf = function(v)  {
 		if (memo.cache === undefined)
-			memo.cache = memo.func.apply(this);
+			memo(0);
 		return memo.cache.indexOf(v); //TODO: cache the index of
 	};
 	return memo;
@@ -889,6 +889,22 @@ var Environment = function() {
 	//and from which all the namespaces inherit
 };
 
+Environment.prototype.range = function(start, end, step) {
+	if (end === undefined) {
+		end = start;
+		start = 0;
+	}
+	if (step === undefined) step = 1;
+	if (step <= 0) return [];
+
+	var ret = [], cur = start;
+	while (cur < end) {
+		ret.push(cur);
+		cur = cur + step;
+	}
+	return ret;
+};
+
 Environment.prototype.Math = Math;
 
 Environment.prototype.Graph = {
@@ -1071,6 +1087,10 @@ return _ret;'
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
 		case 'Equal':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
+		case 'LessEqual':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' <= ') + ')';
+		case 'Less':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' < ') + ')';
 		case 'Indexed*':
 			if (expr[1][0] !== 'List') throw new Error('Indexed* requires literal list');
 			if (expr.length > 3) throw new Error('Indexed* does not yet support multiple args');
@@ -1146,7 +1166,7 @@ Clay.prototype.compileFunc = function(expr, basepack) {
 	var me = this;
 	switch(expr[0]) {
 		case 'Category':
-			return indexed(new Function(me.compileExpr(expr, basepack)));
+			return indexed(new Function(me.compileExpr(expr, basepack)), me._environment[basepack]);
 		case 'Func*':
 			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
 			return unmemoize(new Function(dims, me.compileExpr(expr, basepack)));
