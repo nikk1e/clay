@@ -254,6 +254,15 @@ var nodim = function(expr) {
 	return ['NoDim', expr];
 };
 
+function graphLine(expr, over, series) {
+	if (series !== undefined) {
+		//expr, over, series
+	} else {
+		//{expr, expr2}, over
+	}
+	return ['Call', ['Symbol', 'Graph', 'Line'], showM(expr), expr]; 
+}
+
 //most macros are applied before 
 var Macros = {
 	PREV: makeRecursion(function(symb) { return ['Subtract', ['Index', symb], ['Number', 1]];}),
@@ -268,6 +277,7 @@ var Macros = {
 	EXPAND: expand, //usage Expand(QuoteS(...))
 	NODIM: nodim,
 	FLIP: flip,
+	'GRAPH.LINE': graphLine,
 };
 
 //macros applied after analyse dimensions
@@ -276,7 +286,7 @@ var Macros = {
 var PostMacros = {
 	TABLE: postTable,
 	PIVOT: postPivot,
-}
+};
 
 
 var expandMacros = function(expr, path) {
@@ -287,12 +297,15 @@ var expandMacros = function(expr, path) {
 
 	var symb = expr[1];
 	
-	if (symb[0] !== 'Symbol' || 
-		symb.length !== 2 || 
-		!Macros.hasOwnProperty(symb[1].toUpperCase()))
+	if (symb[0] !== 'Symbol')
 		return expr;
 
-	rep = Macros[symb[1].toUpperCase()].apply(this, expr.slice(2));
+	var sexp = symb.slice(1).join('.').toUpperCase();
+
+	if (!Macros.hasOwnProperty(sexp))
+		return expr;
+
+	rep = Macros[sexp].apply(this, expr.slice(2));
 
 	if (rep !== undefined) {
 		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
@@ -757,7 +770,92 @@ d3.tsv("data.tsv", function(error, data) {
 	return elem;
 };
 
+Graph.LineB = function(ytitle, values, xvalues, series) {
+	var elem = document.createElement('div');
 
+	d3.select(elem).attr("style", "width: 100%; min-width: 400px; min-height: 250px;")
+
+// DUMMY graph to test the result concept
+
+	var margin = {top: 20, right: 30, bottom: 30, left: 80},
+    width = 800 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+
+	var x = d3.scale.ordinal()
+	//.range(xvalues.map(function(d,i) { return i; }));
+    //.range(xvalues)
+    	.rangeBands([0, width]);
+
+	var y = d3.scale.linear()
+    	.range([height, 0]);
+
+	var color = d3.scale.category10();
+
+	var xAxis = d3.svg.axis()
+    	.scale(x)
+    	.orient("bottom");
+
+	var yAxis = d3.svg.axis()
+    	.scale(y)
+    	.orient("left");
+
+	var line = d3.svg.line()
+    	//.interpolate("basis")
+    	.x(function(d, i) { return x(xvalues[i]) + x.rangeBand()/2; })
+    	.y(function(d, i) { return y(d); });
+
+	var svg = d3.select(elem).append('svg')
+		//.attr("height", height + margin.top + margin.bottom)
+		.attr("style", "width: 100%;")
+		.attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
+    	//.attr("width", width + margin.left + margin.right)    
+  		.append("g")
+	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  color.domain(series);
+  x.domain(xvalues);
+  y.domain([
+  	d3.min(values, function(vs) { return d3.min(vs, function(v) { return v }); }),
+    d3.max(values, function(vs) { return d3.max(vs, function(v) { return v }); })
+  ]);
+
+  svg.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis);
+
+  svg.append("g")
+      .attr("class", "y axis")
+      .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text(ytitle);
+
+    var serieses = svg.selectAll(".series")
+      .data(values)
+      .enter().append("g")
+      .attr("class", "series");
+
+  	serieses.append("path")
+      .attr("class", "line")
+      .attr("d", function(d) { return line(d); })
+      .style("stroke", function(d, i) { return color(series[i]); });
+
+  	serieses.append("text")
+      .datum(function(d, i) { return {name: xvalues[xvalues.length - 1], value: d[d.length - 1]}; })
+      .attr("transform", function(d) { 
+      	return "translate(" + (x(d.name) + x.rangeBand()/2) + "," + y(d.value) + ")"; 
+      })
+      .attr("x", 3)
+      .attr("dy", ".35em")
+      .text(function(d, i) { return series[i]; });
+
+	return elem;
+};
 Clay.prototype.evaluate = function(package, expression) {
 	//TODO: replace this with real expression evaluation.
 	var e = clay.code.show(expression);
@@ -795,6 +893,7 @@ Environment.prototype.Math = Math;
 
 Environment.prototype.Graph = {
 	Line: Graph.Line,
+	LineB: Graph.LineB,
 };
 
 Environment.prototype.Sum = function(list) {
@@ -1735,6 +1834,11 @@ var Renderer = React.createClass({
 			setEnd(ast, end, false);
 		return range;
 	},
+	handleTouchEnd: function(e) {
+		//TODO: selection doesn't get set so we will need to calculate it ourselves
+		// if it is not set
+		// note a drag might work on the phone
+	},
 	handleMouseUp: function(e) {
 		var x = this.props.selectionChanged;
 		if (x) {
@@ -1748,8 +1852,8 @@ var Renderer = React.createClass({
 				startPath = startE.getAttribute('data-reactid'),
 				endPath = endE.getAttribute('data-reactid'),
 				rootId = this._rootNodeID + '.';
-			if (startPath !== undefined 
-				&& endPath !== undefined
+			if (startPath !== undefined && startPath !== null
+				&& endPath !== undefined && endPath !== null
 				&& startPath.startsWith(rootId)
 				&& endPath.startsWith(rootId)) {
 				var model = this.props.model, name = this.props.name;
@@ -1876,7 +1980,7 @@ var Renderer = React.createClass({
 		return div({id: 'preview', 
 			ref: 'preview',
 			onMouseUp: this.handleMouseUp,
-			onTouchEnd: this.handleMouseUp,
+			onTouchEnd: this.handleTouchEnd,
 			className: 'editor', 
       		}, ast.children.map(this.renderTree)
       		); 
@@ -1965,8 +2069,8 @@ var Editor = React.createClass({
 				val = ta.value,
 				start = ta.selectionStart,
 				end = ta.selectionEnd;
-			ta.value = val.substring(0,start) + '\t' + val.substring(end);
-			ta.selectionStart = ta.selectionEnd = start + 1;
+			ta.value = val.substring(0,start) + '    ' + val.substring(end);
+			ta.selectionStart = ta.selectionEnd = start + 4;
 			this.setState({currentSource: ta.value});
 			//manually trigger update
 			this.props.model.update(this.state.selected, ta.value);
@@ -1977,7 +2081,7 @@ var Editor = React.createClass({
 				start = ta.selectionStart,
 				end = ta.selectionEnd,
 				lineStart = val.lastIndexOf('\n',start-1) + 1;
-			if (start === end && /^\n\t(\n|$)/.test(val.slice(start-2,start+1))) {
+			if (start === end && /^\n    (\n|$)/.test(val.slice(start-2,start+1))) {
 				ta.value = val.substring(0,start-1) + '\n' + val.substring(end);
 				ta.selectionStart = ta.selectionEnd = start;
 				this.setState({currentSource: ta.value});
@@ -1985,8 +2089,8 @@ var Editor = React.createClass({
 				this.props.model.update(this.state.selected, ta.value);
 				return false;
 			} else if (val.slice(lineStart,lineStart+1) === '\t' || val.slice(lineStart,lineStart + 4) === '    ') {
-				ta.value = val.substring(0,start) + '\n\t' + val.substring(end);
-				ta.selectionStart = ta.selectionEnd = start + 2;
+				ta.value = val.substring(0,start) + '\n    ' + val.substring(end);
+				ta.selectionStart = ta.selectionEnd = start + 1 + 4;
 				this.setState({currentSource: ta.value});
 				//manually trigger update
 				this.props.model.update(this.state.selected, ta.value);

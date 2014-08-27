@@ -7,6 +7,7 @@ Clay takes the spreadsheet out of the grid. Rows and columns become dimensions m
 
     Flip(Test,Line,{Net Income, Tax, Revenue})
     Line[Line]
+    Graph.LineB("Net Income", Net Income[Month][Growth], Month[Month], Growth[Growth])
 
 We want to model a simple manufacturer. Our goal is to project their "net income" under different assumptions over the course of the year.
 
