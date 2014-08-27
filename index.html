@@ -1630,6 +1630,7 @@ var Result = React.createClass({
 	updateElementContent: function() {
 		if (isElement(this.props.value)) { // instanceof Array && this.props.value[0] === 'element') {
 			var el = this.getDOMNode(), last;
+			if (el.firstChild === el.lastChild && el.lastChild === this.props.value) return;
 			while (last = el.lastChild) el.removeChild(last);
 			el.appendChild(this.props.value);
 		}
