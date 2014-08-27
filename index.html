@@ -1743,8 +1743,8 @@ var Renderer = React.createClass({
 			if (selected.rangeCount < 1)
 				return;
 			var range = selected.getRangeAt(0),
-				startE = range.startContainer.parentElement || range.startContainer.parentNode,
-				endE = range.endContainer.parentElement || range.endContainer.parentNode,
+				startE = range.startContainer.parentNode,
+				endE = range.endContainer.parentNode,
 				startPath = startE.getAttribute('data-reactid'),
 				endPath = endE.getAttribute('data-reactid'),
 				rootId = this._rootNodeID + '.';
@@ -1876,6 +1876,7 @@ var Renderer = React.createClass({
 		return div({id: 'preview', 
 			ref: 'preview',
 			onMouseUp: this.handleMouseUp,
+			onTouchEnd: this.handleMouseUp,
 			className: 'editor', 
       		}, ast.children.map(this.renderTree)
       		); 
