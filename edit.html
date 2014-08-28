@@ -45,7 +45,8 @@ var selection = {
 	start: {path:[], offet:0 },
 };
 selection.end = selection.start;
- 
+
+/* Not reliable on iPad 
 // create an observer instance
 var ignoreMutations = false;
 var observer = new MutationObserver(function(mutations) {
@@ -107,6 +108,16 @@ var observer = new MutationObserver(function(mutations) {
 
 });
 
+// configuration of the observer:
+var config = { attributes: true, childList: true, characterData: true, subtree: true };
+ 
+// pass in the target node, as well as the observer options
+observer.observe(editor, config);
+ 
+// later, you can stop observing
+//observer.disconnect();
+*/
+
 function modifyNode(model, path, update) {
 	var n = model;
 	path.forEach(function(i) {
@@ -127,8 +138,8 @@ function insertNode(model, path, node) {
 		if (n.type !== 'code') //TODO: This needs to be factored out into a fixup path.
 			n = n.children[i];
 	});
-	n.children.splice(ind, 0, node);
 	path.push(ind);
+	n.children.splice(ind, 0, node);
 }
 
 function removeNode(model, path) {
@@ -138,18 +149,10 @@ function removeNode(model, path) {
 		if (n.type !== 'code') //TODO: This needs to be factored out into a fixup path.
 			n = n.children[i];
 	});
-	n.children.splice(ind, 1);
 	path.push(ind);
+	n.children.splice(ind, 1);
 }
  
-// configuration of the observer:
-var config = { attributes: true, childList: true, characterData: true, subtree: true };
- 
-// pass in the target node, as well as the observer options
-observer.observe(editor, config);
- 
-// later, you can stop observing
-//observer.disconnect();
 
 function after(func) {
 	setTimeout(func, 0);
@@ -214,9 +217,9 @@ editor.addEventListener('click', handleClick);
 
 function findPath(model, elem) {
 	var path = [];
+	var id;
 	while(elem && elem !== editor) {
-		if (elem.dataset !== undefined && elem.dataset.id !== undefined) {
-			var id = from36(elem.dataset.id);
+		if ((id = name(elem)) !== undefined) {
 			for (var i = model.children.length - 1; i >= 0; i--) {
 				if (model.children[i].id == id) {
 					path.push(i);
@@ -256,6 +259,16 @@ function from36(s) {
 	return parseInt(s, 36);
 }
 
+function name(node) {
+	var n = node.getAttribute('name');
+	if (n !== null) return from36(n);
+}
+
+function setName(node, id) {
+	node.setAttribute('name', base36(id));
+	return node; //so we can chain
+}
+
 function flatten(aofas) {
 	return Array.prototype.concat.apply([], aofas);
 }
@@ -279,19 +292,19 @@ function forEach(arraylike, func) {
 	}
 }
 
-
 //TODO: this should be per document
 var sym = makeGensym();
 
 function parseDocument(node, allowText) {
 	var doc   = {type: 'root'};
+	var id;
 	doc.children = flatten(map(node.childNodes, 
 		function(elem) { 
 			if (elem.nodeType !== 3) {
 				var n = parseNode(elem, allowText);
 				if (n.length > 0) {
-					if (elem.dataset.id !== undefined)
-						n[0].id = from36(elem.dataset.id);
+					if ((id = name(elem)) !== undefined)
+						n[0].id = id;
 					else
 						n[0].id = sym();
 					for (var i = n.length - 1; i >= 1; i--) {

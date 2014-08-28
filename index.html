@@ -257,8 +257,20 @@ var nodim = function(expr) {
 function graphLine(expr, over, series) {
 	if (series !== undefined) {
 		//expr, over, series
-	} else {
+	} else if (over !== undefined) {
 		//{expr, expr2}, over
+	} else {
+		//expr[over][over]
+		if (expr[0] == 'Slice' 
+			&& expr[1][0] == 'Slice'
+			&& expr[2][0] == 'Symbol' 
+			&& expr[1][2][0] == 'Symbol') {
+			var iexpr = expr[1][1];
+			var xexpr = ['Over', expr[1][2], expr[1][2]];
+			var sexpr = ['Over', expr[2], expr[2]];
+			var eexpr = ['Over', ['Over', iexpr,  expr[1][2]], expr[2]]
+			return ['Call', ['Symbol', 'Graph', 'LineB'], showM(iexpr), eexpr, xexpr, sexpr];
+		}
 	}
 	return ['Call', ['Symbol', 'Graph', 'Line'], showM(expr), expr]; 
 }
