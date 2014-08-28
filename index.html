@@ -2156,6 +2156,7 @@ var Editor = React.createClass({
 		this.refs.selection.setState({selection: range});
 	},
 	handleKeyDown: function(e) {
+		console.log(e);
 		if (e.keyCode === 9 && !e.altKey && !e.ctrlKey && !e.shiftKey) { //tab
 			var ta = this.refs.textarea.getDOMNode(),
 				val = ta.value,
@@ -2202,6 +2203,10 @@ var Editor = React.createClass({
 	handleKeyUp: function() {
 		this.updateCursor();
 	},
+	handleInput: function(e) {
+		//console.log(e);
+		//this.updateCursor();
+	},
 	handleSelect: function(start, end) {
 		var ta = this.refs.textarea.getDOMNode();
 		ta.setSelectionRange(start, end); //do this before and after focus so update cursor works
@@ -2217,6 +2222,7 @@ var Editor = React.createClass({
 						onKeyUp: this.handleKeyUp,
 						onFocus: this.handleFocus,
 						onBlur: this.handleBlur,
+						onInput: this.handleInput,
 						ref: "textarea", 
 						style: {opacity: '0', position: 'fixed', width: '100%', 'max-width': '800px'},
 						value: this.state.value}),
@@ -2243,6 +2249,10 @@ var ed = Editor({model: models});
 React.renderComponent(ed, document.body);
 //ed.openFile('Example');
 
+var preview = ed.refs.preview.getDOMNode();
+preview.onclick = function(e) {
+	ed.refs.textarea.getDOMNode().focus();
+};
 
 </script>
 <script src="js/ui.js"></script>
