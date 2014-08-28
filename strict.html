@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Type" content="application/xhtml+xml">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title></title>
+<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="css/layouts/side-menu.css">
+<!--<![endif]-->
+<link rel="stylesheet" href="css/clay.css"/>
+<style type="text/css">
+/* stuff here */
+</style>
+</head>
+<body>
+<div id="layout">
+    <!-- Menu toggle -->
+
+    <div id="main">
+		<div class="content">
+		<textarea id='textarea' style='width: 100%; height: 100px;'>
+#Header
+This is a paragraph
+|this|is|a|table
+|more|table|stuff|here
+This is another paragraph
+ This is some code
+ This is another code line
+This is a paragraph
+*This is a list item
+*this is another list item
+.This is a numbered list item
+.This is another numbered list item
+This is another paragraph
+##This is a sub header
+This is a paragraph with *bold* text and _italic_ text in it
+This is a paragraph with a link [this is link text](http://google.co.uk "Google").
+>THis is a blockquote
+-
+The dash on its own is a section break (that might be rendered as an hr)
+![alt text](link)figure text here
+%Meta Stuff
+There is an empty paragraph at the end after this one.
+</textarea>
+		<div id='preview'></div>
+</div>
+</div>
+</div>
+<script type="text/javascript">
+var textarea = document.getElementById('textarea');
+var preview = document.getElementById('preview');
+
+var parsers = {
+	'#': function(l) {
+		var level = /^#+/.exec(l)[0].length;
+		return {type: 'header', level: level, raw: l, text: l.slice(level)};
+	},
+	p: function(l) {
+		//TODO: spans
+		return {type: 'p', raw: l, spans: [{type: 'text', text: l.slice(1)}]};
+	},
+	'!': function(l) {
+		if (sub = /^!\[([^\]]*)\]\(([^\)]*)\)(.*)/.exec(l)) {
+			return {type: 'figure', alt: sub[1], src: sub[2], caption: sub[3], raw:l};
+		}
+		return parsers.p(l);
+	},
+	' ': function(l) { 
+		return {type: 'code', raw: l, text: l.slice(1) + '\n'};
+	},
+	'*': function(l) { 
+		return {type: 'ulli', raw: l, spans: [{type: 'text', text: l.slice(1)}]};
+	},
+	'.': function(l) { 
+		return {type: 'olli', raw: l, spans: [{type: 'text', text: l.slice(1)}]};
+	},
+	'>': function(l) { 
+		return {type: 'quote', raw: l, spans: [{type: 'text', text: l.slice(1)}]}; 
+	},
+	'%': function(l) { 
+		return {type: 'meta', raw: l, text: l.slice(1)}; 
+	},
+	'-': function(l) {
+		if (l.length === 1) return {type: 'break', raw: l};
+		return parsers.p(l);
+	},
+	'|': function(l) {
+		return {type: 'tr', raw: l, values: l.slice(1).split('|')};
+	},
+}
+
+function parse(text) {
+	return text.split('\n').map(function(l,i) {
+		var cap;
+		if (cap = /^[\#\!\% \*\.\>\-\|]/.exec(l)) {
+			if (parsers.hasOwnProperty(cap[0])) return parsers[cap[0]](l);
+		}
+		return parsers.p(l);
+	});
+}
+
+var model = parse(textarea.value);
+
+
+function gatherAll(tag) {
+	return function(items) {
+		var elm = document.createElement(tag);
+		items.forEach(function(el,i) {
+			elm.addChild(el);
+		});
+		return elm;
+	};
+}
+
+var gatherers = {
+	ulli: gatherAll('ul'),
+	olli: gatherAll('ol'),
+	code: gatherAll('pre'),
+	tr: function(items) {
+		var thead = document.createElement('thead');
+		var tbody = document.createElement('tbody');
+		var table = document.createElement('table');
+		table.className = 'pure-table pure-table-bordered';
+		table.addChild(thead);
+		table.addChild(tbody);
+		items.forEach(function(tr, i) {
+			if (i == 0) thead.addChild(tr);
+			else tbody.addChild(tr);
+		});
+		return table;
+	},
+};
+
+function renderSpan(tag) {
+	return function(item) {
+
+	}
+}
+
+var renderers = {
+	p: 1,
+	header:1,
+	figure:1,
+	code:1,
+	ulli:1,
+	olli:1,
+	quote:1,
+	meta:1,
+	'break':1,
+	tr:1,
+	strong:1,
+	link:1,
+	em:1,
+	text:1,
+};
+
+function render(model) {
+
+}
+
+</script>
+</body>
+</html>
