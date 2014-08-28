@@ -215,17 +215,28 @@ editor.addEventListener('paste', handlePaste);
 editor.addEventListener('cut', handleCut);
 editor.addEventListener('click', handleClick);
 
+function nodeIndexOf(model, id) {
+	for (var i = model.children.length - 1; i >= 0; i--) {
+		if (model.children[i].id == id) return i;
+	}
+	return -1;
+}
+
+
 function findPath(model, elem) {
 	var path = [];
 	var id;
+	var i;
+	var node;
 	while(elem && elem !== editor) {
 		if ((id = name(elem)) !== undefined) {
-			for (var i = model.children.length - 1; i >= 0; i--) {
-				if (model.children[i].id == id) {
-					path.push(i);
-					return path.reverse();
-				}
-			};
+			i = nodeIndexOf(model, id);
+			if (i >= 0) {
+				node = model.children[i];
+				path.push(i);
+				//TODO: fixup path here based on type..
+				return path.reverse();
+			}
 			return;
 			//return {id: , path: path.reverse()};
 		}
@@ -497,7 +508,7 @@ function gatherChildren(nodes, elem) {
 			sElem = elem;
 		}
 		curr = render[node.type](node);
-		if (node.id !== undefined) curr.dataset.id = base36(node.id); //dataset IE11+
+		if (node.id !== undefined) setName(curr, node.id);
 		sElem.appendChild(curr);
 		lastTag = sTag;
 	}
