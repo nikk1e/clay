@@ -1780,6 +1780,8 @@ var Result = React.createClass({
 	},
 });
 
+
+var touchDrag = false;
 var Renderer = React.createClass({
 	rangeFor: function(start, end) {
 		var rootId = this._rootNodeID + '.',
@@ -1866,10 +1868,65 @@ var Renderer = React.createClass({
 			setEnd(ast, end, false);
 		return range;
 	},
+	handleTouchMove: function(e) {
+		touchDrag = true;
+	},
+	handleTouchStart: function(e) {
+		touchDrag = false;
+	},
 	handleTouchEnd: function(e) {
+		if (touchDrag) {
+			touchDrag = false;
+			return;
+		}
 		//TODO: selection doesn't get set so we will need to calculate it ourselves
 		// if it is not set
 		// note a drag might work on the phone
+		var x = this.props.selectionChanged;
+		if (x) {
+			//TODO check we didn't drag
+			var touch = e.changedTouches[0];
+			var rects = e.target.getClientRects();
+			var inr;
+			var totalWidth = 0;
+			var xoff = 0;
+			for (var i = rects.length - 1; i >= 0; i--) {
+				var r = rects[i];
+				if (r.top <= touch.clientY && r.bottom >= touch.clientY
+					&& r.left <= touch.clientX && r.right >= touch.clientX) {
+					inr = r;
+					xoff += (touch.clientX - r.left);
+				}
+				totalWidth += r.width;
+				if (r.bottom < touch.clientY) xoff += r.width; //can probably change this to assum order of client rects
+			};
+			var tc = e.target.textContent;
+			var tcl = tc.length;
+			if (tcl == 0) return; //set offset to 0
+			var approx = Math.round((xoff * tcl) / totalWidth);
+			console.log(approx);
+
+			var startE = e.target;
+			if (startE.nodeType === 3) startE = startE.parnetNode;
+			var endE = startE;
+			var startPath = startE.getAttribute('data-reactid');
+			var endPath = startPath;
+			var rootId = this._rootNodeID + '.';
+			if (startPath !== undefined && startPath !== null
+				&& endPath !== undefined && endPath !== null
+				&& startPath.startsWith(rootId)
+				&& endPath.startsWith(rootId)) {
+				var model = this.props.model, name = this.props.name;
+				startPath = startPath.slice(rootId.length).replace(/\$?/g,'').split('.');
+				endPath = endPath.slice(rootId.length).replace(/\$?/g,'').split('.');
+				var start = model.charOffset(name,startPath, approx);
+				var end = model.charOffset(name,endPath, approx);
+				x(start, end);
+				e.preventDefault();
+				e.stopPropagation();
+			}
+
+		}
 	},
 	handleMouseUp: function(e) {
 		var x = this.props.selectionChanged;
@@ -1878,6 +1935,7 @@ var Renderer = React.createClass({
 			var selected = window.getSelection();
 			if (selected.rangeCount < 1)
 				return;
+			//console.log(selected.focusOffset);
 			var range = selected.getRangeAt(0),
 				startE = range.startContainer.parentNode,
 				endE = range.endContainer.parentNode,
@@ -2012,6 +2070,8 @@ var Renderer = React.createClass({
 		return div({id: 'preview', 
 			ref: 'preview',
 			onMouseUp: this.handleMouseUp,
+			onTouchStart: this.handleTouchStart,
+			onTouchMove: this.handleTouchMove,
 			onTouchEnd: this.handleTouchEnd,
 			className: 'editor', 
       		}, ast.children.map(this.renderTree)
