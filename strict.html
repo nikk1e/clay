@@ -33,6 +33,11 @@ This is a paragraph
 This is another paragraph
  This is some code
  This is another code line
+ This is a line that has a continued line after it
+  this is the continued line here
+ function something() {
+   //this is some javascript that gets automatically detected.
+ }
 This is a paragraph
 *This is a list item
 *this is another list item
@@ -41,14 +46,16 @@ This is a paragraph
 This is another paragraph
 ##This is a sub header
 This is a paragraph with *bold* text and _italic_ text in it
-This is a paragraph with a link [this is link text](http://google.co.uk "Google").
+This is a paragraph with a link [this is link text][1].
 >THis is a blockquote
 -
-The dash on its own is a section break (that might be rendered as an hr)
+The dash before a paragraph is a section break (that might be rendered as an hr - note.. change so it doesn't need to be on its own line but can live before a paragraph or other element)
 ![alt text](link)figure text here
 %Meta Stuff
+Idea ... use non printing characters to stand in for bold and italics and links in the code so that you don't have extra characters to delete or insert in those cases. This might not help much. It might be easier to just store the list and manage it based on keypresses.
 There is an empty paragraph at the end after this one.
-</textarea>
+
+[1](http://google.co.uk "Google")</textarea>
 		<div id='preview'></div>
 </div>
 </div>
@@ -64,7 +71,7 @@ var parsers = {
 	},
 	p: function(l) {
 		//TODO: spans
-		return {type: 'p', raw: l, spans: [{type: 'text', text: l.slice(1)}]};
+		return {type: 'p', raw: l, spans: (l.length > 0 ? [{type: 'text', text: l}] : [])};
 	},
 	'!': function(l) {
 		if (sub = /^!\[([^\]]*)\]\(([^\)]*)\)(.*)/.exec(l)) {
@@ -113,7 +120,7 @@ function gatherAll(tag) {
 	return function(items) {
 		var elm = document.createElement(tag);
 		items.forEach(function(el,i) {
-			elm.addChild(el);
+			elm.appendChild(renderers[el.type](el));
 		});
 		return elm;
 	};
@@ -128,11 +135,11 @@ var gatherers = {
 		var tbody = document.createElement('tbody');
 		var table = document.createElement('table');
 		table.className = 'pure-table pure-table-bordered';
-		table.addChild(thead);
-		table.addChild(tbody);
+		table.appendChild(thead);
+		table.appendChild(tbody);
 		items.forEach(function(tr, i) {
-			if (i == 0) thead.addChild(tr);
-			else tbody.addChild(tr);
+			if (i == 0) thead.appendChild(renderers.thr(tr));
+			else tbody.appendChild(renderers.tr(tr));
 		});
 		return table;
 	},
@@ -140,29 +147,92 @@ var gatherers = {
 
 function renderSpan(tag) {
 	return function(item) {
+		var para = document.createElement(tag);
+		if (item.spans.length === 0) para.appendChild(document.createElement('br'));
+		item.spans.forEach(function(c) {
+			para.appendChild(renderers[c.type](c));
+		});
+		return para;
+	};
+}
 
-	}
+//TODO: need to add alignment stuff here
+function renderRow(tag) {
+	return function(tr) {
+		var row = document.createElement('tr');
+		tr.values.forEach(function(c) {
+			var cell = document.createElement(tag);
+			cell.appendChild(document.createTextNode(c));
+			row.appendChild(cell);
+		});
+		return row;
+	};
 }
 
 var renderers = {
-	p: 1,
-	header:1,
-	figure:1,
-	code:1,
-	ulli:1,
-	olli:1,
-	quote:1,
-	meta:1,
-	'break':1,
-	tr:1,
+	p: renderSpan('p'),
+	header: function(h) {
+		var header = document.createElement('h' + h.level);
+		var tn = document.createTextNode(h.text);
+		header.appendChild(tn);
+		return header;
+	},
+	figure: function(f) {
+		var figure = document.createElement('figure');
+		var caption = document.createElement('figcaption');
+		var ctext = document.createTextNode(f.caption);
+		var img = document.createElement('img');
+		img.src = f.src;
+		img.alt = f.alt;
+		figure.appendChild(img);
+		caption.appendChild(ctext);
+		figure.appendChild(caption);
+		return figure;
+	},
+	code: function(c) {
+		var code = document.createElement('code');
+		var tn = document.createTextNode(c.text);
+		code.appendChild(tn);
+		return code;
+	},
+	ulli:renderSpan('li'),
+	olli:renderSpan('li'),
+	quote:renderSpan('blockquote'),
+	meta:function(c) {
+		var code = document.createElement('span');
+		var tn = document.createTextNode(c.text);
+		code.appendChild(tn);
+		return code;
+	},
+	'break':function(b) { return document.createElement('hr'); },
+	tr:renderRow('td'),
+	thr:renderRow('th'),
 	strong:1,
 	link:1,
 	em:1,
-	text:1,
+	text:function(t) { return document.createTextNode(t.text); },
 };
 
 function render(model) {
-
+	var df = document.createDocumentFragment();
+	var i = 0;
+	var gs;
+	var l = model.length;
+	while (i < l) {
+		var para = model[i];
+		if (gs = gatherers[para.type]) {
+			var items = []; var type = para.type;
+			do {
+				items.push(para);
+				i++;
+			} while (i < l && !para.result && (para=model[i]).type == type);
+			df.appendChild(gs(items));
+		} else {
+			df.appendChild(renderers[para.type](para)); //don't gather
+			i++;
+		}
+	}
+	return df;
 }
 
 </script>

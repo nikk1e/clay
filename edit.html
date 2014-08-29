@@ -558,7 +558,7 @@ var render = {
 function rerenderDocument(doc, elem) {
 	var fragment = render.root(doc);
 	while (elem.hasChildNodes()) {
-    	elem.removeChild(elem.lastChild);
+		elem.removeChild(elem.lastChild);
 	}
 	elem.appendChild( fragment ); // might need .cloneNode(true) );
 }
