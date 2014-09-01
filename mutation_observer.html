@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2014 by addyosmani (http://jsbin.com/cogid/1/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+  <title>JS Bin</title>
+
+<style>
+div > code {
+display: block;
+white-space: pre;
+margin-top: 10px;
+}
+</style>
+</head>
+<body>
+  <div id="texty">
+			<h1 id='clay_1' contentEditable>
+	    Type something in here and look at the console.
+		</h1>
+		<p id='clay_2' contentEditable>
+    Type something in here and look at the console.
+	</p>
+		<p id='clay_3' contentEditable>
+    Type something in here and look at the console.
+	</p>
+	<p id='clay_4' contentEditable>
+		It looks like the default way it works is to go back to the last unbroken edit. If I type some text unbroken then it will keep all that in just the latest undo buffer.</p>
+		<p contentEditable>
+			In WebKit/Chromium it stores the last 1000 edits. It is storing points in the tree and doing insert/remove operations. So they are Command objects with an apply and unapply (e.g. insert node/remove node.) rather than the whole tree. If you know you can store the Mutation Observer events then you can make them your undo and redo because you just put them all together and you have what you need to make the undo redo work.
+	</p>
+  </div>
+	
+  <div id="text" contentEditable>
+			<h1 id='cay_1'>
+	    Type something in here and look at the console.
+		</h1>
+		<p id='cay_2'>
+    Type something in here and look at the console.
+	</p>
+	<pre><code id='cay_3'><span id='code_1'>Type something in here and look at the console.
+</span></code></pre>
+<pre><code id='cay_33'><span id='code_2'>Type something in here and look at the console.
+</span><span id='code_3'>3 is here to Type something in here and look at the console.
+</span></code></pre>
+	<p id='cay_4'>
+		It looks like the <b id='cay_4.1'>default way it works</b> is to go back to the last unbroken edit. If I <code id='cay_4.2'>type some text</code> unbroken then it will keep all that in just the latest undo buffer.</p><p>
+			In WebKit/Chromium it stores the last 1000 edits. It is storing points in the tree and doing insert/remove operations. So they are Command objects with an apply and unapply (e.g. insert node/remove node.) rather than the whole tree. If you know you can store the Mutation Observer events then you can make them your undo and redo because you just put them all together and you have what you need to make the undo redo work.
+	</p>
+  </div>
+<script>
+var model = {
+	meta: {
+		package: 'Clay',
+		imports: [],
+	},
+	model: {
+		type: 'Root',
+		
+	}
+};
+
+/*
+
+Some nodes get modified but they keep the id they had before.
+
+We don't need id's on text nodes (we only care about code nodes).
+
+Cannot make things separately editable as then you get the problem that you cannot select between nodes.
+
+One option is to take the mutation nodes an apply them to the matching nodes of the ast. We could then store all the edits in there.
+
+*/
+
+var text = document.querySelector("#text");
+var observer = new MutationObserver(function(mutations) {
+	console.log("Mutation call");
+	
+    mutations.forEach(function(mutation) {
+			if (mutation.type !== 'childList') {
+				return;
+			}
+      var entry = {
+        mutation: mutation,
+        el: mutation.target,
+        value: mutation.target.textContent,
+        oldValue: mutation.oldValue
+      };
+      console.log("Recording mutation:", entry);
+    });
+  });
+
+observer.observe(text, {
+    attributes: true,
+    childList: true,
+    characterData: true,
+    characterDataOldValue: true,
+    subtree: true
+});
+</script>
+</bin>
+</html>
