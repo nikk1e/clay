@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-type" content="text/html; charset=utf-8">
+	<title>Test</title>
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="css/layouts/side-menu.css">
+<!--<![endif]-->
+<link rel="stylesheet" href="/css/clay.css"/>
+
+<style type="text/css" media="screen">
+</style>
+</head>
+<body>
+	<textarea id='textarea' style='position: fixed; left: -170px; width: 150px;'>This is a test</textarea>
+	<div id='preview'>
+		<p>This is a test</p>
+		<p>This is another paragraph in preview</p></div>
+	<p>Not possible to get the touch events in iOS to a character position without serious work. Would be easier to continue on the contentEditable route.</p>
+<script type="text/javascript">
+var preview = document.getElementById('preview');
+var textarea = document.getElementById('textarea');
+
+function setFocus(e) {
+	textarea.focus();
+}
+
+function handleTouchEnd(e) {
+
+	var touches = event.changedTouches,
+	        first = touches[0];
+	e.coords     = {left: e.changedTouches[0].pageX,
+	                top: e.changedTouches[0].pageY};
+	console.log(e);	
+	var sel = window.getSelection()
+	console.log(sel);
+	
+	var simulatedEvent = document.createEvent("MouseEvent");
+	    simulatedEvent.initMouseEvent("mousedown", true, true, window, 1, 
+	                              first.screenX, first.screenY, 
+	                              first.clientX, first.clientY, false, 
+	                              false, false, false, 0/*left*/, null);
+	simulatedEvent = document.createEvent("MouseEvent");
+	simulatedEvent.initMouseEvent("mouseup", true, true, window, 1, 	
+		first.screenX, first.screenY, 
+		first.clientX, first.clientY, false, 
+		false, false, false, 0/*left*/, null);
+	
+}
+
+//document.addEventListener('touchend', handleTouchEnd);
+
+function handleEvent(e) {
+	console.log(e.type);
+	var sel = window.getSelection();
+	console.log(sel.focusOffset);
+}
+
+preview.addEventListener('mousedown', handleEvent);
+preview.addEventListener('mouseup', handleEvent);
+preview.addEventListener('click', setFocus);
+</script>
+</body>
+</html>
