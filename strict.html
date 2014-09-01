@@ -129,7 +129,7 @@ function gatherAll(tag) {
 var gatherers = {
 	ulli: gatherAll('ul'),
 	olli: gatherAll('ol'),
-	code: gatherAll('pre'),
+	code: gatherAll('pre'), //TODO: replace to return a result element (document fragment)
 	tr: function(items) {
 		var thead = document.createElement('thead');
 		var tbody = document.createElement('tbody');
@@ -193,6 +193,9 @@ var renderers = {
 		var code = document.createElement('code');
 		var tn = document.createTextNode(c.text);
 		code.appendChild(tn);
+		if (c.lang) {
+			code.className = 'lang-' + c.lang;
+		}
 		return code;
 	},
 	ulli:renderSpan('li'),
@@ -221,11 +224,16 @@ function render(model) {
 	while (i < l) {
 		var para = model[i];
 		if (gs = gatherers[para.type]) {
-			var items = []; var type = para.type;
+			var items = []; 
+			var type = para.type;
+			var lang = para.lang;
 			do {
 				items.push(para);
 				i++;
-			} while (i < l && !para.result && (para=model[i]).type == type);
+			} while (i < l 
+				&& !para.result
+				&& lang === para.lang 
+				&& (para=model[i]).type == type);
 			df.appendChild(gs(items));
 		} else {
 			df.appendChild(renderers[para.type](para)); //don't gather
@@ -234,6 +242,206 @@ function render(model) {
 	}
 	return df;
 }
+
+
+//React-A-Like
+
+var isDOMAttribute = {
+	id: true,
+	className: true,
+	value: true,
+};
+
+function DOMClass(tag) {
+	this.tag = tag;
+}
+
+DOMClass.prototype.construct = function(props, children) {
+	if (this.type === DOM.text.type) {
+		this.props = { children: props };
+		this.node = null;
+		return;
+	};
+
+	this.props = props || {};
+	this.node = null;
+
+	if (arguments.length === 2) {
+		if (typeof children == 'string') {
+			this.props.children = [DOM.text(children)];
+		} else {
+			this.props.children = children; //passed an array of nodes.
+		}
+	} else {
+		var childArr = [];
+		var prevChild, child;
+		for (var i = 1; i < arguments.length; i++) {
+			child = arguments[i];
+			if (typeof child == 'string') {
+				child = DOM.text(child);
+			}
+			if (prevChild
+			 && child.type === DOM.text.type
+			 && prevChild.type === DOM.text.type) {
+				prevChild.props.children += child.props.children; //join text nodes together
+			} else {
+				childArr.push(child);
+				prevChild = child;
+			}
+		}
+		this.props.children = childArr;
+	}
+};
+
+DOMClass.prototype.mount = function() {
+	if (this.node != null) {
+		return this.node;
+	}
+	if (this.type === DOM.text.type) {
+		this.node = document.createTextNode(this.props.children);
+	} else {
+		var node = document.createElement(this.tag);
+		for (var prop in this.props) {
+			if (isDOMAttribute[prop]) {
+				node[prop] = this.props[prop];
+			}
+		}
+		this.props.children.forEach(function(child, index) { 
+			node.appendChild(child.mount());
+		});
+		this.node = node;
+	}
+	return this.node;
+};
+
+//Inspired by React.js
+function createDOMClass(tag) {
+	var Constructor = function() {};
+	Constructor.prototype = new DOMClass(tag);
+	Constructor.displayName = tag;
+
+	var ConvConstructor = function(props, children) {
+		var instance = new Constructor();
+		instance.construct.apply(instance, arguments);
+		return instance;
+	};
+
+	ConvConstructor.type = Constructor;
+	Constructor.prototype.type = Constructor;
+
+	return ConvConstructor;
+}
+
+var DOM = {};
+[
+	'a',
+	'blockquote',
+	'br',
+	'code',
+	'div',
+	'em',
+	'figure',
+	'figcaption',
+	'h1',
+	'h2',
+	'h3',
+	'h4',
+	'h5',
+	'h6',
+	'img',
+	'li',
+	'ol',
+	'p',
+	'pre',
+	'section',
+	'span',
+	'strong',
+	'sub',
+	'sup',
+	'table',
+	'tbody',
+	'td',
+	'tfoot',
+	'th',
+	'thead',
+	'tr',
+	'ul',
+	'text',
+	'textarea'
+].forEach(function(k,i) { DOM[k] = createDOMClass(k); });
+
+function ComponentBase() {}
+ComponentBase.prototype.construct = DOMClass.prototype.construct;
+ComponentBase.prototype.mount = function() {
+	if (this.node) return this.node;
+
+	//process props to include defaults
+	this.state = this.getInitialState? this.getInitialState() : {};
+
+	//pendingState = null
+	//pendingForceUpdate = false
+
+	var rendered = this.render();
+	this.node = rendered.mount();
+	if (this.componentDidMount) this.componentDidMount(); 
+	return this.node;
+}
+
+function createClass(spec) {
+	var Constructor = function() {};
+	Constructor.prototype = new ComponentBase();
+
+	var ConvConstructor = function(props, children) {
+		var instance = new Constructor();
+		instance.construct.apply(instance, arguments);
+		return instance;
+	};
+
+	//mixin
+	for (var name in spec) {
+		if (!spec.hasOwnProperty(name)) continue;
+		Constructor.prototype[name] = spec[name];
+	};
+
+	ConvConstructor.type = Constructor;
+	Constructor.prototype.type = Constructor;
+
+	return ConvConstructor;
+}
+
+
+var Test = createClass({
+	render: function() {
+		return DOM.div({className: 'test'}, 
+			DOM.span({}, "Some text in a span"), 
+			DOM.br(), 
+			"Some more text");
+	}
+});
+
+
+var Preview = createClass({
+	render: function() {
+		return DOM.div({className: 'preview'}, 
+			DOM.span({}, "Some text in a span"), 
+			DOM.br(), 
+			"Some more text");
+	}
+})
+
+var Editor = createClass({
+	getInitialState: function() {
+		return {};
+	},
+	render: function() {
+		this.textarea = DOM.textarea({id: 'model'});
+		return DOM.div({className: 'content'}, 
+			this.textarea,
+			Preview());
+	}
+})
+
+
 
 </script>
 </body>
