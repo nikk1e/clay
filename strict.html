@@ -207,7 +207,7 @@ function render(model) {
 }
 
 
-//React-A-Like
+//Friar is almost react
 
 var isDOMAttribute = {
 	id: true,
@@ -279,7 +279,7 @@ Base.prototype.performUpdateIfNecessary = function() {
 Base.prototype.receiveComponent = function(nextComponent) {
 	 this._pendingProps = nextComponent.props;
 	 this.performUpdateIfNecessary();
-	 //copy over our properties
+	 //copy over our properties (TODO: probably better to use the ref stuff used by React)
 	 nextComponent.node = this.node;
 	 if (this._rendered) nextComponent._rendered = this._rendered;
 };
@@ -466,13 +466,15 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 		if (key === STYLE) {
 			if (prevProp) {
 				for (var styleName in prevProp) {
-					if (prevProp.hasOwnProperty(styleName) && !nextProp.hasOwnProperty(styleName)) {
+					if (prevProp.hasOwnProperty(styleName) 
+						&& !nextProp.hasOwnProperty(styleName)) {
 						styleUpdates = styleUpdates || {};
 						styleUpdates[styleName] = '';
 					}
 				}
 				for (var styleName in nextProp) {
-					if (nextProp.hasOwnProperty(styleName) && prevProp[styleName] !== nextProp[styleName]) {
+					if (nextProp.hasOwnProperty(styleName)
+						&& prevProp[styleName] !== nextProp[styleName]) {
 						styleUpdates = styleUpdates || {};
 						styleUpdates[styleName] = nextProp[styleName];
 					}
@@ -682,6 +684,20 @@ var Preview = createClass({
 	}
 });
 
+
+var IgnoreKeys = {
+	Shift: false,
+	Win: false,
+	Control: false,
+	CapsLock: false,
+	Alt: false,
+	Meta: false,
+	Left: true,
+	Right: true,
+	Up: true,
+	Down: true,
+};
+
 var Editor = createClass({
 	getInitialState: function() {
 		var text = this.props.text;
@@ -713,9 +729,30 @@ var Editor = createClass({
 	handleInput: function(e) {
 		this.updateText();
 	},
+	handleContentKeyDown: function(e) {
+		//Ignore movement keys...
+		var key = e.key || e.keyIdentifier;
+		if (IgnoreKeys.hasOwnProperty(key)
+			&& (!IgnoreKeys[key]
+			||e.ctrlKey||e.shiftKey||e.altKey||e.metaKey)) {
+			return;
+		}
+		console.log(key);
+		this.blur = document.activeElement !== this.textarea.node;
+		if (this.blur) this.textarea.node.focus();
+		//Set selection in textarea so the key make the change
+	},
+	handleContentKeyUp: function(e) {
+		if (this.blur) {
+			this.textarea.node.blur();
+			this.blur = false;
+		}
+	},
 	didMount: function() {
 		console.log('mounted');
 		//TODO: this stuff should be on the actual textarea node itself
+		document.body.addEventListener('keydown', this.handleContentKeyDown.bind(this));
+		document.body.addEventListener('keyup', this.handleContentKeyUp.bind(this));
 		var ta = this.textarea.node;
 		ta.addEventListener('change',this.handleChange.bind(this));
 		ta.addEventListener('keydown', this.handleKeyDown.bind(this));
