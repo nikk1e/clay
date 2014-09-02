@@ -252,11 +252,15 @@ var isDOMAttribute = {
 	value: true,
 };
 
-function DOMClass(tag) {
-	this.tag = tag;
+function shouldUpdateComponent(prev, next) {
+	if (prev.type === next.type) return true;
+	return false;
 }
 
-DOMClass.prototype.construct = function(props, children) {
+
+function Base() {}
+
+Base.prototype.construct = function(props, children) {
 	if (this.type === DOM.text.type) {
 		this.props = { children: props };
 		this.node = null;
@@ -293,6 +297,32 @@ DOMClass.prototype.construct = function(props, children) {
 	}
 };
 
+Base.prototype.unmount = function() {
+	delete this.node;
+};
+
+Base.prototype.performUpdateIfNecessary = function() {
+	if (this._pendingProps === null) {
+		return;
+	}
+	var prevProps = this.props;
+	this.props = this._pendingProps;
+	this._pendingProps = null;
+	this.updateComponent(prevProps);
+};
+
+Base.prototype.receiveComponent = function(nextComponent) {
+	 this._pendingProps = nextComponent.props;
+	 this.performUpdateIfNecessary();
+};
+
+
+function DOMClass(tag) {
+	this.tag = tag;
+}
+
+DOMClass.prototype = new Base();
+
 DOMClass.prototype.mount = function() {
 	if (this.node != null) {
 		return this.node;
@@ -304,6 +334,8 @@ DOMClass.prototype.mount = function() {
 		for (var prop in this.props) {
 			if (isDOMAttribute[prop]) {
 				node[prop] = this.props[prop];
+			} else if (prop === STYLE) {
+				setValueForStyles(node, this.props[prop]);
 			}
 		}
 		this.props.children.forEach(function(child, index) { 
@@ -313,6 +345,103 @@ DOMClass.prototype.mount = function() {
 	}
 	return this.node;
 };
+
+//Different to React.js -- no nested children (arrays of arrays)
+// will not be assuming that an objects keys are itterated over in order (not to js spec)
+// assume that almost all DOM changes (including those that need to be fast) are inserts,
+// deletes, and updates. We still use keys to indicate if it is the same object.
+DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
+	if (!nextChildren && !prevChildren) {
+		return;
+	}
+	prevChildren = prevChildren || [];
+	nextChildren = nextChildren || [];
+	//use difference in length to tell if we are doing an insert,
+	// update, or delete
+	var lenDiff = prevChildren.length - nextChildren.length;
+	
+	nextChildren.forEach(function(child, index) {
+		//should Update/replace
+		// should delete
+		// should insert
+	});
+	//use final lenDiff to remove children no longer present
+	
+	//TODO: do this next... it does the list and key comparison...
+};
+
+DOMClass.prototype.updateComponent = function(prevProps) {
+	this._updateDOMProperties(prevProps);
+	this.updateChildren(this.props.children, prevProps.children);
+};
+
+var STYLE = 'style';
+
+//Inspired by React.js
+DOMClass.prototype._updateDOMProperties = function(prevProps) {
+	var nextProps = this.props;
+	var styleUpdates;
+	for (var key in prevProps) {
+		if (nextProps.hasOwnProperty(key) ||
+			!prevProps.hasOwnProperty(key)) {
+				continue;
+		}
+		if (key === STYLE) {
+			var prevStyle = prevProps[STYLE];
+			for (var styleName in prevStyle) {
+				if (prevStyle.hasOwnProperty(styleName)) {
+					styleUpdate = styleUpdates || {};
+					styleUpdate[styleName] = '';
+				}
+			}
+		} else if (isDOMAttribute[key]) {
+			this.node.removeAttribute(key);
+		}
+	}
+	for (var key in nextProps) {
+    var nextProp = nextProps[key];
+    var prevProp = prevProps[key];
+		if (!nextProps.hasOwnProperty(key) || nextProp === prevProp) {
+			continue;
+		}
+		if (key === STYLE) {
+			if (prevProp) {
+				for (var styleName in prevProp) {
+					if (prevProp.hasOwnProperty(styleName) && !nextProp.hasOwnProperty(styleName)) {
+						styleUpdates = styleUpdates || {};
+						styleUpdates[styleName] = '';
+					}
+				}
+				for (var styleName in nextProp) {
+					if (nextProp.hasOwnProperty(styleName) && prevProp[styleName] !== nextProp[styleName]) {
+						styleUpdates = styleUpdates || {};
+						styleUpdates[styleName] = nextProp[styleName];
+					}
+				}
+			} else {
+				styleUpdates = nextProp
+			}
+		} else if (isDOMAttribute[key]) {
+			if (nextProp == null) {
+				this.node.removeAttribute(key);
+			} else {
+				this.node.setAttribute(key, '' + nextProp);
+			}
+		}
+		if (styleUpdates) {
+			setValueForStyles(this.node, styleUpdates);
+		}
+	}
+};
+
+function setValueForStyles(node, styles) {
+  for (var styleName in styles) {
+    if (!styles.hasOwnProperty(styleName)) {
+      continue;
+    }
+    node.style[styleName] = styles[styleName];
+	}
+}
 
 //Inspired by React.js
 function createDOMClass(tag) {
@@ -370,22 +499,84 @@ var DOM = {};
 	'textarea'
 ].forEach(function(k,i) { DOM[k] = createDOMClass(k); });
 
+
 function ComponentBase() {}
-ComponentBase.prototype.construct = DOMClass.prototype.construct;
+
+ComponentBase.prototype = new Base();
+
 ComponentBase.prototype.mount = function() {
 	if (this.node) return this.node;
 
 	//process props to include defaults
 	this.state = this.getInitialState? this.getInitialState() : {};
 
-	//pendingState = null
+	this._pendingState = null;
+	this._pendingProps = null;
+	this._pendingUpdate = false;
 	//pendingForceUpdate = false
 
-	var rendered = this.render();
-	this.node = rendered.mount();
-	if (this.componentDidMount) this.componentDidMount(); 
+	this._rendered = this.render();
+	this.node = this._rendered.mount();
+	if (this.didMount) this.didMount(); 
 	return this.node;
-}
+};
+
+ComponentBase.prototype.performUpdateIfNecessary = function() {
+	if (this._pendingProps === null && this._pendingState === null	&& !this._pendingUpdate) return;
+	
+	var nextState = this._pendingState || this.state;
+	var nextProps = this._pendingProps || this.props;
+	var prevProps = this.props;
+  var prevState = this.state;
+	
+	this._pendingState = null;
+	this._pendingProps = null;
+	this._pendingUpdate = false;
+
+  if (this.willUpdate) {
+    this.willUpdate(nextProps, nextState);
+  }
+
+  this.props = nextProps;
+  this.state = nextState;
+
+  this.updateComponent(prevProps, prevState);
+
+  if (this.didUpdate) {
+		this.didUpdate(prevProps, prevState);
+  }
+};
+
+ComponentBase.prototype.updateComponent = function(prevProps) {
+	var prevRendered = this._rendered;
+	var nextRendered = this.render();
+	if (shouldUpdateComponent(prevRendered, nextRendered)) {
+		prevRendered.receiveComponent(nextRendered);
+	} else {
+		//TODO: should we be calling didMount?
+		this._rendered = nextRendered;
+		var node = this._rendered.mount();
+		this.node.parentNode.replaceChild(prevRendered.node, node);
+		prevRendered.unmount();
+	}
+};
+
+ComponentBase.prototype.forceUpdate = function() {
+	this._pendingUpdate = true;
+	this.performUpdateIfNecessary();
+};
+
+
+/*
+TextNode.prototype.receiveComponent = function(nextComponent) {
+    var nextProps = nextComponent.props;
+    if (nextProps.text !== this.props.text) {
+      this.props.text = nextProps.text;
+		  this.node.textContent = this.props.text;
+    }
+};
+*/
+
 
 function createClass(spec) {
 	var Constructor = function() {};
@@ -423,7 +614,7 @@ var Test = createClass({
 var Preview = createClass({
 	render: function() {
 		return DOM.div({className: 'preview'}, 
-			DOM.span({}, "Some text in a span"), 
+			DOM.span({style: {'font-weight': 700}}, "Some text in a span"), 
 			DOM.br(), 
 			"Some more text");
 	}
