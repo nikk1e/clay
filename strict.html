@@ -261,6 +261,8 @@ Base.prototype.construct = function(props, children) {
 };
 
 Base.prototype.unmount = function() {
+	//unmount children
+	//remove listeners
 	delete this.node;
 };
 
@@ -277,17 +279,26 @@ Base.prototype.performUpdateIfNecessary = function() {
 Base.prototype.receiveComponent = function(nextComponent) {
 	 this._pendingProps = nextComponent.props;
 	 this.performUpdateIfNecessary();
+	 //copy over our properties
+	 nextComponent.node = this.node;
+	 if (this._rendered) nextComponent._rendered = this._rendered;
 };
 
 function WrapBase(element) {
-	this.node = element;
+	this.node = element; this.props = { node: element };
 }
+
+WrapBase.prototype = new Base();
 
 WrapBase.prototype.mount = function() {
 	return this.node;
 };
 
-
+WrapBase.prototype.updateComponent = function(prevProps) {
+	if (this.props.node === prevProps.node) return;
+	prevProps.node.parentNode.replaceChild(this.props.node, prevProps.node);
+	this.node = this.props.node;
+};
 
 function Wrap(element) {
 	return new WrapBase(element);
@@ -312,6 +323,7 @@ DOMClass.prototype.mount = function() {
 	} else {
 		var node = document.createElement(this.tag);
 		for (var prop in this.props) {
+			//TODO register listeners
 			if (isDOMAttribute[prop]) {
 				node[prop] = this.props[prop];
 			} else if (prop === STYLE) {
@@ -352,7 +364,8 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 			lastIndex = Math.max(prevChild._mountIndex, lastIndex);
 			prevChild.receiveComponent(child);
 			prevChild._mountIndex = nextIndex;
-			nextChildren[nextIndex] = prevChild;
+			child._mountIndex = nextIndex;
+			//nextChildren[nextIndex] = prevChild;
 		} else {
 			if (prevChild) {
 				//replace
@@ -430,6 +443,7 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 			!prevProps.hasOwnProperty(key)) {
 				continue;
 		}
+		//TODO remove listener
 		if (key === STYLE) {
 			var prevStyle = prevProps[STYLE];
 			for (var styleName in prevStyle) {
@@ -448,6 +462,7 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 		if (!nextProps.hasOwnProperty(key) || nextProp === prevProp) {
 			continue;
 		}
+		//TODO: add listener
 		if (key === STYLE) {
 			if (prevProp) {
 				for (var styleName in prevProp) {
@@ -675,14 +690,55 @@ var Editor = createClass({
 			model: parse(text),
 		};
 	},
-
+	updateText: function() {
+		var text = this.textarea.node.value;
+		if (text == this.state.text) return;
+		this.setState({text: text, model: parse(text)}); //TODO: model update rather than reparse
+	},
+	handleChange: function(e) {
+		this.updateText();
+	},
+	handleKeyDown: function(e) {
+		this.updateText();
+	},
+	handleKeyUp: function(e) {
+		this.updateText();
+	},
+	handleFocus: function(e) {
+		this.updateText();
+	},
+	handleBlur: function(e) {
+		this.updateText();
+	},
+	handleInput: function(e) {
+		this.updateText();
+	},
 	didMount: function() {
 		console.log('mounted');
+		//TODO: this stuff should be on the actual textarea node itself
+		var ta = this.textarea.node;
+		ta.addEventListener('change',this.handleChange.bind(this));
+		ta.addEventListener('keydown', this.handleKeyDown.bind(this));
+		ta.addEventListener('keyup', this.handleKeyUp.bind(this));
+		ta.addEventListener('focus', this.handleFocus.bind(this));
+		ta.addEventListener('blur', this.handleBlur.bind(this));
+		ta.addEventListener('input', this.handleInput.bind(this));
 	},
 	didUpdate: function() {
 		console.log('updated');
 	},
+	willUnmount: function() {
+		console.log('unmounting');
+		var ta = this.textarea.node;
+		ta.removeEventListener('change',this.handleChange);
+		ta.removeEventListener('keydown', this.handleKeyDown);
+		ta.removeEventListener('keyup', this.handleKeyUp);
+		ta.removeEventListener('focus', this.handleFocus);
+		ta.removeEventListener('blur', this.handleBlur);
+		ta.removeEventListener('input', this.handleInput);
+	},
 	render: function() {
+		//?? does this work when we are going with previous Child and updating
 		this.textarea = DOM.textarea({
 			id: 'model', 
 			style: {width: '100%', height: '100px'}, 
@@ -695,7 +751,7 @@ var Editor = createClass({
 });
 
 
-var text = "#Header\n"
+var text = "#Clay\n"
 		 + "This is a paragraph\n"
 		 + "|this|is|a|table\n"
 		 + "|more|table|stuff|here\n"
