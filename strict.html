@@ -687,6 +687,9 @@ function renderToFriar(model) {
 		}));
 	}
 
+	//TODO: probably want to replace this with a class
+	// so we can check the table has not changed and not
+	// render again.
 	function renderTable() {
 		var hrows = [], rows=[], i = 0, alignments;
 		while (token && token.type === 'tr') {
@@ -775,9 +778,8 @@ function renderToFriar(model) {
 
 var Preview = createClass({
 	render: function() {
-		var result = document.createElement('div');
-		result.appendChild(render(this.props.model));
-		return DOM.div({id: 'preview', className: 'editor'}, renderToFriar(this.props.model));
+		return DOM.div({id: 'preview', className: 'editor'}, 
+			renderToFriar(this.props.model));
 	}
 });
 
@@ -863,7 +865,8 @@ var Editor = createClass({
 		//?? does this work when we are going with previous Child and updating
 		this.textarea = DOM.textarea({
 			id: 'model', 
-			style: {width: '100%', height: '100px'}, 
+			style: {width: '100', height: '50px', opacity: '0', 
+			        position: 'absolute', left: '-3000px'}, 
 			value: this.state.text,
 			onKeyDown: this.handleKeyDown,
 			onKeyUp: this.handleKeyUp,
