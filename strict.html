@@ -17,6 +17,35 @@
 <link rel="stylesheet" href="css/clay.css"/>
 <style type="text/css">
 /* stuff here */
+
+figcaption {
+	position: absolute;
+	top: 0;
+	left: -170px;
+	width: 150px;
+	font-style: italic;
+	text-align: right;
+	color: rgba(0,0,0,0.5);
+	font-family: serif;
+}
+figcaption:before {
+	width: 35%;
+	margin-left: 65%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-bottom: 5px;
+}
+figure {
+	position: relative;
+	clear: both;
+}
+hr {
+	border-top: 1px solid #edece4;
+	border-bottom: 0;
+	border-left: 0;
+	border-right: 0;
+}
 </style>
 </head>
 <body>
@@ -349,13 +378,14 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 	prevChildren = prevChildren || [];
 	nextChildren = nextChildren || [];
 	var prevChildrenByName = {};
+	var pi = 0, ni = 0;
 	prevChildren.forEach(function(c,i) { 
-		prevChildrenByName[c.props.key ? '$' + c.props.key : '.' + i] = c;
+		prevChildrenByName[c.props.key ? '$' + c.props.key : '.' + (pi++)] = c;
 	});
 	var nextChildrenByName = {};
 	var lastIndex = 0
 	nextChildren.forEach(function(child, nextIndex) {
-		var name = child.props.key ? '$' + child.props.key : '.' + nextIndex;
+		var name = child.props.key ? '$' + child.props.key : '.' + (ni++);
 		nextChildrenByName[name] = child;
 		var prevChild = prevChildrenByName[name];
 		if (shouldUpdateComponent(prevChild, child)) {
@@ -674,6 +704,9 @@ function createClass(spec) {
 function renderComponent(component, element) {
 	element.appendChild(component.mount());
 }
+
+
+
 
 
 var Preview = createClass({
