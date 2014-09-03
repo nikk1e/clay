@@ -146,7 +146,7 @@ display: block;
 <div class='options'>
           <span class='no-overflow'>
             <span class='ui-inputs'>
-              <button class='bold'>B</button>
+                <button class='bold'>B</button>
               <button class='italic'>i</button>
               <button class='header1'>h1</button>
               <button class='header2'>h2</button>
@@ -428,6 +428,14 @@ display: block;
 <script type="text/javascript">
 var editor, meta;
 editor = document.getElementById('preview');
+
+function handleInput(e) {
+    console.log('input');
+	console.log(e);
+}
+
+editor.oninput = handleInput;
+editor.addEventListener('input', handleInput); //TODO: check what the support for this is
 
 var isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
 
