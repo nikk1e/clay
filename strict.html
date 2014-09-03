@@ -46,6 +46,15 @@ hr {
 	border-left: 0;
 	border-right: 0;
 }
+section:after {
+	width: 16%;
+	margin-left: 38%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-top: 50px;
+	margin-bottom: 50px;
+}
 </style>
 </head>
 <body>
@@ -108,133 +117,6 @@ function parse(text) {
 	});
 }
 
-function gatherAll(tag) {
-	return function(items) {
-		var elm = document.createElement(tag);
-		items.forEach(function(el,i) {
-			elm.appendChild(renderers[el.type](el));
-		});
-		return elm;
-	};
-}
-
-var gatherers = {
-	ulli: gatherAll('ul'),
-	olli: gatherAll('ol'),
-	code: gatherAll('pre'), //TODO: replace to return a result element (document fragment)
-	tr: function(items) {
-		var thead = document.createElement('thead');
-		var tbody = document.createElement('tbody');
-		var table = document.createElement('table');
-		table.className = 'pure-table pure-table-bordered';
-		table.appendChild(thead);
-		table.appendChild(tbody);
-		items.forEach(function(tr, i) {
-			if (i == 0) thead.appendChild(renderers.thr(tr));
-			else tbody.appendChild(renderers.tr(tr));
-		});
-		return table;
-	},
-};
-
-function renderSpan(tag) {
-	return function(item) {
-		var para = document.createElement(tag);
-		if (item.spans.length === 0) para.appendChild(document.createElement('br'));
-		item.spans.forEach(function(c) {
-			para.appendChild(renderers[c.type](c));
-		});
-		return para;
-	};
-}
-
-//TODO: need to add alignment stuff here
-function renderRow(tag) {
-	return function(tr) {
-		var row = document.createElement('tr');
-		tr.values.forEach(function(c) {
-			var cell = document.createElement(tag);
-			cell.appendChild(document.createTextNode(c));
-			row.appendChild(cell);
-		});
-		return row;
-	};
-}
-
-var renderers = {
-	p: renderSpan('p'),
-	header: function(h) {
-		var header = document.createElement('h' + h.level);
-		var tn = document.createTextNode(h.text);
-		header.appendChild(tn);
-		return header;
-	},
-	figure: function(f) {
-		var figure = document.createElement('figure');
-		var caption = document.createElement('figcaption');
-		var ctext = document.createTextNode(f.caption);
-		var img = document.createElement('img');
-		img.src = f.src;
-		img.alt = f.alt;
-		figure.appendChild(img);
-		caption.appendChild(ctext);
-		figure.appendChild(caption);
-		return figure;
-	},
-	code: function(c) {
-		var code = document.createElement('code');
-		var tn = document.createTextNode(c.text);
-		code.appendChild(tn);
-		if (c.lang) {
-			code.className = 'lang-' + c.lang;
-		}
-		return code;
-	},
-	ulli:renderSpan('li'),
-	olli:renderSpan('li'),
-	quote:renderSpan('blockquote'),
-	meta:function(c) {
-		var code = document.createElement('span');
-		var tn = document.createTextNode(c.text);
-		code.appendChild(tn);
-		return code;
-	},
-	'break':function(b) { return document.createElement('hr'); },
-	tr:renderRow('td'),
-	thr:renderRow('th'),
-	strong:1,
-	link:1,
-	em:1,
-	text:function(t) { return document.createTextNode(t.text); },
-};
-
-function render(model) {
-	var df = document.createDocumentFragment();
-	var i = 0;
-	var gs;
-	var l = model.length;
-	while (i < l) {
-		var para = model[i];
-		if (gs = gatherers[para.type]) {
-			var items = []; 
-			var type = para.type;
-			var lang = para.lang;
-			do {
-				items.push(para);
-				i++;
-			} while (i < l 
-				&& !para.result
-				&& lang === para.lang 
-				&& (para=model[i]).type == type);
-			df.appendChild(gs(items));
-		} else {
-			df.appendChild(renderers[para.type](para)); //don't gather
-			i++;
-		}
-	}
-	return df;
-}
-
 
 //Friar is almost react
 
@@ -242,6 +124,8 @@ var isDOMAttribute = {
 	id: true,
 	className: true,
 	value: true,
+	src: true,
+	alt: true,
 };
 
 function isListener(key) {
@@ -767,12 +651,133 @@ function renderComponent(component, element) {
 	element.appendChild(component.mount());
 }
 
+/* End of Friar */
+
+// render model to array of Friar components
+function renderToFriar(model) {
+	var rendered = [];
+	var tokens = model;
+	var index = 0;
+	var token;
+	
+	function getToken() {
+		return token = tokens[index++];
+	}
+
+	function ungetToken() {
+		return token = tokens[(--index)-1];
+	}
+
+	function peekToken() {
+		return tokens[index];
+	}
+
+	function renderSpans(item) {
+		if (item.spans.length === 0) {
+			return [DOM.br()];
+		}
+		return item.spans.map(function(c) {
+			return DOM.text(c.text); //TODO: assmuing everything is text
+		});
+	}
+
+	function renderRow(type, alignments) {
+		return DOM.tr({},token.values.map(function(c,i) {
+			return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
+		}));
+	}
+
+	function renderTable() {
+		var hrows = [], rows=[], i = 0, alignments;
+		while (token && token.type === 'tr') {
+			if (i === 0) {
+				alignments = token.values.map(function(c) {
+					return /^ /.test(c) ? 
+						{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
+				});
+				hrows.push(renderRow('th', alignments));
+			} else {
+				rows.push(renderRow('td', alignments));
+			}
+			i++;
+			getToken();
+		}
+		ungetToken();
+		return [DOM.table({className: 'pure-table pure-table-bordered'}, 
+			DOM.thead({},hrows), 
+			DOM.tbody({},rows))];
+	}
+
+	function renderCode(lang) {
+		var items = [];
+		while (token && token.type === 'code' && !token.result && token.lang === lang) {
+			var props = {};//TODO: add key
+			if (token.lang) props.className = 'lang-' + token.lang
+			items.push(DOM.code(props,token.text)); 
+			getToken();
+		}
+		ungetToken();
+		return [DOM.pre({}, items)];
+	}
+
+	function renderList(listType, itemType) {
+		var items = [];
+		while (token && token.type === itemType) {
+			items.push(DOM.li({},renderSpans(token))); //TODO: add key
+			getToken();
+		}
+		ungetToken();
+		return [DOM[listType]({}, items)];
+	}
+
+	function renderFigure() {
+		var f = token;
+		return [DOM.figure({},
+			DOM.img({alt: f.alt, src: f.src}),
+			DOM.figcaption({}, f.caption)
+		)];
+	}
+
+	function renderPara() {
+		switch (token.type) {
+			case 'code':   return renderCode(token.lang);
+			case 'p':      return [DOM.p({}, renderSpans(token))];
+			case 'header': return [DOM['h'+token.level]({}, token.text)];
+			case 'figure': return renderFigure();
+			case 'ulli':   return renderList('ul', 'ulli');
+			case 'olli':   return renderList('ol', 'olli');
+			case 'quote':  return [DOM.blockquote({}, renderSpans(token))];
+			case 'meta':   return [DOM.span({}, token.text)];
+			case 'tr':     return renderTable();
+			default: 
+				return [
+					DOM.p({className: 'error'}, 
+						"Error: Don't know what to do with a " + token.type)
+				];
+		}
+	}
+
+	function renderSection() {
+		var children = [];
+		getToken();
+		while (token && token.type !== 'break') {
+			Array.prototype.push.apply(children, renderPara());
+			getToken();
+		};
+		return DOM.section({}, children);
+	}
+
+	while (index < tokens.length) {
+		rendered.push(renderSection());
+	}
+	return rendered;
+}
 
 var Preview = createClass({
 	render: function() {
 		var result = document.createElement('div');
 		result.appendChild(render(this.props.model));
-		return DOM.div({id: 'preview', className: 'editor'}, [Wrap(result)]);
+		return DOM.div({id: 'preview', className: 'editor'}, renderToFriar(this.props.model));
 	}
 });
 
@@ -845,8 +850,8 @@ var Editor = createClass({
 	didMount: function() {
 		console.log('mounted');
 		//TODO: this stuff should be on the actual textarea node itself
-		document.body.addEventListener('keydown', this.handleContentKeyDown.bind(this));
-		document.body.addEventListener('keyup', this.handleContentKeyUp.bind(this));
+		document.body.addEventListener('keydown', this.handleContentKeyDown);
+		document.body.addEventListener('keyup', this.handleContentKeyUp);
 	},
 	didUpdate: function() {
 		console.log('updated');
