@@ -244,6 +244,14 @@ var isDOMAttribute = {
 	value: true,
 };
 
+function isListener(key) {
+	return /^on[A-Z][a-zA-Z]+$/.test(key);
+}
+
+function keyToEvent(key) {
+	return key.slice(2).toLowerCase();
+}
+
 function shouldUpdateComponent(prev, next) {
 	if (prev && next && prev.type === next.type) return true;
 	return false;
@@ -290,8 +298,15 @@ Base.prototype.construct = function(props, children) {
 };
 
 Base.prototype.unmount = function() {
-	//unmount children
 	//remove listeners
+	if (this._listeners && this.node) {
+		for (var lk in this._listeners) {
+			if (this._listeners.hasOwnProperty(lk)) {
+				this.node.removeEventListener(lk, this._listeners[lk]);
+			}
+		}
+	}
+	//unmount children
 	delete this.node;
 };
 
@@ -350,22 +365,41 @@ DOMClass.prototype.mount = function() {
 	if (this.type === DOM.text.type) {
 		this.node = document.createTextNode(this.props.text);
 	} else {
-		var node = document.createElement(this.tag);
+		this.node = document.createElement(this.tag);
 		for (var prop in this.props) {
-			//TODO register listeners
 			if (isDOMAttribute[prop]) {
-				node[prop] = this.props[prop];
+				this.node[prop] = this.props[prop];
 			} else if (prop === STYLE) {
-				setValueForStyles(node, this.props[prop]);
+				setValueForStyles(this.node, this.props[prop]);
+			} else if (isListener(prop)) {
+				this.addListener(prop, this.props[prop]);
 			}
 		}
+		var node = this.node;
 		this.props.children.forEach(function(child, index) { 
 			child._mountIndex = index;
 			node.appendChild(child.mount());
 		});
-		this.node = node;
 	}
 	return this.node;
+};
+
+DOMClass.prototype.addListener = function(key, func) {
+	this._listeners = this._listeners || {};
+	var name = keyToEvent(key);
+	if (this._listeners.hasOwnProperty[name]) {
+		this.node.removeEventListener(name, this._listeners[name]);
+	}
+	this._listeners[name] = function(e) { return func(e); };
+	this.node.addEventListener(name, this._listeners[name]);
+};
+
+DOMClass.prototype.removeListener = function(key) {
+	this._listeners = this._listeners || {};
+	var name = keyToEvent(key);
+	if (this._listeners.hasOwnProperty[name]) {
+		this.node.removeEventListener(name, this._listeners[name]);
+	}
 };
 
 //Different to React.js -- no nested children (arrays of arrays)
@@ -473,7 +507,6 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 			!prevProps.hasOwnProperty(key)) {
 				continue;
 		}
-		//TODO remove listener
 		if (key === STYLE) {
 			var prevStyle = prevProps[STYLE];
 			for (var styleName in prevStyle) {
@@ -484,6 +517,8 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 			}
 		} else if (isDOMAttribute[key]) {
 			this.node.removeAttribute(key);
+		} else if (isListener(key)) {
+			this.removeListener(key);
 		}
 	}
 	for (var key in nextProps) {
@@ -492,7 +527,6 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 		if (!nextProps.hasOwnProperty(key) || nextProp === prevProp) {
 			continue;
 		}
-		//TODO: add listener
 		if (key === STYLE) {
 			if (prevProp) {
 				for (var styleName in prevProp) {
@@ -518,6 +552,8 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 			} else {
 				this.node.setAttribute(key, '' + nextProp);
 			}
+		} else if (isListener(key)) {
+			this.addListener(key, nextProp); //addListener will remove old prop
 		}
 		if (styleUpdates) {
 			setValueForStyles(this.node, styleUpdates);
@@ -591,6 +627,15 @@ var DOM = {};
 ].forEach(function(k,i) { DOM[k] = createDOMClass(k); });
 
 
+var ComponentInterface = {
+	render: true,
+	didUpdate: true,
+	willUpdate: true,
+	didMount: true,
+	willUnmount: true,
+	getInitialState: true,
+};
+
 function ComponentBase() {}
 
 ComponentBase.prototype = new Base();
@@ -605,6 +650,16 @@ ComponentBase.prototype.mount = function() {
 	this._pendingProps = null;
 	this._pendingUpdate = false;
 	//pendingForceUpdate = false
+
+	//auto map (bind function to this)
+	if (this.type._autoMap) {
+		var autoMap = this.type._autoMap
+		for (var name in autoMap) {
+			if (autoMap.hasOwnProperty(name)) {
+				this[name] = autoMap[name].bind(this);
+			}
+		}
+	}
 
 	this._rendered = this.render();
 	this.node = this._rendered.mount();
@@ -693,6 +748,13 @@ function createClass(spec) {
 	for (var name in spec) {
 		if (!spec.hasOwnProperty(name)) continue;
 		Constructor.prototype[name] = spec[name];
+		var property = spec[name];
+		var isFunction = typeof property === 'function';
+		var isInterface = name in ComponentInterface;
+		if (isFunction && !isInterface) {
+			Constructor._autoMap = Constructor._autoMap || {};
+			Constructor._autoMap[name] = property;
+		}
 	};
 
 	ConvConstructor.type = Constructor;
@@ -704,9 +766,6 @@ function createClass(spec) {
 function renderComponent(component, element) {
 	element.appendChild(component.mount());
 }
-
-
-
 
 
 var Preview = createClass({
@@ -748,9 +807,11 @@ var Editor = createClass({
 		this.updateText();
 	},
 	handleKeyDown: function(e) {
+		console.log(e.keyIdentifier + ' is down');
 		this.updateText();
 	},
 	handleKeyUp: function(e) {
+		console.log(e.keyIdentifier + ' is up');
 		this.updateText();
 	},
 	handleFocus: function(e) {
@@ -786,26 +847,12 @@ var Editor = createClass({
 		//TODO: this stuff should be on the actual textarea node itself
 		document.body.addEventListener('keydown', this.handleContentKeyDown.bind(this));
 		document.body.addEventListener('keyup', this.handleContentKeyUp.bind(this));
-		var ta = this.textarea.node;
-		ta.addEventListener('change',this.handleChange.bind(this));
-		ta.addEventListener('keydown', this.handleKeyDown.bind(this));
-		ta.addEventListener('keyup', this.handleKeyUp.bind(this));
-		ta.addEventListener('focus', this.handleFocus.bind(this));
-		ta.addEventListener('blur', this.handleBlur.bind(this));
-		ta.addEventListener('input', this.handleInput.bind(this));
 	},
 	didUpdate: function() {
 		console.log('updated');
 	},
 	willUnmount: function() {
 		console.log('unmounting');
-		var ta = this.textarea.node;
-		ta.removeEventListener('change',this.handleChange);
-		ta.removeEventListener('keydown', this.handleKeyDown);
-		ta.removeEventListener('keyup', this.handleKeyUp);
-		ta.removeEventListener('focus', this.handleFocus);
-		ta.removeEventListener('blur', this.handleBlur);
-		ta.removeEventListener('input', this.handleInput);
 	},
 	render: function() {
 		//?? does this work when we are going with previous Child and updating
@@ -813,6 +860,12 @@ var Editor = createClass({
 			id: 'model', 
 			style: {width: '100%', height: '100px'}, 
 			value: this.state.text,
+			onKeyDown: this.handleKeyDown,
+			onKeyUp: this.handleKeyUp,
+			onFocus: this.handleFocus,
+			onBlur: this.handleBlur,
+			onChange: this.handleChange,
+			onInput: this.handleInput,
 		});
 		return DOM.div({className: 'content'}, 
 			this.textarea,
