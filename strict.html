@@ -55,6 +55,12 @@ section:after {
 	margin-top: 50px;
 	margin-bottom: 50px;
 }
+pre[class*='lang-javascript'] {
+	background-color: #2A2C39;
+}
+pre[class*='lang-javascript'] > code {
+	color: #E9E9EB;
+}
 </style>
 </head>
 <body>
@@ -65,78 +71,28 @@ section:after {
 	</div>
 </div>
 <script type="text/javascript" src="js/friar.js"></script>
+<script type="text/javascript" src="js/cube.js"></script>
 <script type="text/javascript">
 
 var DOM = Friar.DOM, 
-    createClass = Friar.createClass;
+    createClass = Friar.createClass,
+    Model = Cube.Model,
+    parse = Cube.parse;
 
-var parsers = {
-	'#': function(l) {
-		var level = /^#+/.exec(l)[0].length;
-		return {type: 'header', level: level, raw: l, text: l.slice(level)};
-	},
-	p: function(l) {
-		//TODO: spans
-		return {type: 'p', raw: l, spans: (l.length > 0 && l !== '\n' ? [{type: 'text', text: l}] : [])};
-	},
-	'!': function(l) {
-		if (sub = /^!\[([^\]]*)\]\(([^\)]*)\)(.*)/.exec(l)) {
-			return {type: 'figure', alt: sub[1], src: sub[2], caption: sub[3], raw:l};
-		}
-		return parsers.p(l);
-	},
-	' ': function(l) { 
-		var lang = (/^ function +[$A-Za-z_][0-9A-Za-z_$]* *\(/.test(l)) ? 'javascript' : 'clay';
-		return {type: 'code', raw: l, text: l.slice(1).replace(/\n /g,'\n'), lang: lang};
-	},
-	'*': function(l) { 
-		return {type: 'ulli', raw: l, spans: [{type: 'text', text: l.slice(1)}]};
-	},
-	'.': function(l) { 
-		return {type: 'olli', raw: l, spans: [{type: 'text', text: l.slice(1)}]};
-	},
-	'>': function(l) { 
-		return {type: 'quote', raw: l, spans: [{type: 'text', text: l.slice(1)}]}; 
-	},
-	'%': function(l) { 
-		return {type: 'meta', raw: l, text: l.slice(1)}; 
-	},
-	'-': function(l) {
-		if (l.length === 1) return {type: 'break', raw: l};
-		return parsers.p(l);
-	},
-	'|': function(l) {
-		return {type: 'tr', raw: l, values: l.slice(1).split('|')};
-	},
+var KEY_PREFIX = 'clay:'
+
+function keyToId(key) {
+	return KEY_PREFIX + key.toString(36);
 }
 
-function parse(text, model) {
-	var match;
-	var textN = text + '\n';
-	var paras = [];
-	var block = /-|(?: function +[$A-Za-z_][0-9A-Za-z_$]* *\([^\n]*(?:\n [^}][^\n]*)*(?:\n })?| [^\n]*(?:\n  [^\n]*)*|[^\n]*)\n/g;
-
-	while (match = block.exec(textN)) {
-		var l = match[0];
-		var para;
-		var cap;
-		if ((cap = /^[\#\!\% \*\.\>\-\|]/.exec(l)) &&
-			parsers.hasOwnProperty(cap[0])) {
-			paras.push(parsers[cap[0]](l));
-		} else {
-			paras.push(parsers.p(l));	
-		}
-	}
-
-	//TODO: merge model and paras
-	return paras;
+function idToKey(id) {
+	return parseInt(id.slice(KEY_PREFIX.length), 36);
 }
-
 
 // render model to array of Friar components
 function renderToFriar(model) {
 	var rendered = [];
-	var tokens = model;
+	var tokens = model.cells;
 	var index = 0;
 	var token;
 	
@@ -148,13 +104,9 @@ function renderToFriar(model) {
 		return token = tokens[(--index)-1];
 	}
 
-	function peekToken() {
-		return tokens[index];
-	}
-
 	function renderSpans(item) {
 		if (item.spans.length === 0) {
-			return [DOM.br()];
+			return [DOM.br()]; //id: keyToId(token.key)
 		}
 		return item.spans.map(function(c) {
 			return DOM.text(c.text); //TODO: assmuing everything is text
@@ -162,14 +114,14 @@ function renderToFriar(model) {
 	}
 
 	function renderRow(type, alignments) {
-		return DOM.tr({},token.values.map(function(c,i) {
+		return DOM.tr({id: keyToId(token.key)},token.values.map(function(c,i) { //
 			return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
 		}));
 	}
 
 	//TODO: probably want to replace this with a class
 	// so we can check the table has not changed and not
-	// render again.
+	// render again. (Would need a row class - only save generating the cells)
 	function renderTable() {
 		var hrows = [], rows=[], i = 0, alignments;
 		while (token && token.type === 'tr') {
@@ -193,20 +145,21 @@ function renderToFriar(model) {
 
 	function renderCode(lang) {
 		var items = [];
+		var langClass;
 		while (token && token.type === 'code' && !token.result && token.lang === lang) {
-			var props = {};//TODO: add key
-			if (token.lang) props.className = 'lang-' + token.lang
+			var props = {id: keyToId(token.key)};//TODO: add key
+			if (token.lang) langClass = props.className = 'lang-' + token.lang
 			items.push(DOM.code(props,token.text)); 
 			getToken();
 		}
 		ungetToken();
-		return [DOM.pre({}, items)];
+		return [DOM.pre({className: langClass}, items)];
 	}
 
 	function renderList(listType, itemType) {
 		var items = [];
 		while (token && token.type === itemType) {
-			items.push(DOM.li({},renderSpans(token))); //TODO: add key
+			items.push(DOM.li({id: keyToId(token.key)},renderSpans(token))); //TODO: add key
 			getToken();
 		}
 		ungetToken();
@@ -215,7 +168,7 @@ function renderToFriar(model) {
 
 	function renderFigure() {
 		var f = token;
-		return [DOM.figure({},
+		return [DOM.figure({id: keyToId(token.key)},
 			DOM.img({alt: f.alt, src: f.src}),
 			DOM.figcaption({}, f.caption)
 		)];
@@ -224,17 +177,16 @@ function renderToFriar(model) {
 	function renderPara() {
 		switch (token.type) {
 			case 'code':   return renderCode(token.lang);
-			case 'p':      return [DOM.p({}, renderSpans(token))];
-			case 'header': return [DOM['h'+token.level]({}, token.text)];
+			case 'p':      return [DOM.p({id: keyToId(token.key)}, renderSpans(token))];
+			case 'header': return [DOM['h'+token.level]({id: keyToId(token.key)}, token.text)];
 			case 'figure': return renderFigure();
 			case 'ulli':   return renderList('ul', 'ulli');
 			case 'olli':   return renderList('ol', 'olli');
-			case 'quote':  return [DOM.blockquote({}, renderSpans(token))];
-			case 'meta':   return [DOM.span({}, token.text)];
+			case 'quote':  return [DOM.blockquote({id: keyToId(token.key)}, renderSpans(token))];
 			case 'tr':     return renderTable();
 			default: 
 				return [
-					DOM.p({className: 'error'}, 
+					DOM.p({className: 'error', id: keyToId(token.key)}, 
 						"Error: Don't know what to do with a " + token.type)
 				];
 		}
@@ -277,22 +229,18 @@ var IgnoreKeys = {
 	Down: true,
 };
 
-function createModel() {
-	return [];
-}
-
 var Editor = createClass({
 	getInitialState: function() {
 		var text = this.props.text;
 		return {
 			text: text,
-			model: parse(text, createModel()),
+			model: new Model(parse(text)),
 		};
 	},
 	updateText: function() {
 		var text = this.textarea.node.value;
 		if (text == this.state.text) return;
-		this.setState({text: text, model: parse(text, this.state.model)});
+		this.setState({text: text, model: this.state.model.merge(parse(text))});
 	},
 	handleChange: function(e) {
 		this.updateText();
@@ -320,7 +268,7 @@ var Editor = createClass({
 			||e.ctrlKey||e.shiftKey||e.altKey||e.metaKey)) {
 			return;
 		}
-		console.log(key);
+		//console.log(key);
 		this.blur = document.activeElement !== this.textarea.node;
 		if (this.blur) this.textarea.node.focus();
 		//Set selection in textarea so the key make the change
@@ -363,7 +311,7 @@ var Editor = createClass({
 	}
 });
 
-var text = "#Clay\n"
+var text = "#Cube\n"
 		 + "This is a paragraph\n"
 		 + "|this|is|a|table\n"
 		 + "|more|table|stuff|here\n"
@@ -389,7 +337,6 @@ var text = "#Clay\n"
 		 + "-"
 		 + "The dash before a paragraph is a section break (that might be rendered as an hr - note.. change so it doesn't need to be on its own line but can live before a paragraph or other element)\n"
 		 + "![alt text](css/fonts/glyphicons-halflings.png)figure text here\n"
-		 + "%Meta Stuff\n"
 		 + "Idea ... use non printing characters to stand in for bold and italics and links in the code so that you don't have extra characters to delete or insert in those cases. This might not help much. It might be easier to just store the list and manage it based on keypresses.\n"
 		 + "There is an empty paragraph at the end after this one.\n"
 		 + "\n"
