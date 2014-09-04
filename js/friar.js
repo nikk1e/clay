@@ -1,16 +1,18 @@
 //Friar is almost react
 
-(function () {
+;(function () {
 
 'use strict';
 
 var Friar;
 Friar = window.Friar = window.Friar || {};
 
+var PROPERTY = 0x4;
+
 var isDOMAttribute = {
-	id: true,
-	className: true,
-	value: true,
+	id: PROPERTY,
+	className: PROPERTY,
+	value: PROPERTY,
 	src: true,
 	alt: true,
 };
@@ -139,7 +141,11 @@ DOMClass.prototype.mount = function() {
 		this.node = document.createElement(this.tag);
 		for (var prop in this.props) {
 			if (isDOMAttribute[prop]) {
-				this.node[prop] = this.props[prop];
+				if (isDOMAttribute[prop] === PROPERTY) {
+					this.node[prop] = this.props[prop];
+				} else {
+					this.node.setAttribute(prop, this.props[prop]);
+				}
 			} else if (prop === STYLE) {
 				setValueForStyles(this.node, this.props[prop]);
 			} else if (isListener(prop)) {
@@ -287,7 +293,11 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 				}
 			}
 		} else if (isDOMAttribute[key]) {
-			this.node.removeAttribute(key);
+			if (isDOMAttribute[key] === PROPERTY) {
+				delete this.node[prop]
+			} else {
+				this.node.removeAttribute(key);
+			}
 		} else if (isListener(key)) {
 			this.removeListener(key);
 		}
@@ -316,6 +326,12 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 				}
 			} else {
 				styleUpdates = nextProp
+			}
+		} else if (isDOMAttribute[key] === PROPERTY) {
+			if (nextProp == null) {
+				delete this.node[key];
+			} else {
+				this.node[key] = '' + nextProp;
 			}
 		} else if (isDOMAttribute[key]) {
 			if (nextProp == null) {
