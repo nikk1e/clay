@@ -40,6 +40,10 @@ figure {
 	position: relative;
 	clear: both;
 }
+td.empty {
+	height: 20px;
+	border-bottom: 1px dotted #cbcbcb;
+}
 hr {
 	border-top: 1px solid #edece4;
 	border-bottom: 0;
@@ -79,7 +83,8 @@ var DOM = Friar.DOM,
     Model = Cube.Model,
     parse = Cube.parse;
 
-var KEY_PREFIX = 'clay:'
+var KEY_PREFIX = 'clay:';
+var reKey = /clay:/;
 
 function keyToId(key) {
 	return KEY_PREFIX + key.toString(36);
@@ -89,42 +94,18 @@ function idToKey(id) {
 	return parseInt(id.slice(KEY_PREFIX.length), 36);
 }
 
-
-	function renderTable() {
-		var hrows = [], rows=[], i = 0, alignments;
-		while (token && token.type === 'tr') {
-			if (i === 0) {
-				alignments = token.values.map(function(c) {
-					return /^ /.test(c) ? 
-						{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
-				});
-				hrows.push(renderRow('th', alignments));
-			} else {
-				rows.push(renderRow('td', alignments));
-			}
-			i++;
-			getToken();
-		}
-		ungetToken();
-		return [DOM.table({className: 'pure-table pure-table-bordered'}, 
-			DOM.thead({},hrows), 
-			DOM.tbody({},rows))];
-	}
-
 var Table = createClass({
 	render: function() {
 		var token = this.props;
 		var rows = token.rows;
-		var alignments = rows[0].map(function(c) {
-	 			return /^ /.test(c) ? 
-	 				{'text-align': (/ $/.test(c) ? 'center' : 'right')} : 
-	 				{};
-	 		});
+		var alignments = token.alignments;
 
+		//TODO: give the rows keys within the table
 		function renderRow(row, type, alignments) {
-			return DOM.tr({},row.length > 0 ? row.map(function(c,i) {
-				return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
-			}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
+			return DOM.tr({id: keyToId(token.key) + '.' + row.key.toString(36)},
+				row.cells.length > 0 ? row.cells.map(function(c,i) {
+					return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
+				}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
 		}
 
 		return DOM.table({id: keyToId(token.key),  
@@ -165,30 +146,6 @@ function renderToFriar(model) {
 			return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
 		}));
 	}
-
-	//TODO: probably want to replace this with a class
-	// so we can check the table has not changed and not
-	// render again. (Would need a row class - only save generating the cells)
-	// function renderTable() {
-	// 	var hrows = [], rows=[], i = 0, alignments;
-	// 	while (token && token.type === 'tr') {
-	// 		if (i === 0) {
-	// 			alignments = token.values.map(function(c) {
-	// 				return /^ /.test(c) ? 
-	// 					{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
-	// 			});
-	// 			hrows.push(renderRow('th', alignments));
-	// 		} else {
-	// 			rows.push(renderRow('td', alignments));
-	// 		}
-	// 		i++;
-	// 		getToken();
-	// 	}
-	// 	ungetToken();
-	// 	return [DOM.table({className: 'pure-table pure-table-bordered'}, 
-	// 		DOM.thead({},hrows), 
-	// 		DOM.tbody({},rows))];
-	// }
 
 	function renderCode(lang) {
 		var items = [];
@@ -277,35 +234,186 @@ var IgnoreKeys = {
 	Down: true,
 };
 
+var isOpera = !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+    // Opera 8.0+ (UA detection to detect Blink/v8-powered Opera)
+var isFirefox = typeof InstallTrigger !== 'undefined';   // Firefox 1.0+
+var isSafari = Object.prototype.toString.call(window.HTMLElement).indexOf('Constructor') > 0;
+    // At least Safari 3+: "[object HTMLElementConstructor]"
+var isChrome = !!window.chrome && !isOpera;              // Chrome 1+
+var isIE = /*@cc_on!@*/false || !!document.documentMode; // At least IE6
+
+
+var canInsertText = document.queryCommandSupported('insertText');
+var canMsUndo = document.queryCommandSupported('ms-beginUndoUnit');
+
+function insertText(ta, str) {
+	if (canInsertText && !isFirefox) {
+		document.execCommand('insertText', false, str);
+		return;
+	}
+	if (canMsUndo) document.execCommand('ms-beginUndoUnit');
+	var val = ta.value;
+	var start = ta.selectionStart;
+	var end = ta.selectionEnd;
+	ta.value = val.substring(0,start) + str + val.substring(end);
+	ta.selectionStart = ta.selectionEnd = start + str.length;
+	if (canMsUndo) document.execCommand('ms-endUndoUnit');
+}
+
+function pathFor(node, offset, model) {
+	var path = [];
+	while(!node.id && node.parentNode) {
+		var i = 0;
+		var no = node;
+		while(no = no.previousSibling) { ++i; }
+		path.push(i);
+		node = node.parentNode;
+	}
+	var id = node.id;
+	if (id === 'preview') {
+		//selection.node offset
+		console.log(focusPath + ' from preview');
+	} else if (reKey.test(id)) {
+		var key = id
+			.slice(KEY_PREFIX.length)
+			.split('.')
+			.map(function(k) { return parseInt(k, 36); });
+		var ind = model.indexOfKey(key[0]);
+		if (ind === -1) {
+			console.log('Key not found in model ' + id);
+			return;
+		}
+			
+		var cell = model.cells[ind];
+		return model.offsetOfIndex(ind) + offsetInCell(cell, path, key, offset);
+	}
+	return 0;
+}
+
+function offsetInCell(cell, path, key, offset) {
+	switch (cell.type) {
+		case 'table': 
+			var rowNum = key[1] || 0;
+			for (var i = 0; i < rowNum; i++) {
+				offset += cell.rows[i].raw.length + 1; //+1 for newline that gets removed from raw by split
+			}
+			var cellNum = path.pop(); //path is now span path
+			for (var i = 0; i< cellNum; i++) {
+				offset += cell.rows[rowNum].cells[i].length; //change to raw length when we span cell
+			}
+			offset += cellNum + 1; //add on pipes
+			break;
+		case 'header':
+			offset += cell.level;
+			break;
+		case 'quote':
+		case 'ulli':
+		case 'olli':
+			offset++;
+			break;
+		case 'code':
+			offset++;
+			offset += (cell.text.slice(0,offset).match(/\n/g) || []).length; //space removed per newline
+			break;
+
+	}
+	return offset;
+}
+
+function childOfId(node, id) {
+	do {
+		if (node.id == id) return true;
+	} while (node = node.parentNode);
+	return false;
+}
+
 var Editor = createClass({
 	getInitialState: function() {
 		var text = this.props.text;
 		return {
 			text: text,
+			selection: { focus: 0, anchor: 0 },
 			model: new Model(parse(text)),
 		};
 	},
 	updateText: function() {
-		var text = this.textarea.node.value;
-		if (text == this.state.text) return;
-		this.setState({text: text, model: this.state.model.merge(parse(text))});
+		if (this.dontUpdate) return;
+		
+		var ta = this.textarea.node;
+		console.log('updateText at ' + ta.selectionStart + ':' + ta.selectionEnd);
+		
+		var ta = this.textarea.node;
+		var cur = this.state.selection;
+		var text = ta.value;
+		var hasTextChanged = (text != this.state.text);
+		var hasSelectionChanged = !(ta.selectionStart == cur.anchor &&
+			ta.selectionEnd == cur.focus)
+		if (hasTextChanged && hasSelectionChanged) {
+			this.setState({
+				text: text, 
+				model: this.state.model.merge(parse(text)),
+				selection: {anchor: ta.selectionStart, focus: ta.selectionEnd},
+			});
+		} else if (hasSelectionChanged) {
+			this.setState({
+				selection: {anchor: ta.selectionStart, focus: ta.selectionEnd},
+			});
+		} else if (hasTextChanged) {
+			this.setState({
+				text: text, 
+				model: this.state.model.merge(parse(text))
+			});
+		}
+	},
+	handleMouseUp: function(e) {
+		var selected = window.getSelection();
+		if (selected.rangeCount !== 1)
+			return;
+		if (!childOfId(selected.anchorNode, 'preview') ||
+			!childOfId(selected.focusNode, 'preview')) return;
+		var range = selected.getRangeAt(0);
+		var focus = pathFor(selected.focusNode, selected.focusOffset, this.state.model);
+		var anchor = focus;
+		if (!selected.isCollapsed) {
+			anchor = pathFor(selected.anchorNode, selected.anchorOffset, this.state.model);
+		}
+		//var ta = this.textarea.node;
+		var cur = this.state.selection;
+		if (anchor !== cur.anchor || focus !== cur.focus) {
+			this.setState({selection: {anchor: anchor, focus: focus}});
+		}
+		if (anchor === focus) {
+			this.dontUpdate = true;
+			var ta = this.textarea.node;
+			ta.focus();
+			if (ta.setSelectionRange) ta.setSelectionRange(anchor, focus);
+			this.dontUpdate = false;
+		}
+		console.log('up ' + anchor + ' to ' + focus);
+		
 	},
 	handleChange: function(e) {
+		console.log('change');
 		this.updateText();
 	},
 	handleKeyDown: function(e) {
+		console.log('keydown');
 		this.updateText();
 	},
 	handleKeyUp: function(e) {
+		console.log('keyup');
 		this.updateText();
 	},
 	handleFocus: function(e) {
+		console.log('focus');
 		this.updateText();
 	},
 	handleBlur: function(e) {
+		console.log('blur');
 		this.updateText();
 	},
 	handleInput: function(e) {
+		console.log('input');
 		this.updateText();
 	},
 	handleContentKeyDown: function(e) {
@@ -314,17 +422,44 @@ var Editor = createClass({
 		if (IgnoreKeys.hasOwnProperty(key)
 			&& (!IgnoreKeys[key]
 			||e.ctrlKey||e.shiftKey||e.altKey||e.metaKey)) {
+			this.handleMouseUp(e);
 			return;
 		}
 		//console.log(key);
-		this.blur = document.activeElement !== this.textarea.node;
-		if (this.blur) this.textarea.node.focus();
-		//Set selection in textarea so the key make the change
+		var ta = this.textarea.node;
+		var cur = this.state.selection;
+		this.blur = document.activeElement !== ta;
+		if (this.blur) {
+			this.dontUpdate = true;
+			ta.focus();
+			if (ta.setSelectionRange) {
+				if (cur.anchor <= cur.focus)
+					ta.setSelectionRange(cur.anchor, cur.focus);
+				else
+					ta.setSelectionRange(cur.focus, cur.anchor);
+			}
+			this.dontUpdate = false;
+		}
+		
+		//
+
+		// if (e.keyCode === 13) {
+		// 	var val = this.textarea.node.value;
+		// 	var start = this.textarea.node.selectionStart;
+		// 	var lineStart = val.lastIndexOf('\n',start-1) + 1;
+		// 	var cap = val.slice(lineStart,lineStart+1);
+		//  	if (cap === '.' || cap === ' ' || cap === '*') {
+		//  		insertText(this.textarea.node, '\n' + cap);
+		//  		e.preventDefault();
+		// 	}
+		// }
 	},
 	handleContentKeyUp: function(e) {
 		if (this.blur) {
+			this.dontUpdate = true;
 			this.textarea.node.blur();
 			this.blur = false;
+			this.dontUpdate = false;
 		}
 	},
 	didMount: function() {
@@ -332,6 +467,8 @@ var Editor = createClass({
 		//TODO: this stuff should be on the actual textarea node itself
 		document.body.addEventListener('keydown', this.handleContentKeyDown);
 		document.body.addEventListener('keyup', this.handleContentKeyUp);
+		this.textarea.node.value = this.state.text;
+		this.textarea.node.selectionStart = this.textarea.selectionEnd = 0;
 	},
 	didUpdate: function() {
 		console.log('updated');
@@ -345,7 +482,7 @@ var Editor = createClass({
 			id: 'model', 
 			style: {width: '100', height: '50px', opacity: '0', 
 			        position: 'absolute', left: '-3000px'}, 
-			value: this.state.text,
+			//value: this.state.text,
 			onKeyDown: this.handleKeyDown,
 			onKeyUp: this.handleKeyUp,
 			onFocus: this.handleFocus,
@@ -353,7 +490,10 @@ var Editor = createClass({
 			onChange: this.handleChange,
 			onInput: this.handleInput,
 		});
-		return DOM.div({className: 'content'}, 
+		return DOM.div({
+				className: 'content',
+				onMouseUp: this.handleMouseUp,
+			}, 
 			this.textarea,
 			Preview({model: this.state.model}));
 	}
@@ -364,8 +504,8 @@ var text = "#Cube\n"
 		 + "|this|is|a|table\n"
 		 + "|more|table|stuff|here\n"
 		 + "This is another paragraph\n"
-		 + " This is some code\n"
-		 + " This is another code line\n"
+		 + " Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec}\n"
+		 + "Some description here\n"
 		 + " This is a line that has a continued line after it\n"
 		 + "  this is the continued line here\n"
 		 + " function something() {\n"

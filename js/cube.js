@@ -13,6 +13,7 @@ function Model(cells, seed) {
 		var me = this;
 		this.cells.forEach(function(cell, i) {
 			cell.key = me.seed++;
+			cell.initialise();
 		});
 	}
 }
@@ -25,6 +26,36 @@ Model.fromObj = function(raw) {
 		obj[i] = raw[i];
 	return obj;
 };
+
+Model.prototype.indexOfKey = function(key) {
+	var cells = this.cells;
+	var len = cells.length;
+	for (var i = 0; i < len; i++) {
+		if (cells[i].key === key) return i;
+	}
+	return -1;
+};
+
+Model.prototype.offsetOfIndex = function(index) {
+	var offset=0;
+	var cells = this.cells;
+	for (var i = 0; i < index; i++) {
+		offset = offset + cells[i].raw.length;
+	}
+	return offset;
+};
+
+Model.prototype.cellForOffset = function(offset) {
+	var cells = this.cells;
+	var len = cells.length;
+	var cell;
+	var i;
+	for (i = 0; i < len; i++) {
+		cell = cells[i];
+		if (cell.raw.length > offset) return {cell: cell, index: i, offset: offset};
+		offset -= cell.raw.length;
+	}
+}
 
 Model.prototype.toRaw = function() {
 	return this.cells.map(function(cell, i) { return cell.raw}).join('');
@@ -97,13 +128,13 @@ function Cell() {};
 Cell.prototype.toJSON = function() {
 	var ret = {};
 	for(var k in this) {
-		if (this.hasOwnProperty(k) && !(/^_/.test(k)))
+		if (k !== 'raw' && this.hasOwnProperty(k) && !(/^_/.test(k)))
 			ret[k] = this[k];
 	}
 	ret.type = this.type;
 	return ret;
 }
-Cell.prototype.initialise = function(old) {}; //override to do things like
+Cell.prototype.initialise = function(old) {}; //override to do setup
 
 function Header(raw) {
 	this.raw = raw;
@@ -132,14 +163,15 @@ Figure.prototype.type = 'figure';
 
 function Code(raw) {
 	this.raw = raw;
-	this.lang = (/^ function +[$A-Za-z_][0-9A-Za-z_$]* *\(/.test(raw)) ? 'javascript' : 'cube';
-	this.text = raw.slice(1).replace(/\n /g,'\n');
 }
 Code.prototype = new Cell();
 Code.prototype.type = 'code';
 Code.prototype.initialise = function(old) {
 	//TODO: tokenise the code
 	//      parse the code.
+	var raw = this.raw;
+	this.lang = (/^ function +[$A-Za-z_][0-9A-Za-z_$]* *\(/.test(raw)) ? 'javascript' : 'cube';
+	this.text = raw.slice(1).replace(/\n /g,'\n');
 }
 
 function Ulli(raw) {
@@ -170,23 +202,26 @@ function Break(raw) {
 Break.prototype = new Cell();
 Break.prototype.type = 'break';
 
-function Row(raw) {
-	this.raw = raw;
-	this.values = raw.slice(1).split('|');
-}
-Row.prototype = new Cell();
-Row.prototype.type = 'tr';
-
 function Table(raw) {
 	this.raw = raw;
-	var t = raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
-	this.rows = t.split('\n').map(function(row,i) { 
-		if (row.length === 0) return [];
-		return row.slice(1).split('|');
-	});
 }
 Table.prototype = new Cell();
 Table.prototype.type = 'table';
+Table.prototype.initialise = function(old) {
+	var raw = this.raw;
+	var t = raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
+
+	this.rows = t.split('\n').map(function(row,i) { 
+		if (row.length === 0) return {key: i, cells:[], raw: row};
+		return {key: i, cells:row.slice(1).split('|'), raw: row};
+	});
+
+	this.alignments = this.rows[0].cells.map(function(c) {
+	 	return /^ /.test(c) ? 
+	 		{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
+	});
+};
+
 
 var _constructors = {
 	'#': Header,
@@ -197,7 +232,7 @@ var _constructors = {
 	'.': Olli,
 	'>': Quote,
 	'-': Break,
-	'|': Table, //Row,
+	'|': Table,
 };
 
 //parse flat text representation of model into
