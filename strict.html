@@ -89,6 +89,53 @@ function idToKey(id) {
 	return parseInt(id.slice(KEY_PREFIX.length), 36);
 }
 
+
+	function renderTable() {
+		var hrows = [], rows=[], i = 0, alignments;
+		while (token && token.type === 'tr') {
+			if (i === 0) {
+				alignments = token.values.map(function(c) {
+					return /^ /.test(c) ? 
+						{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
+				});
+				hrows.push(renderRow('th', alignments));
+			} else {
+				rows.push(renderRow('td', alignments));
+			}
+			i++;
+			getToken();
+		}
+		ungetToken();
+		return [DOM.table({className: 'pure-table pure-table-bordered'}, 
+			DOM.thead({},hrows), 
+			DOM.tbody({},rows))];
+	}
+
+var Table = createClass({
+	render: function() {
+		var token = this.props;
+		var rows = token.rows;
+		var alignments = rows[0].map(function(c) {
+	 			return /^ /.test(c) ? 
+	 				{'text-align': (/ $/.test(c) ? 'center' : 'right')} : 
+	 				{};
+	 		});
+
+		function renderRow(row, type, alignments) {
+			return DOM.tr({},row.length > 0 ? row.map(function(c,i) {
+				return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
+			}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
+		}
+
+		return DOM.table({id: keyToId(token.key),  
+						  className: 'pure-table pure-table-bordered'}, 
+			DOM.thead({},[renderRow(rows[0], 'th', alignments)]), 
+			DOM.tbody({},rows.slice(1).map(
+				function(row) { return renderRow(row, 'td', alignments); })));
+	}
+});
+
+
 // render model to array of Friar components
 function renderToFriar(model) {
 	var rendered = [];
@@ -122,26 +169,26 @@ function renderToFriar(model) {
 	//TODO: probably want to replace this with a class
 	// so we can check the table has not changed and not
 	// render again. (Would need a row class - only save generating the cells)
-	function renderTable() {
-		var hrows = [], rows=[], i = 0, alignments;
-		while (token && token.type === 'tr') {
-			if (i === 0) {
-				alignments = token.values.map(function(c) {
-					return /^ /.test(c) ? 
-						{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
-				});
-				hrows.push(renderRow('th', alignments));
-			} else {
-				rows.push(renderRow('td', alignments));
-			}
-			i++;
-			getToken();
-		}
-		ungetToken();
-		return [DOM.table({className: 'pure-table pure-table-bordered'}, 
-			DOM.thead({},hrows), 
-			DOM.tbody({},rows))];
-	}
+	// function renderTable() {
+	// 	var hrows = [], rows=[], i = 0, alignments;
+	// 	while (token && token.type === 'tr') {
+	// 		if (i === 0) {
+	// 			alignments = token.values.map(function(c) {
+	// 				return /^ /.test(c) ? 
+	// 					{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
+	// 			});
+	// 			hrows.push(renderRow('th', alignments));
+	// 		} else {
+	// 			rows.push(renderRow('td', alignments));
+	// 		}
+	// 		i++;
+	// 		getToken();
+	// 	}
+	// 	ungetToken();
+	// 	return [DOM.table({className: 'pure-table pure-table-bordered'}, 
+	// 		DOM.thead({},hrows), 
+	// 		DOM.tbody({},rows))];
+	// }
 
 	function renderCode(lang) {
 		var items = [];
@@ -183,7 +230,8 @@ function renderToFriar(model) {
 			case 'ulli':   return renderList('ul', 'ulli');
 			case 'olli':   return renderList('ol', 'olli');
 			case 'quote':  return [DOM.blockquote({id: keyToId(token.key)}, renderSpans(token))];
-			case 'tr':     return renderTable();
+			//case 'tr':     return renderTable();
+			case 'table':  return [Table(token)];
 			default: 
 				return [
 					DOM.p({className: 'error', id: keyToId(token.key)}, 

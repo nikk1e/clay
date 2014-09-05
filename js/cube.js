@@ -177,6 +177,17 @@ function Row(raw) {
 Row.prototype = new Cell();
 Row.prototype.type = 'tr';
 
+function Table(raw) {
+	this.raw = raw;
+	var t = raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
+	this.rows = t.split('\n').map(function(row,i) { 
+		if (row.length === 0) return [];
+		return row.slice(1).split('|');
+	});
+}
+Table.prototype = new Cell();
+Table.prototype.type = 'table';
+
 var _constructors = {
 	'#': Header,
 	p:   P,
@@ -186,7 +197,7 @@ var _constructors = {
 	'.': Olli,
 	'>': Quote,
 	'-': Break,
-	'|': Row,
+	'|': Table, //Row,
 };
 
 //parse flat text representation of model into
@@ -196,7 +207,7 @@ function parse(text) {
 	var textN = text;
 	var paras = [];
 	//       break|code                                |table                   |other
-	var block = /-|(?: [^\n]*(?:\n }[^\n]*|\n  [^\n]*)*|\|(?:[^\n])*|[^\n]*)(?:\n|$)/g;
+	var block = /-|(?: [^\n]*(?:\n }[^\n]*|\n  [^\n]*)*|\|(?:[^\n]|\n\||\n\n\|)*|[^\n]*)(?:\n|$)/g;
 
 	while (block.lastIndex < text.length && (match = block.exec(textN))) {
 		var l = match[0];
