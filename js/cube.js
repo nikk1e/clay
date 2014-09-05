@@ -37,7 +37,7 @@ Model.prototype.clone = function() {
 Model.prototype.insertCell = function(cell, index, mutate) {
 	var me = mutate ? this : this.clone();
 	cell.key = me.seed++;
-	//TODO: do any extra parsing etc on the cell
+	cell.initialise();
 	me.cells.splice(index,0,cell);
 	return me;
 };
@@ -46,7 +46,7 @@ Model.prototype.insertCell = function(cell, index, mutate) {
 Model.prototype.updateCell = function(cell, index, mutate) {
 	var me = mutate ? this : this.clone();
 	cell.key = this.cells[index].key;
-	//TODO: do any extra parsing etc on the cell
+	cell.initialise(this.cells[index]);
 	me.cells[index] = cell;
 	return me;
 };
@@ -103,6 +103,7 @@ Cell.prototype.toJSON = function() {
 	ret.type = this.type;
 	return ret;
 }
+Cell.prototype.initialise = function(old) {}; //override to do things like
 
 function Header(raw) {
 	this.raw = raw;
@@ -131,11 +132,15 @@ Figure.prototype.type = 'figure';
 
 function Code(raw) {
 	this.raw = raw;
-	this.lang = (/^ function +[$A-Za-z_][0-9A-Za-z_$]* *\(/.test(raw)) ? 'javascript' : 'clay';
+	this.lang = (/^ function +[$A-Za-z_][0-9A-Za-z_$]* *\(/.test(raw)) ? 'javascript' : 'cube';
 	this.text = raw.slice(1).replace(/\n /g,'\n');
 }
 Code.prototype = new Cell();
 Code.prototype.type = 'code';
+Code.prototype.initialise = function(old) {
+	//TODO: tokenise the code
+	//      parse the code.
+}
 
 function Ulli(raw) {
 	this.raw = raw;
@@ -190,7 +195,8 @@ function parse(text) {
 	var match;
 	var textN = text;
 	var paras = [];
-	var block = /-|(?: function +[$A-Za-z_][0-9A-Za-z_$]* *\([^\n]*(?:\n [^}\n][^\n]*|\n )*(?:\n }[^\n]*)?| [^\n]*(?:\n  [^\n]*)*|[^\n]*)(?:\n|$)/g;
+	//       break|code                                |table                   |other
+	var block = /-|(?: [^\n]*(?:\n }[^\n]*|\n  [^\n]*)*|\|(?:[^\n])*|[^\n]*)(?:\n|$)/g;
 
 	while (block.lastIndex < text.length && (match = block.exec(textN))) {
 		var l = match[0];
