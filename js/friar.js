@@ -15,6 +15,7 @@ var isDOMAttribute = {
 	value: PROPERTY,
 	src: true,
 	alt: true,
+	colSpan: function(action, node, value) { if (action==='delete') node.colSpan = 1; node.colSpan = value; },
 };
 
 function isListener(key) {
@@ -143,6 +144,8 @@ DOMClass.prototype.mount = function() {
 			if (isDOMAttribute[prop]) {
 				if (isDOMAttribute[prop] === PROPERTY) {
 					this.node[prop] = this.props[prop];
+				} else if (typeof isDOMAttribute[prop] === 'function') {
+					isDOMAttribute[prop]('set', this.node, this.props[prop]);
 				} else {
 					this.node.setAttribute(prop, this.props[prop]);
 				}
@@ -294,7 +297,9 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 			}
 		} else if (isDOMAttribute[key]) {
 			if (isDOMAttribute[key] === PROPERTY) {
-				delete this.node[prop]
+				delete this.node[key]
+			} else if (typeof isDOMAttribute[key] === 'function') {
+				isDOMAttribute[key]('delete', this.node);
 			} else {
 				this.node.removeAttribute(key);
 			}
@@ -332,6 +337,12 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 				delete this.node[key];
 			} else {
 				this.node[key] = '' + nextProp;
+			}
+		} else if (typeof isDOMAttribute[key] === 'function') {
+			if (nextProp == null) {
+				isDOMAttribute[key]('delete', this.node);
+			} else {
+				isDOMAttribute[key]('set', this.node, nextProp);
 			}
 		} else if (isDOMAttribute[key]) {
 			if (nextProp == null) {
@@ -456,8 +467,15 @@ ComponentBase.prototype.mount = function() {
 
 ComponentBase.prototype.performUpdateIfNecessary = function() {
 	if (this._pendingProps === null && 
-		this._pendingState === null	&& 
+		(this._pendingState === null || this._pendingState === undefined) && 
 		!this._pendingUpdate) return;
+
+	if ((this._pendingState === null || this._pendingState === undefined)	&& 
+		!this._pendingUpdate &&
+		this._pendingProps === this.props) {
+		this._pendingProps = null;
+		return;
+	}
 
 	//TODO: If pending props or pending state are the same then
 	//  don't update at all (unless you have this._pendingUpdate)
