@@ -320,6 +320,58 @@ function offsetInCell(cell, path, key, offset) {
 	return offset;
 }
 
+function nodeAtOffset(fullOffset, model) {
+	var cello = model.cellForOffset(fullOffset);
+	if (!cello) return;
+	var cell = cello.cell;
+	var offset = cello.offset;
+	var baseKey = keyToId(cell.key);
+	var baseElem = document.getElementById(baseKey);
+	switch (cell.type) {
+		case 'table':
+			var rowNum = 0;
+			for (var rowNum = 0; rowNum < cell.rows.length - 1; rowNum++) {
+				var l = cell.rows[rowNum].raw.length + 1;
+				if (offset < l) break;
+				offset -= l;
+			}
+			var row = cell.rows[rowNum].cells;
+			var cellNum;
+			offset--;
+			for (cellNum = 0; cellNum < row.length - 1; cellNum++) {
+				var l = row[cellNum].length + 1;
+				if (offset < l) break;
+				offset -= l;
+			}
+			if (rowNum === 0) {
+				baseElem = baseElem.firstChild.firstChild; //thead.tr
+			} else {
+				baseElem = baseElem.childNodes[1].childNodes[rowNum-1]; //tbody.tr;
+			}
+			baseElem = baseElem.childNodes[cellNum].firstChild;
+			break;
+		case 'p':
+			baseElem = baseElem.firstChild;
+			break;
+		case 'header':
+			offset -= cell.level;
+			baseElem = baseElem.firstChild;
+			break;
+		case 'quote':
+		case 'ulli':
+		case 'olli':
+			offset--;
+			baseElem = baseElem.firstChild;
+			break;
+		case 'code':
+			offset--;
+			offset -= (cell.text.slice(0,offset).match(/\n/g) || []).length; //space removed per newline
+			baseElem = baseElem.firstChild;
+			break;
+	}
+	return {node: baseElem, offset: offset};
+}
+
 function childOfId(node, id) {
 	do {
 		if (node.id == id) return true;
@@ -377,6 +429,14 @@ var Editor = createClass({
 		if (!selected.isCollapsed) {
 			anchor = pathFor(selected.anchorNode, selected.anchorOffset, this.state.model);
 		}
+		//check roundTrip
+		var x = nodeAtOffset(focus, this.state.model);
+		if (x && (x.node !== selected.focusNode || x.offset !== selected.focusOffset)) {
+			console.log('WARNING: selection not round tripping');
+			console.log(x);
+			console.log({node: selected.focusNode, offset: selected.focusOffset});
+		}
+		
 		//var ta = this.textarea.node;
 		var cur = this.state.selection;
 		if (anchor !== cur.anchor || focus !== cur.focus) {
@@ -455,12 +515,12 @@ var Editor = createClass({
 		// }
 	},
 	handleContentKeyUp: function(e) {
-		if (this.blur) {
+		/*if (this.blur) {
 			this.dontUpdate = true;
 			this.textarea.node.blur();
 			this.blur = false;
 			this.dontUpdate = false;
-		}
+		}*/
 	},
 	didMount: function() {
 		console.log('mounted');
