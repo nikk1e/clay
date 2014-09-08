@@ -125,7 +125,7 @@ var Table = createClass({
 });
 
 function fixSpaces(str) {
-	return str.replace(/^ +|  +| +(?=\n)/, function(m,a,b) {
+	return str.replace(/^ +|  +| +(?=\n|$)/, function(m,a,b) {
 				return Array(m.length + 1).join('\u00A0');
 			});
 }
