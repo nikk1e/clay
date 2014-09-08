@@ -528,6 +528,9 @@ var Editor = createClass({
 			});
 		}
 	},
+	handleMouseDown: function(e) {
+		this.props.cursor.setState({selection: null});
+	},
 	handleMouseUp: function(e) {
 		var selected = window.getSelection();
 		if (selected.rangeCount !== 1)
@@ -549,14 +552,23 @@ var Editor = createClass({
 		}
 		
 		//var ta = this.textarea.node;
+		//We don't support inverted selections
+		if (anchor > focus) {
+			var temp = focus;
+			focus = anchor;
+			anchor = temp;
+		}
+
 		var cur = this.state.selection;
 		if (anchor !== cur.anchor || focus !== cur.focus) {
 			this.setState({selection: {anchor: anchor, focus: focus}});
 		}
 		//if (anchor === focus) {
+		
 			this.dontUpdate = true;
 			var ta = this.textarea.node;
 			ta.focus();
+			//this.dontUpdate = false;
 			if (ta.setSelectionRange) ta.setSelectionRange(anchor, focus);
 			this.dontUpdate = false;
 		//}
@@ -712,6 +724,7 @@ var Editor = createClass({
 		return DOM.div({
 				className: 'content',
 				onMouseUp: this.handleMouseUp,
+				onMouseDown: this.handleMouseDown,
 			},children);
 	}
 });
