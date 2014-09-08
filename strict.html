@@ -78,11 +78,8 @@ textarea.hiddenTextArea {
 </style>
 </head>
 <body>
+<div id="cursor"></div>
 <div id="layout">
-    <!-- Menu toggle -->
-
-    <div id="main">
-	</div>
 </div>
 <script type="text/javascript" src="js/friar.js"></script>
 <script type="text/javascript" src="js/cube.js"></script>
@@ -466,13 +463,13 @@ var Selection = createClass({
 	render: function() {
 		var range = this.state.selection;
 		if (range === null)
-			return DOM.div({id: 'selection'});
+			return DOM.div({className: 'selection'});
 
 		var rects = range.getClientRects(),
 			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
         	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
         if (rects.length === 0)
-        	return DOM.div({id: 'selection'});
+        	return DOM.div({className: 'selection'});
 
 
 		if (range.collapsed) {
@@ -483,9 +480,9 @@ var Selection = createClass({
 				height: rect.height + 'px',
 				display: 'block',
 			}
-			return DOM.div({id: 'selection'}, [DOM.span({className: 'cursor', style: cs},' ')]);
+			return DOM.div({className: 'selection'}, [DOM.span({className: 'cursor', style: cs},' ')]);
 		} else {
-			return DOM.div({id: 'selection', className: 'selection'}, this.renderSelection(range)); //draw divs
+			return DOM.div({className: 'selection'}, this.renderSelection(range)); //draw divs
 		}
 		
 	},
@@ -556,13 +553,13 @@ var Editor = createClass({
 		if (anchor !== cur.anchor || focus !== cur.focus) {
 			this.setState({selection: {anchor: anchor, focus: focus}});
 		}
-		if (anchor === focus) {
+		//if (anchor === focus) {
 			this.dontUpdate = true;
 			var ta = this.textarea.node;
 			ta.focus();
 			if (ta.setSelectionRange) ta.setSelectionRange(anchor, focus);
 			this.dontUpdate = false;
-		}
+		//}
 		console.log('up ' + anchor + ' to ' + focus);
 		
 	},
@@ -590,7 +587,7 @@ var Editor = createClass({
 		console.log('input');
 		this.updateText();
 	},
-	handleContentKeyDown: function(e) {
+	handleContentKeyDown: function(e) { /*
 		//Ignore movement keys...
 		var key = e.key || e.keyIdentifier;
 		if (IgnoreKeys.hasOwnProperty(key)
@@ -626,7 +623,7 @@ var Editor = createClass({
 		//  		insertText(this.textarea.node, '\n' + cap);
 		//  		e.preventDefault();
 		// 	}
-		// }
+		// }*/
 	},
 	handleContentKeyUp: function(e) {
 		/*if (this.blur) {
@@ -639,8 +636,8 @@ var Editor = createClass({
 	didMount: function() {
 		console.log('mounted');
 		//TODO: this stuff should be on the actual textarea node itself
-		document.body.addEventListener('keydown', this.handleContentKeyDown);
-		document.body.addEventListener('keyup', this.handleContentKeyUp);
+		//document.body.addEventListener('keydown', this.handleContentKeyDown);
+		//document.body.addEventListener('keyup', this.handleContentKeyUp);
 		this.textarea.node.value = this.state.text;
 		this.textarea.node.selectionStart = this.textarea.selectionEnd = 0;
 	},
@@ -677,7 +674,7 @@ var Editor = createClass({
         	this.textarea.node.style.top = (rect.top + 5 + scrollTop) + 'px';
         }
 
-		this.selection.setState({selection: range});
+		this.props.cursor.setState({selection: range});
 
 
 	},
@@ -705,15 +702,17 @@ var Editor = createClass({
 			onChange: this.handleChange,
 			onInput: this.handleInput,
 		});
-		this.selection = Selection();
+		//this.selection = Selection();
+		var children = [this.textarea];
+
+		if (this.props.active) {
+			//children.push(this.selection);
+			children.push(Preview({model: this.state.model}));
+		}
 		return DOM.div({
 				className: 'content',
 				onMouseUp: this.handleMouseUp,
-			},
-			this.textarea, 
-			this.selection, 
-			Preview({model: this.state.model})
-			);
+			},children);
 	}
 });
 
@@ -748,8 +747,32 @@ var text = "#Cube\n"
 		 + "\n"
 		 + "[1](http://google.co.uk \"Google\")\n";
 
+
+var MultiEditor = createClass({
+	getInitialState: function() {
+		return {
+			models: [text, "#Test1\n", "#Test2\n"],
+			active: 0,
+		};
+	},
+	render: function() {
+		var active = this.state.active || 0;
+		var cursor = this.props.cursor;
+		return DOM.div({id: 'main'}, this.state.models.map(function(text, i) {
+			return Editor({
+				text: text,
+				active: i === active,
+				cursor: cursor,
+			}); 
+		}));
+	}
+});
+
+var cursor = new Selection();
+Friar.renderComponent(cursor, document.getElementById('cursor'));
 var x;
-Friar.renderComponent(x = new Editor({text: text}), document.getElementById('main'));
+Friar.renderComponent(x = new MultiEditor({cursor: cursor}), document.getElementById('layout'))
+//Friar.renderComponent(x = new Editor({text: text, active: true}), document.getElementById('main'));
 
 /*
 var O = {}
