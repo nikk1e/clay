@@ -83,16 +83,16 @@ div.modal #preview {
 
 span.cursor {
   position: absolute;
-  background: #111;
+  background: red;
   margin-right: -1px;
   width: 1px;
   display: block;
   z-index: 100;
- 
+ /*
   -webkit-animation: blink 2s linear 0s infinite;
   -moz-animation: blink 2s linear 0s infinite;
   -ms-animation: blink 2s linear 0s infinite;
-  -o-animation: blink 2s linear 0s infinite;
+  -o-animation: blink 2s linear 0s infinite;*/
 }
 
 

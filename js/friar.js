@@ -198,7 +198,9 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 	});
 	var nextChildrenByName = {};
 	var lastIndex = 0
-	nextChildren.forEach(function(child, nextIndex) {
+	for (var nextIndex = 0; nextIndex < nextChildren.length; nextIndex ++) {
+		var child = nextChildren[nextIndex];
+	//nextChildren.forEach(function(child, nextIndex) {
 		var name = child.props.key ? '$' + child.props.key : '.' + (ni++);
 		nextChildrenByName[name] = child;
 		var prevChild = prevChildrenByName[name];
@@ -209,7 +211,8 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 			prevChild.receiveComponent(child);
 			prevChild._mountIndex = nextIndex;
 			child._mountIndex = nextIndex;
-			//nextChildren[nextIndex] = prevChild;
+			//child = prevChild;
+			nextChildren[nextIndex] = prevChild;
 		} else {
 			if (prevChild) {
 				//replace
@@ -221,7 +224,7 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 				me.mountChildAtIndex(child, nextIndex);
 			}
 		}
-	});
+	}//);
 	//delete
 	for (var name in prevChildrenByName) {
 		if (prevChildrenByName.hasOwnProperty(name) &&

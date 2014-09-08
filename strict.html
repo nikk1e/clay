@@ -65,6 +65,14 @@ pre[class*='lang-javascript'] {
 pre[class*='lang-javascript'] > code {
 	color: #E9E9EB;
 }
+
+textarea.hiddenTextArea {
+	width: 100%;
+	height: 50px;
+	opacity: 0;
+	position: absolute;
+	left: -3000px;
+}
 </style>
 </head>
 <body>
@@ -116,6 +124,11 @@ var Table = createClass({
 	}
 });
 
+function fixSpaces(str) {
+	return str.replace(/^ +|  +| +(?=\n)/, function(m,a,b) {
+				return Array(m.length + 1).join('\u00A0');
+			});
+}
 
 // render model to array of Friar components
 function renderToFriar(model) {
@@ -134,10 +147,10 @@ function renderToFriar(model) {
 
 	function renderSpans(item) {
 		if (item.spans.length === 0) {
-			return [DOM.br()]; //id: keyToId(token.key)
+			return [DOM.text('\u00A0')]; //id: keyToId(token.key)
 		}
 		return item.spans.map(function(c) {
-			return DOM.text(c.text); //TODO: assmuing everything is text
+			return DOM.text(fixSpaces(c.text)); //TODO: assmuing everything is text
 		});
 	}
 
@@ -153,7 +166,7 @@ function renderToFriar(model) {
 		while (token && token.type === 'code' && !token.result && token.lang === lang) {
 			var props = {id: keyToId(token.key)};//TODO: add key
 			if (token.lang) langClass = props.className = 'lang-' + token.lang
-			items.push(DOM.code(props,token.text)); 
+			items.push(DOM.code(props,fixSpaces(token.text))); 
 			getToken();
 		}
 		ungetToken();
@@ -182,7 +195,8 @@ function renderToFriar(model) {
 		switch (token.type) {
 			case 'code':   return renderCode(token.lang);
 			case 'p':      return [DOM.p({id: keyToId(token.key)}, renderSpans(token))];
-			case 'header': return [DOM['h'+token.level]({id: keyToId(token.key)}, token.text)];
+			case 'header': return [DOM['h'+token.level]({id: keyToId(token.key)}, 
+				fixSpaces(token.text))];
 			case 'figure': return renderFigure();
 			case 'ulli':   return renderList('ul', 'ulli');
 			case 'olli':   return renderList('ol', 'olli');
@@ -379,6 +393,91 @@ function childOfId(node, id) {
 	return false;
 }
 
+
+var Selection = createClass({
+	getInitialState: function() {
+		return {
+			selection: null,
+		}
+	},
+	renderSelection: function(range) {
+		var rects = range.getClientRects(),
+			r = range.getBoundingClientRect()
+		  , ret = []
+		  , cs
+		  , fbot
+		  , rect
+		  , farLeft = Math.floor(r.left)
+		  , farRight = Math.ceil(r.right)
+		  , scrollTop = document.documentElement.scrollTop || document.body.scrollTop
+          , scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft
+          , len = rects.length
+          , i;
+        if (len > 0) {
+        	rect = rects[0];
+        	cs = {
+        		top: (rect.top + scrollTop) + 'px',
+        		left: (rect.left + scrollLeft) + 'px',
+        		height: rect.height + 'px',
+        		width: (farRight - rect.left) + 'px',
+        	}
+			fbot = rect.bottom;
+        	ret.push(DOM.div({style:cs, key:'first'}," "));
+        }
+        if (len > 1) {
+        	rect = rects[len - 1];
+        	cs = {
+        		left: (farLeft + scrollLeft) + 'px',
+        		width: (rect.right - farLeft) + 'px',
+        	}
+			var gap = rect.top - fbot;
+			if (gap < rect.height * 0.6) {
+				cs.top = (rect.top + scrollTop - gap) + 'px';
+        		cs.height = (rect.height + gap) + 'px';
+			} else {
+        		cs.top = (rect.top + scrollTop) + 'px';
+        		cs.height = rect.height + 'px';
+        		// now draw the gap
+        		ret.push(DOM.div({style: {
+        			top: (fbot + scrollTop) + 'px',
+        			left: (farLeft + scrollLeft) + 'px',
+        			width: (farRight - farLeft) + 'px',
+        			height: gap + 'px'
+        		}, key: 'mid'}, " "));
+			}
+			ret.push(DOM.div({style: cs, key: 'last'}, " "));
+        }
+        return ret;
+	},
+	render: function() {
+		var range = this.state.selection;
+		if (range === null)
+			return DOM.div({id: 'selection'});
+
+		var rects = range.getClientRects(),
+			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
+        	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+        if (rects.length === 0)
+        	return DOM.div({id: 'selection'});
+
+
+		if (range.collapsed) {
+			var rect = rects[0];
+			var cs = {
+				top: (rect.top + scrollTop) + 'px',
+				left: (rect.right + scrollLeft - 1) + 'px',
+				height: rect.height + 'px',
+				display: 'block',
+			}
+			return DOM.div({id: 'selection'}, [DOM.span({className: 'cursor', style: cs},' ')]);
+		} else {
+			return DOM.div({id: 'selection', className: 'selection'}, this.renderSelection(range)); //draw divs
+		}
+		
+	},
+});
+
+
 var Editor = createClass({
 	getInitialState: function() {
 		var text = this.props.text;
@@ -400,6 +499,7 @@ var Editor = createClass({
 		var hasTextChanged = (text != this.state.text);
 		var hasSelectionChanged = !(ta.selectionStart == cur.anchor &&
 			ta.selectionEnd == cur.focus)
+
 		if (hasTextChanged && hasSelectionChanged) {
 			this.setState({
 				text: text, 
@@ -530,18 +630,59 @@ var Editor = createClass({
 		this.textarea.node.value = this.state.text;
 		this.textarea.node.selectionStart = this.textarea.selectionEnd = 0;
 	},
+	updateCursor: function() {
+		var sel = this.state.selection;
+		var anchor, focus;
+		var range = document.createRange();
+		anchor = focus = nodeAtOffset(sel.focus, this.state.model);
+		if (sel.focus !== sel.anchor) {
+			anchor = nodeAtOffset(sel.anchor, this.state.model);
+		}
+
+		try {
+			if (anchor.offset < 0) {
+				range.setStartBefore(anchor.node);
+			} else {
+				range.setStart(anchor.node, anchor.offset);
+			}
+
+			if (focus.offset < 0) {
+				range.setEndBefore(focus.node);
+			} else {
+				range.setEnd(focus.node, focus.offset);
+			}
+		} catch(e) {
+			console.log('Invalid range');
+		}
+
+		var rects = range.getClientRects(),
+			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
+        	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+        if (rects.length > 0) {
+        	var rect = rects[0];
+        	this.textarea.node.style.top = (rect.top + 5 + scrollTop) + 'px';
+        }
+
+		this.selection.setState({selection: range});
+
+
+	},
 	didUpdate: function() {
 		console.log('updated');
+		//console.log(this.selection);
+		//TODO: set the selection and cursor positions.
+		this.updateCursor(); 
+		
 	},
 	willUnmount: function() {
 		console.log('unmounting');
 	},
 	render: function() {
+		console.log('render');
 		//?? does this work when we are going with previous Child and updating
 		this.textarea = DOM.textarea({
 			id: 'model', 
-			style: {width: '100', height: '50px', opacity: '0', 
-			        position: 'absolute', left: '-3000px'}, 
+			className: 'hiddenTextArea', 
 			//value: this.state.text,
 			onKeyDown: this.handleKeyDown,
 			onKeyUp: this.handleKeyUp,
@@ -550,12 +691,15 @@ var Editor = createClass({
 			onChange: this.handleChange,
 			onInput: this.handleInput,
 		});
+		this.selection = Selection();
 		return DOM.div({
 				className: 'content',
 				onMouseUp: this.handleMouseUp,
-			}, 
-			this.textarea,
-			Preview({model: this.state.model}));
+			},
+			this.textarea, 
+			this.selection, 
+			Preview({model: this.state.model})
+			);
 	}
 });
 
@@ -563,7 +707,7 @@ var text = "#Cube\n"
 		 + "This is a paragraph\n"
 		 + "|this|is|a|table\n"
 		 + "|more|table|stuff|here\n"
-		 + "This is another paragraph\n"
+		 + "This is another paragraph & stuff\n"
 		 + " Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec}\n"
 		 + "Some description here\n"
 		 + " This is a line that has a continued line after it\n"
@@ -586,12 +730,62 @@ var text = "#Cube\n"
 		 + "The dash before a paragraph is a section break (that might be rendered as an hr - note.. change so it doesn't need to be on its own line but can live before a paragraph or other element)\n"
 		 + "![alt text](css/fonts/glyphicons-halflings.png)figure text here\n"
 		 + "Idea ... use non printing characters to stand in for bold and italics and links in the code so that you don't have extra characters to delete or insert in those cases. This might not help much. It might be easier to just store the list and manage it based on keypresses.\n"
-		 + "There is an empty paragraph at the end after this one.\n"
+		 + "There is an empty paragraph at the end after this one. ⊕\n"
 		 + "\n"
 		 + "[1](http://google.co.uk \"Google\")\n";
 
 var x;
 Friar.renderComponent(x = new Editor({text: text}), document.getElementById('main'));
+
+/*
+var O = {}
+var A = O.A = function() { return 10; }
+var B = O.B = function() { return 11; }
+var C = O.C = function() { return 12; }
+
+function Plus(a, b) { 
+	return function() {	return a() + b(); };
+}
+
+O.Clo = Plus(Plus(O.A,O.B),O.C);
+O.Fun = (new Function(['a','b','c'],
+ 'return function() { return (a() + b()) + c(); };'))(O.A,O.B,O.C); //if we do the full 
+O.FunI = new Function('var me = this; return (me.A() + me.B()) + me.C()');
+O.FunII = (new Function(['Ob'],
+	'var A = Ob.A, B = Ob.B, C = Ob.C; return function () { return (A() + B()) + C(); };'))(O);
+O.Eval = eval('(function() { return A() + B() + D(); })');
+
+
+function D() { return 12; }
+
+console.log(O.Clo());
+console.log(O.Fun());
+console.log(O.FunI());
+console.log(O.FunII());
+console.log(O.Eval());
+
+function test(n) {
+	console.time('Clo');
+	for (var i = 0; i < n; i++) O.Clo();
+	console.timeEnd('Clo');
+	
+	console.time('Fun');
+	for (var i = 0; i < n; i++) O.Fun();
+	console.timeEnd('Fun');
+
+	console.time('FunI');
+	for (var i = 0; i < n; i++) O.FunI();
+	console.timeEnd('FunI');
+
+	console.time('FunII');
+	for (var i = 0; i < n; i++) O.FunII();
+	console.timeEnd('FunII');
+
+	console.time('Eval');
+	for (var i = 0; i < n; i++) O.Eval();
+	console.timeEnd('Eval');
+}
+*/
 
 </script>
 </body>
