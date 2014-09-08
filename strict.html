@@ -68,6 +68,8 @@ pre[class*='lang-javascript'] > code {
 
 textarea.hiddenTextArea {
 	width: 100%;
+	max-width: 800px;
+	font-family: 'Open Sans', 'Segoe UI', verdana, sans-serif;
 	height: 50px;
 	opacity: 0;
 	position: absolute;
@@ -693,7 +695,7 @@ var Editor = createClass({
 		console.log('render');
 		//?? does this work when we are going with previous Child and updating
 		this.textarea = DOM.textarea({
-			id: 'model', 
+			//id: 'model', 
 			className: 'hiddenTextArea', 
 			//value: this.state.text,
 			onKeyDown: this.handleKeyDown,
