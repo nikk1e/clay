@@ -320,6 +320,11 @@ function offsetInCell(cell, path, key, offset) {
 		case 'header':
 			offset += cell.level;
 			break;
+		case 'figure':
+			var w = path.pop();
+			if (w === 1) offset += cell.alt.length + cell.src.length + 5;
+			else offset = cell.alt.length + cell.src.length + 5;
+			break;
 		case 'quote':
 		case 'ulli':
 		case 'olli':
@@ -370,6 +375,13 @@ function nodeAtOffset(fullOffset, model) {
 		case 'header':
 			offset -= cell.level;
 			baseElem = baseElem.firstChild;
+			break;
+		case 'figure':
+			var toff = 	cell.alt.length + cell.src.length + 5;
+			if (offset >= toff) {
+				offset -= toff;
+				baseElem = baseElem.childNodes[1].firstChild;
+			}
 			break;
 		case 'quote':
 		case 'ulli':
