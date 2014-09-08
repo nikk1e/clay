@@ -191,10 +191,13 @@ Olli.prototype.type = 'olli';
 
 function Quote(raw) {
 	this.raw = raw;
-	this.spans = [{type: 'text', text: raw.slice(1)}];
 }
 Quote.prototype = new Cell();
 Quote.prototype.type = 'quote';
+Quote.prototype.initialise = function(old) {
+	var r = this.raw.slice(1)
+	this.spans = (r.length > 0 && r !== '\n' ? [{type: 'text', text: r}] : []);
+}
 
 function Break(raw) {
 	this.raw = raw;
