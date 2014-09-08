@@ -145,9 +145,9 @@ function renderToFriar(model) {
 		return token = tokens[(--index)-1];
 	}
 
-	function renderSpans(item) {
+	function renderSpans(item, para) {
 		if (item.spans.length === 0) {
-			return [DOM.text('\u00A0')]; //id: keyToId(token.key)
+			return para ? [DOM.text('\u00A0'), DOM.br()] : [DOM.text('\u00A0')]; //id: keyToId(token.key)
 		}
 		return item.spans.map(function(c) {
 			return DOM.text(fixSpaces(c.text)); //TODO: assmuing everything is text
@@ -194,7 +194,7 @@ function renderToFriar(model) {
 	function renderPara() {
 		switch (token.type) {
 			case 'code':   return renderCode(token.lang);
-			case 'p':      return [DOM.p({id: keyToId(token.key)}, renderSpans(token))];
+			case 'p':      return [DOM.p({id: keyToId(token.key)}, renderSpans(token, true))];
 			case 'header': return [DOM['h'+token.level]({id: keyToId(token.key)}, 
 				fixSpaces(token.text))];
 			case 'figure': return renderFigure();
@@ -331,8 +331,8 @@ function offsetInCell(cell, path, key, offset) {
 			offset++;
 			break;
 		case 'code':
-			offset++;
-			offset += (cell.text.slice(0,offset).match(/\n/g) || []).length; //space removed per newline
+			offset += (cell.text.slice(0,offset).match(/\n/g) || []).length; //space per newline
+			offset++; //inital space
 			break;
 
 	}
@@ -391,7 +391,7 @@ function nodeAtOffset(fullOffset, model) {
 			break;
 		case 'code':
 			offset--;
-			offset -= (cell.text.slice(0,offset).match(/\n/g) || []).length; //space removed per newline
+			offset -= (cell.raw.slice(0,offset).match(/\n/g) || []).length; //space removed per newline
 			baseElem = baseElem.firstChild;
 			break;
 	}
