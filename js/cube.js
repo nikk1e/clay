@@ -867,7 +867,27 @@ Code.prototype.initialise = function(old, model) {
 		try {
 			this.tokens = lex(this.text);
 			this.sexpr = parse(this.tokens)
-				.map(function(node) { return normaliseHeadToPackage(node, model.namespace); });
+				.map(function(node) { 
+					return normaliseHeadToPackage(node, model.namespace); 
+				});
+
+			//expand macros
+			var sexpr = []
+			this.sexpr.forEach(function(expr) {
+				var nodes = transform(expr, expandMacros);
+				if (nodes[0] === 'Do') {
+					nodes = nodes.slice(1);
+					Array.prototype.push.apply(sexpr, nodes.map(normaliseHead));
+				} else {
+					sexpr.push(nodes);
+				}
+			});
+
+			//expand slices
+			this.sexpr = sexpr.map(function(expr) { 
+				return transform(expr, expandSlice); 
+			});
+
 		} catch (e) {
 			return this.error = e;
 		}
@@ -963,19 +983,918 @@ function parseRaw(text) {
 function Cube() {
 	this.models = {Scratch: new Model(parseRaw('#Scratch\nUse the scratchpad for your workings. This will not be saved!\n'))};
 	this.names = [];
+	this._packages = {};
+	this._genSyms = {};
+	this._genSymCount = {};
+};
+
+Cube.prototype.Symbol = function(val) {
+	if (this._genSyms[val] !== undefined)
+		return this._genSyms[val];
+	var hint = camelCase(val);
+	if (this._genSymCount.hasOwnProperty(hint)) {
+		this._genSyms[val] = hint + '_' + this._genSymCount[hint];
+		this._genSymCount[hint] += 1;
+	} else {
+		this._genSymCount[hint] = 1;
+		this._genSyms[val] = hint;
+	}
+	return this._genSyms[val];
 };
 
 Cube.prototype.addModel = function(name, model) {
 	this.names.push(name);
 	this.models[name] = model;
+	this.recalculate()
 };
 
 Cube.prototype.mergeModel = function(name, model) {
 	this.models[name] = this.models[name].merge(model);
+	this.recalculate()
 };
 
+
+//Compiler
+
+//func takes non atom and path (e.g. expandMacros)
+function transform(ast, func, path) {
+	if (path === undefined) path = [];
+	var ret = func(ast, path);
+	if (ret === undefined) ret = [];
+	path.push(ast);
+	for(var i=0; i<ret.length; i++) {
+		var node = ret[i], node1;
+		if (node instanceof Array) {
+			node1 = transform(node, func, path);
+			if (node !== node1) ret[i] = node1; //NOTE (in place edit)
+		}
+	}
+	path.pop(ast);
+	return ret;
+}
+
+var expandMacros = function(expr, path) {
+	var rep;
+	var sexpr;
+	var symb = expr[1];
+
+	if (expr[0] !== 'Call' || symb[0] !== 'Symbol')
+		return expr;
+
+	sexp = symb.slice(1).join('.').toUpperCase();
+
+	if (!Cube.Macros.hasOwnProperty(sexp))
+		return expr;
+
+	rep = Cube.Macros[sexp].apply(this, expr.slice(2));
+
+	if (rep !== undefined) {
+		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
+		return rep;
+	}
+
+	return expr;
+};
+
+var expandPostMacros = function(expr) {
+	var symb, rep;
+	
+	if (expr[0] !== 'PostMacro')
+		throw new Exception('Cannot expand non post macro' + showS(expr));
+
+	var symb = expr[1];
+	
+	if (symb[0] !== 'Symbol' || 
+		symb.length !== 2 || 
+		!Cube.PostMacros.hasOwnProperty(symb[1].toUpperCase()))
+		return expr;
+
+	rep = Cube.PostMacros[symb[1].toUpperCase()].apply(this, expr.slice(2));
+
+	if (rep !== undefined) {
+		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
+		return rep;
+	}
+
+	return expr;
+};
+
+function expandSlice(expr, path) {
+	var ret;
+	switch(expr[0]) {
+		case 'Slice': {
+			var ret = expr[1], overs = ['Over', 0];
+			for (var i = expr.length - 1; i >= 2; i--) {
+				var para = expr[i];
+				switch(para[0]) {
+					case 'Let':
+						ret = expandSlice(['LetS', para[1], para[2], ret], path);
+						break;
+					case 'Symbol':
+						overs.push(para);
+						break;
+					default:
+						ret = ['Restrict', para, ret];
+				};
+			}
+			//wrap over on the outside
+			if (overs.length > 2) {
+				overs[1] = ret;
+				ret = overs;
+			}
+			break;
+		}
+		case 'LetS': {
+			//(LetS symb value expr) -> (LetS (Index symb) (IndexOf symb value) expr)
+			if (expr[1][0] === 'Symbol')
+			{
+				var symb = expr[1], value = expr[2], exp = expr[3];
+				ret = ['LetS', ['Index', symb], ['IndexOf', symb, value], exp];
+			}
+			break;
+		}
+		case 'Guards': {
+			var ret = expr[1], overs = ['Indexed', 0];
+			for (var i = expr.length - 1; i >= 2; i--) {
+				var para = expr[i];
+				if (para[0] === 'Symbol')
+					overs.push(['Index', para]);
+			};
+			//wrap indexed on the inside
+			if (overs.length > 2) {
+				overs[1] = ret;
+				ret = overs;
+			}
+			for (var i = expr.length - 1; i >= 2; i--) {
+				var para = expr[i];
+				switch(para[0]) {
+					case 'Let':
+						ret = ['LetG', para[1], para[2], ret];
+						break;
+					case 'Symbol':
+						break;
+					default:
+						ret = ['Restrict', para, ret];
+				};
+			}
+			break;
+		}
+	}
+	if (ret !== undefined) {
+		ret.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr;
+		return ret;
+	}
+
+	return expr;
+}
+
+var camelCase = function(name) {
+	return (name
+		.toLowerCase()
+		.replace(/[^a-zA-Z]+([a-zA-Z]|$)/g,
+			function(s,m) { return m.toUpperCase(); }));
+};
+
+var joinComma = function(items) { return Array.prototype.join.call(items, ','); };
+
+//memoize assumes indirect recursion
+var memoize = function(func, hasher) {
+	hasher = (hasher !== undefined) ? hasher : joinComma;
+	var memo = function() {
+		var cache = memo.cache, args = hasher(arguments);
+		if (cache[args] === undefined)
+			cache[args] = memo.func.apply(this, arguments);
+		return cache[args];
+	}
+	memo.func = func; //so we can replace the func
+	memo.clearCache = function() { memo.cache = {}; };
+	memo.cache = {};
+	return memo;
+};
+
+//place to store dependedOn
+var unmemoize = function(func) {
+	var memo = function() {
+		return memo.func.apply(this, arguments);
+	}
+	memo.func = func; //so we can replace the func
+	memo.clearCache = function() { };
+	return memo;
+};
+
+var indexed = function(func, athis) {
+	var memo = function(i) {
+		if (memo.cache === undefined)
+			memo.cache = memo.func.apply(athis);
+		return memo.cache[i];
+	};
+	memo.func = func; //so we can replace the function
+	memo.clearCache = function() { memo.cache = undefined; }
+	memo.cache = undefined;
+	memo.len = function() { 
+		if (memo.cache === undefined)
+			memo(0);
+		return memo.cache.length;
+	};
+	memo.forEach = function(f) {
+		if (memo.cache === undefined)
+			memo(0);
+		memo.cache.forEach(f);
+	};
+	memo.indexOf = function(v)  {
+		if (memo.cache === undefined)
+			memo(0);
+		return memo.cache.indexOf(v); //TODO: cache the index of
+	};
+	return memo;
+};
+
+
+Cube.prototype.compileOver = function(expr, basepack) {
+	var me = this;
+	var exp = this.compileExpr(expr[1], basepack);
+	var dims = expr.dimensions.map(function(d) {
+		return me.Symbol(d);
+	}).join(', ');
+	var retDims = expr.slice(2).map(function(e) { 
+		return '"' + e.dimensions[0] + '"'; });
+	var overs = expr.slice(2).map(function(e) { 
+		var pack = e.dimensions[0].split('.',1)[0];
+		var name = e.dimensions[0].slice(pack.length+1);
+		return {pack: pack,
+				name: name,
+				sym: me.Symbol(e.dimensions[0]) ,
+			};
+		});
+
+	var vars = '    var _k0m = 1'
+	var ends = [];
+	var starts = [];
+	var indexes = [];
+	overs.forEach(function(o, i) {
+		var obj = 'env["' + o.pack + '"]["' + o.name + '"]';
+		indexes.push('_k' + (i+1));
+		vars = vars + ', _k' + (i+1) + ', _k' + (i+1) +
+		'm = _k'+ i +'m * ' + obj +'.len()'; //.len must be defined on category
+		starts.push(obj + '.forEach(function(v, ' + o.sym + ') {\n\
+        _k' + (i+1) + ' = _k' + i +'m * ' + o.sym + ';');
+		ends.push('})');
+	});
+	//var t = dims.length	> 0 ? 'this, ' : 'this'
+	var ov = '(function(' + dims + ') { var _ret=[], _val;\n\
+' + vars + ';\n\
+    ' + starts.join('\n    ') + '\n\
+        _val = '+exp+';\n\
+        if (_val !== undefined) _ret['+ indexes.join(' + ') +'] = _val;\n\
+    ' + ends.join('') +';\n\
+    _ret.dimensions = ['+ retDims.join(', ') +'];\n\
+    return _ret; \n\
+}('+ dims + '))';
+	return ov;
+};
+
+var quote = function quote(expr) {
+	if (expr instanceof Array) {
+		return '[' + expr.map(function(e) { return quote(e); }).join(', ') + ']';
+	} 
+	switch(typeof(expr)) {
+		case 'string': return "'" + expr + "'";
+		case 'number': return expr.toString();
+		default: return expr.toString();
+	};
+}
+
+Cube.prototype.compileExpr = function(expr, basepack) {
+	var me = this;
+	switch(expr[0]) {
+		case 'PostMacro':
+			return me.compileExpr(expandPostMacros(expr), basepack);
+		case 'Category':
+			return 'return (' + me.compileExpr(expr[2], basepack) + ');';
+		case 'Func*':
+		case 'Func':
+			var exprs = expr.slice(2).map(function(e) {
+				return '_ret = (' + me.compileExpr(e, basepack) + ');'
+			});
+			var ov = 'var _ret;\n\
+' + exprs.join('\nif(_ret !== undefined) return _ret;\n') + '\n\
+return _ret;'
+			return ov;
+		case 'RemDims':
+		case 'NoDim':
+			return me.compileExpr(expr[1], basepack);
+		case 'Quote':
+			return quote(expr[1]);
+		case 'LetG':
+			return '('+ me.compileExpr(expr[1], basepack) +' == '+ me.compileExpr(expr[2], basepack)+') ? (' + me.compileExpr(expr[3], basepack) + ') : undefined';
+		case 'LetS':
+			return '(function(' + me.compileExpr(expr[1], basepack) + ') { \nreturn ('+ me.compileExpr(expr[3], basepack) +'); \n}('+me.compileExpr(expr[2], basepack)+'))';
+		case 'Restrict':
+			return '('+ me.compileExpr(expr[1], basepack) +') ? (' + me.compileExpr(expr[2], basepack) + ') : undefined';
+		case 'Call':
+			return 'env.' + expr[1].slice(1).join('.') + '(' +
+				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
+		case 'List':
+			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
+		case 'Times':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' * ') + ')';
+		case 'Plus':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' + ') + ')';
+		case 'Subtract':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' - ') + ')';
+		case 'Bracket':
+			return '(' + me.compileExpr(expr[1], basepack) + ')';
+		case 'Divide':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
+		case 'Equal':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
+		case 'LessEqual':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' <= ') + ')';
+		case 'Less':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' < ') + ')';
+		case 'Indexed*':
+			if (expr[1][0] !== 'List') throw new Error('Indexed* requires literal list');
+			if (expr.length > 3) throw new Error('Indexed* does not yet support multiple args');
+			return '(function() {\nswitch (' + me.compileExpr(expr[2], basepack) + ') {\n' +
+				expr[1].slice(1).map(function(e,i) { return '  case ' + i + ': return ' + me.compileExpr(e, basepack) + ';\n'}).join('') +
+				'}; })()'
+		case 'Indexed': 
+			if (expr.length > 3) throw new Error('Indexed does not yet support multiple args');
+			var ex = me.compileExpr(expr[1], basepack);
+			return '(' + ex + ')[' + me.compileExpr(expr[2], basepack) + ']';
+		case 'Index':
+			if (expr[1][0] !== 'Symbol') throw new Error('Invalid index parameter ' + showS(expr));
+			expr = expr[1];
+			var pack, name;
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				name = expr[1];
+				if (me._packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
+			}
+			return me.Symbol(pack + '.' + name);
+		case 'IndexOf':
+			if (expr[1][0] !== 'Symbol') throw new Error('Invalid indexOf parameter ' + showS(expr));
+			var ex = me.compileExpr(expr[2], basepack);
+			expr = expr[1];
+			var pack, name;
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				name = expr[1];
+				if (me._packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
+			}
+			return "env['" + pack + "']['" + name +"'].indexOf(" + ex + ")";
+		case 'Over':
+			return me.compileOver(expr, basepack);
+		case 'Symbol':
+			var pack, name;
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				name = expr[1];
+				if (me._packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
+			}
+			//if symbol defined (then annotateDimensions of definition)
+			if (me._packages[pack] !== undefined && me._packages[pack].functions[name]) {
+				var dims = me._packages[pack].functions[name].dimensions.map(function(d) { return me.Symbol(d); });
+				return "env['" + pack + "']['" + name +"'](" + dims.join(', ') + ")";
+			} else {
+				return '"' + expr.slice(1).join('.') + '"';
+			}
+		case 'String':
+			return '"' + expr[1] + '"';
+		case 'Number':
+			return expr[1].toString();
+		default:
+			throw new Error('Compile Error: Not implemented for ' + showS(expr));
+	};
+};
+
+Cube.prototype.compileFunc = function(expr, basepack) {
+	var me = this;
+	switch(expr[0]) {
+		case 'Category':
+			return indexed(new Function('var env = this;' + me.compileExpr(expr, basepack)), me._environment[basepack]);
+		case 'Func*':
+			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+			return unmemoize(new Function(dims, 'var env = this;' + me.compileExpr(expr, basepack)));
+		case 'Func':
+			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+			return memoize(new Function(dims, 'var env = this;' + me.compileExpr(expr, basepack)));
+		default:
+			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
+			var ov = 'var env = this; return (' + me.compileExpr(expr, basepack) + ');';
+			//console.log(ov);
+			try {
+				return memoize(new Function(dims, ov));
+			} catch (er) {
+				console.log('Could not compile: ' + ov);
+				console.log(er.message);
+				return memoize(new Function('return undefined;'));
+			}
+			
+	};
+};
+
+//Package is the ast representation of a Namespace
+function Package(name) {
+	this.name = name;
+	this.dimensions = {};
+	this.functions = {};
+	this.expressions = {};
+	this.unsatisfieds = {}; //dimensions that have no function
+};
+
+//func takes non atom and path
+function visit(ast, func, path, index) {
+	if (path === undefined) path = [];
+	func(ast, path, index);
+	path.push(ast[0]);
+	for(var i=0; i<ast.length; i++) {
+		var node = ast[i];
+		if (node instanceof Array) {
+			visit(node, func, path, i);
+		}
+	}
+	path.pop();
+}
+
+
+Cube.prototype.recalculate = function() {
+	var environment = new Environment(), packages = {}, pack;
+
+	//Namespace is the compiled equivalent of Package
+	function Namespace() {};
+	Namespace.prototype = environment;
+
+	//Root packages
+	for (var name in this.models) {
+		if (!packages.hasOwnProperty(name)) {
+			packages[name] = new Package(name);
+		}
+	}
+
+	//Collect packages
+	//TODO: allow subnamespaces (where they cannot have the same name as a root namespace)
+	for (var name in this.models) {
+		var model = this.models[name];
+		var functions = {};
+		var expressions = {};
+		model.cells.forEach(function(node) {
+			if (node.type !== 'code' || node.lang !== 'cube' || !node.sexpr) return;
+			node.sexpr.forEach(function(sexpr, index) {
+				//Collect packages
+				visit(sexpr, function(ast, path, index) {
+					switch (ast[0]) {
+						case 'Symbol':
+							//namespace except for function calls
+							//does not support nested namespaces
+							if (ast.length === 3 &&
+								!(index === 1 && path[path.length-1] == 'Call') &&
+								!packages.hasOwnProperty(ast[1])) {
+								//add missing packages (TODO: subnamespace these)
+								packages[ast[1]] = new Package(ast[1]);
+							}
+						break;
+					}
+				});
+				//Collect functions and expressions
+				sexpr.sourceNode = node;
+        		switch(sexpr[0]) {
+        			case 'Set*':
+        			case 'Set':
+        					if (sexpr[1][0] !== 'Symbol') {
+        					node.error = 'Cannot Set '+ showS(sexpr[1])
+        				} else {
+        					var fkey = sexpr[1].slice(1).join('.');
+        					if (!functions.hasOwnProperty(fkey)) {
+        						functions[fkey] = [(sexpr[0] === 'Set*' ? 'Func*' : 'Func'), sexpr[1]];
+        						functions[fkey].sourceNode = node;
+        					}
+        					functions[fkey].push(sexpr[2]); //just rhs
+        				}
+        				break;
+        			case 'Category':
+        				if (sexpr[1][0] !== 'Symbol') {
+        					node.error = 'Cannot create Category ' + showS(sexpr[1]);
+        				} else {
+        					var fkey = sexpr[1].slice(1).join('.');
+        					if (!functions.hasOwnProperty(fkey)) functions[fkey] = sexpr;
+        					else node.error = 'Cannot redefine Category ' + showS(sexpr[1]);
+        				}
+        				break;
+        			case 'Rule':
+        				node.error = 'Rules not implemented';
+        				break;
+        			default:
+        				//expression
+        				expressions[name + ':' + node.key] = sexpr;
+        		}
+			});
+		});
+
+		//collect functions
+		for (var k in functions) {
+			var func = functions[k];
+			var symb = func[1];
+			var p = symb[1];
+			var name = symb[2];
+			pack = packages[p];
+			if (pack.functions.hasOwnProperty(name)) {
+				func.length = 0;
+				func[0] = 'Error';
+				func[1] = 'Cannot redefine ' + name;
+			} else {
+				pack.functions[name] = func;
+				func._baseNamespace = model.namespace;
+				findDimensions(func, model.namespace);
+			}
+		};
+		var pack = packages[model.namespace];
+		//collect expressions (after so we can get the errors)
+		for (var k in expressions) {
+			pack.expressions[k] = expressions[k];
+			pack.expressions[k]._baseNamespace = model.namespace;
+		};
+	}
+
+	this._environment = environment;
+	this._packages = packages;
+
+	//find all dimensions (here not in the package as it needs to go over package)
+	function findDimensions(expr, basepack) {
+		function addDimension(symb, parent) {
+			var pack, name;
+			if (symb.length > 2) {
+				pack = symb[1];
+				name = symb[2];
+			} else {
+				pack = basepack;
+				name = symb[1];
+			}
+			if (packages.hasOwnProperty(name)) pack = name; //for Data tables
+			if (!packages[pack].functions.hasOwnProperty(name)) {
+				//create dummy function for unsatisfied category
+				var sy = ['Symbol', pack, name];
+				packages[pack].functions[name] = ['Category', sy, ['List']];
+				packages[pack].functions[name].dimensions = [pack + '.' + name];
+				packages[pack].unsatisfieds[name] = true;
+			}
+			packages[pack].dimensions[name] = packages[pack].functions[name];
+
+		}
+		//set dimensions on actual categories
+		if (expr[0] === 'Category') {
+			expr.dimensions = [expr[1][1] + '.' + expr[1][2]];
+		}
+
+		visit(expr, function(ast, path, index) {
+			switch (ast[0]) {
+				case 'LetS':
+				case 'LetG': {
+					var lhs = ast[1];
+					if (lhs[0] === 'Symbol')
+						addDimension(lhs, ast);
+					break;
+				}
+				case 'Over':
+				case 'Indexed': {
+					//all symbols are dimensions (Over expr symb..)
+					for (var i = ast.length - 1; i >= 2; i--) {
+						addDimension(ast[i], ast);	
+					}
+					break;
+				}
+				case 'Count': //param must be a dimension
+				case 'Index': //param must be a dimension
+				case 'IndexOf': //lhs must be a dimension
+				case 'Name': //param must be a dimension
+					var lhs = ast[1];
+					if (lhs !== undefined && lhs[0] === 'Symbol')
+						addDimension(lhs, ast);
+					break;
+			};
+		});
+	}
+
+	function union(l,r) {
+		var u = {}, ret = [];
+		for (var i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		};
+		for (var i = r.length - 1; i >= 0; i--) {
+			u[r[i]] = true;
+		};
+		for (var k in u) {
+			if (u.hasOwnProperty(k))
+				ret.push(k);
+		};
+		return ret;
+	}
+
+	function equal(l, r) {
+		if (l.length !== r.length)
+			return false;
+		var u = {}, ret = [];
+		for (var i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		};
+		for (var i = r.length - 1; i >= 0; i--) {
+			if (!u.hasOwnProperty(r[i]))
+				return false;
+		};
+		return true;
+	}
+
+	function subtract(l, r) {
+		var u = {}, ret = [];
+		for (var i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		};
+		for (var i = r.length - 1; i >= 0; i--) {
+			if (u.hasOwnProperty(r[i]))
+				delete u[r[i]];
+		};
+		for (var k in u) {
+			if (u.hasOwnProperty(k))
+				ret.push(k);
+		};
+		return ret;
+	}
+
+	var hasChanged = true, pass = 0, maxPasses = 10;
+	//annotate dimensions of functions
+	function annotateDimensions(expr, pass, basepack) {
+		if (typeof(expr) === 'string' || expr === undefined || expr === null)
+			return [];
+		if (expr.dimensions !== undefined) {
+			if (expr.pass === pass) {
+				return expr.dimensions;
+			}
+		} else {
+			expr.dimensions = [];
+		}
+		expr.pass = pass;
+		var ret = [];
+		switch(expr[0]) {
+			case 'LetS':
+				//(LetS symb value expr)
+				ret = annotateDimensions(expr[3], pass, basepack);
+				var symb = annotateDimensions(expr[1], pass, basepack);
+				var value = annotateDimensions(expr[2], pass, basepack);
+				if (symb.length > 1)
+					throw new Error('Category Error ' + showS(expr[1]) + ' used as category but has dimensions ' + symb);
+				ret = subtract(ret, symb);
+				ret = union(ret, value);
+				break;
+			case 'IndexOf': // dim(IndexOf (Symb ..), value) is dim(value)
+				return annotateDimensions(expr[2], pass, basepack);
+			case 'Category':
+				var x = annotateDimensions(expr[2], pass, basepack);
+				if (x.length > 0)
+					throw new Error('Categories cannot vary over another category: ' + showS(expr));
+				return expr.dimensions;
+			case 'Symbol':
+				var pack, name;
+				if (expr.length > 2) {
+					pack = expr[1];
+					name = expr[2];
+				} else {
+					name = expr[1];
+					if (packages.hasOwnProperty(name))
+						pack = name; //for Data tables
+					else
+						pack = basepack;
+				}
+				//if symbol defined (then annotateDimensions of definition)
+				if (packages[pack] !== undefined && packages[pack].functions[name])
+					ret = annotateDimensions(packages[pack].functions[name], pass, basepack);
+				//else (nothing)
+				break;
+			case 'Number':
+				return expr.dimensions;
+			case 'String':
+				return expr.dimensions;
+			case 'Over':
+				var temp = annotateDimensions(expr[1], pass, basepack);
+				var u = {}, x;
+				for(var i=expr.length - 1; i > 1; i--) {
+					if (expr[i] instanceof Array)
+						x = annotateDimensions(expr[i],pass, basepack);
+						if (x.length > 1) {
+							throw new Error('Category Error: ' + showS(expr[i]) + ' use as category but has multiple dimensions');
+						}
+						u[x[0]] = true;
+				};
+				for (var i = temp.length - 1; i >= 0; i--) {
+					if (!u.hasOwnProperty(temp[i]))
+						ret.push(temp[i]);
+				};
+				break;
+			case 'RemDims':
+				var temp = annotateDimensions(expr[1], pass, basepack);
+				var rem = annotateDimensions(expr[2], pass, basepack);
+				ret = [];
+				temp.forEach(function(d) {
+					if (rem.indexOf(d) === -1) ret.push(d);
+				});
+				break;
+			case 'NoDim': //NoDim has no dimensions
+				annotateDimensions(expr[1], pass, basepack);
+				ret = [];
+				break;
+			case 'Func':
+				for(var i=expr.length - 1; i > 1; i--) {
+					if (expr[i] instanceof Array)
+						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
+				};
+				break;
+			default:
+				for(var i=expr.length - 1; i > 0; i--) {
+					if (expr[i] instanceof Array)
+						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
+				};
+		};
+		if (!equal(ret,expr.dimensions)) {
+			expr.dimensions = ret;
+			hasChanged = true;
+		};
+		return expr.dimensions;
+	}
+
+	while (hasChanged && pass < maxPasses) {
+		hasChanged = false;
+		for (var p in packages) {
+			if (!packages.hasOwnProperty(p)) continue;
+			var pack = packages[p];
+			for (var k in pack.functions) 
+				if (pack.functions.hasOwnProperty(k))
+					annotateDimensions(pack.functions[k],pass, pack.functions[k]._baseNamespace);
+			//for (var k in pack.expressions) 
+			//	if (pack.expressions.hasOwnProperty(k))
+			//		annotateDimensions(pack.expressions[k],pass, pack.expressions[k]._baseNamespace);
+
+		}
+		pass = pass + 1;
+	}
+	if (pass === maxPasses) {
+		throw new Error('Dimensions Error: Could not infer dimensions');
+	}
+
+	//compile functions
+	for (pack in packages) {
+		if (packages.hasOwnProperty(pack)) {
+			var packg = packages[pack];
+			environment[pack] = new Namespace();
+			for (var name in packg.functions) {
+				if (packg.functions.hasOwnProperty(name)) {
+					var func = packg.functions[name];
+					try {
+						environment[pack][name] = this.compileFunc(func, pack)
+					} catch(e) {
+						func.sourceNode.error =  e.toString();
+					}
+					
+				}
+			}
+		}
+	}
+
+	//compile expressions (and bind to namespace)
+	for (pack in packages) {
+		if (packages.hasOwnProperty(pack)) {
+			var env = environment[pack];
+			var packg = packages[pack];
+			for (var name in packg.expressions) {
+				if (packg.expressions.hasOwnProperty(name)) {
+					var expr = packg.expressions[name];
+					annotateDimensions(expr, pass-1, pack);
+					if (expr.dimensions.length > 0) {
+						//Wrap expressions with table
+						//TODO: use original expression
+						//Graph.Line(Net Income[Month])
+						console.log(showS(expr) + ' has ' + expr.dimensions.join(', '));
+						var expr2 = table(expr);
+						expr2.sourceNode = expr.sourceNode;
+						expr = expr2;
+						packg.expressions[name] = expr;
+						annotateDimensions(expr, pass-1, pack);
+						
+
+					}
+					try {
+						expr.func = this.compileFunc(expr, pack);
+						expr.compiled = expr.func.bind(env);
+						expr.sourceNode.result = expr.compiled;
+					} catch(e) {
+						console.log(e);
+						expr.sourceNode.error = e.toString();
+					}
+					
+				}
+			}
+		}
+	}
+
+	//TODO: add custom functions to namespace they were defined in
+
+
+};
+
+
+
+//Pretty printing
+
+//TODO: this needs to take a prec so we can
+// avoid too many brackets in output.
+function showMr(s, skip) {
+	if (!skip && s.originalSexpr !== undefined) return showMr(s.originalSexpr);
+	switch (s[0]) {
+		case 'Number': return s[1].toString();
+		case 'String': return s[1];
+		case 'Symbol': return s.slice(1).join('.');
+		case 'List':   return '{' + s.slice(1).map(showMr).join(', ') + '}';
+		case 'Slice':  return showMr(s[1], true) + '[' + s.slice(2).map(showMr).join(', ') + ']';
+		case 'Call':   return showMr(s[1], true) + '(' + s.slice(2).map(showMr).join(', ') + ')';
+		case 'Set':
+		case 'Set*':
+		case 'Let': return showMr(s[1], true) +'=' + showMr(s[2]);
+		case 'Plus': return '(' + s.slice(1).map(showMr).join(' + ') + ')';
+		case 'Times': return '(' + s.slice(1).map(showMr).join(' * ') + ')';
+		case 'Subtract': return '(' + s.slice(1).map(showMr).join(' - ') + ')';
+		case 'Divide': return '(' + s.slice(1).map(showMr).join(' / ') + ')';
+		case 'Bracket': return '(' + showMr(s[1], true) + ')';
+		//TODO: make the infix check 
+		default: return showS(s);
+	};
+}
+
+var showM = function(s) {
+	return ['String', showMr(s)];
+};
+
+
+var simple = /^\S+$/;
+var showS = function show(sexp) {
+	//if (sexp instanceof Cons)
+	//	return '(' + sexp.head + ' ' + sexp.tail.map(show).join(' ') + ')';
+	//if (typeof(sexp) === 'number')
+	//	return sexp.toString();
+	//if (typeof(sexp) === 'string')
+	//	return '"' + sexp + '"';
+	if (sexp instanceof Array)
+		return '(' + sexp.map(show).join(' ') + ')';
+	else if ((sexp instanceof String || typeof sexp === 'string'))
+		return (simple.test(sexp) ? sexp : '`' + sexp + '`');
+	else if (sexp === undefined)
+		return 'NULL';
+	return sexp.toString();
+};
+
+var Functions = {
+	Math: Math,
+	sin: Math.sin,
+	cos: Math.cos,
+	tan: Math.tan, //etc (see js/functions.js and js/functions/*)
+};
+
+function Environment() {}
+Environment.prototype = Functions;
+
+var table = function(expr, opt_dims) {
+	if (expr[0] !== 'List') {
+		expr = ['List', expr];
+	}
+	var quoteds = expr.map(function(e, i) { return (i > 0) ? showM(e) : e });
+	var pm = ['PostMacro', ['Symbol', 'Table'], expr, quoteds];
+	if (opt_dims !== undefined) {
+		pm.push(opt_dims);
+		return ['RemDims', pm, opt_dims];
+	}
+	return ['NoDim', pm]; 
+};
+
+Cube.Macros = {TABLE: table}; //see js/macros.js
+Cube.PostMacros = {}; //see js/macros.js
+Cube.Functions = Functions; // we add functions to this to make them available
 Cube.Model = Model;
 Cube.parseRaw = parseRaw;
+Cube.showM = showM;
+Cube.showMr = showMr;
+Cube.showS = showS;
 
 base.Cube = Cube;
 

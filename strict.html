@@ -65,6 +65,18 @@ pre[class*='lang-javascript'] {
 pre[class*='lang-javascript'] > code {
 	color: #E9E9EB;
 }
+pre[class*='lang-sexpr'] {
+	display: none;
+	background-color: #283593;
+}
+pre[class*='lang-sexpr'] > code {
+	color: #E9E9EB;
+}
+.show-debug pre[class*='lang-sexpr'] {
+	display: block;
+	background-color: #283593;
+}
+
 .error {
 	color: red;
 }
@@ -88,6 +100,10 @@ textarea.hiddenTextArea {
 </div>
 <script type="text/javascript" src="js/friar.js"></script>
 <script type="text/javascript" src="js/cube.js"></script>
+<script type="text/javascript" src="js/macros.js"></script>
+<script type="text/javascript" src="js/functions.js"></script>
+<script src="http://d3js.org/d3.v3.js"></script>
+<script type="text/javascript" src="js/functions/graph.js"></script>
 <script type="text/javascript">
 
 var DOM = Friar.DOM, 
@@ -134,6 +150,13 @@ function fixSpaces(str) {
 			});
 }
 
+function isElement(o){
+  return (
+    typeof HTMLElement === "object" ? o instanceof HTMLElement : //DOM2
+    o && typeof o === "object" && o !== null && o.nodeType === 1 && typeof o.nodeName==="string"
+);
+}
+
 // render model to array of Friar components
 function renderToFriar(model) {
 	var rendered = [];
@@ -167,14 +190,36 @@ function renderToFriar(model) {
 	function renderCode(lang) {
 		var ret = []
 		var items = [];
+		var sitems = [];
 		var langClass;
 		do {
 			var props = {id: keyToId(token.key)};//TODO: add key
 			if (token.lang) langClass = props.className = 'lang-' + token.lang
 			items.push(DOM.code(props,fixSpaces(token.text)));
+			if (token.sexpr) {
+				token.sexpr.forEach(function(sexpr) {
+					sitems.push(DOM.code({className: 'lang-sexpr'}, Cube.showS(sexpr) + '\n'));
+				});
+			}
 			if (token.result || token.error) {
 				ret.push(DOM.pre({className: langClass}, items));
 				items = [];
+				if (sitems.length > 0) {
+					ret.push(DOM.pre({className: 'lang-sexpr'}, sitems));
+					sitems = [];
+				}
+				if (token.result) {
+					try {
+						var result = token.result();
+						if (isElement(result)) {
+							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
+						} else {
+							ret.push(DOM.div({className: 'result'}, result.toString()));
+						}
+					} catch(e) {
+						token.error = e;
+					}
+				}
 				if (token.error)
 					ret.push(DOM.div({className: 'error'}, token.error.toString()));
 			}
@@ -183,6 +228,8 @@ function renderToFriar(model) {
 		ungetToken();
 		if (items.length > 0)
 			ret.push(DOM.pre({className: langClass}, items));
+		if (sitems.length > 0)
+			ret.push(DOM.pre({className: 'lang-sexpr'}, sitems));
 		return ret
 	}
 
@@ -711,6 +758,8 @@ var text = "#Cube\n"
 		 + "|more|table|stuff|here\n"
 		 + "This is another paragraph & stuff\n"
 		 + " Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec}\n"
+		 + "Now we define Unit Sales\n"
+		 + " Unit Sales[Month=Jan] = 5000\n Unit Sales = Unit Sales[Prev(Month)] * (1 + Growth)\n"
 		 + "Some description here\n"
 		 + " This is a line that has a continued line after it\n"
 		 + "  this is the continued line here\n"
@@ -741,6 +790,7 @@ var MultiEditor = createClass({
 	getInitialState: function() {
 		return {
 			active: this.props.active,
+			debug: false,
 		};
 	},
 	handleMenuClick: function(e) {
@@ -760,12 +810,16 @@ var MultiEditor = createClass({
 		//trigger redraw?
 		this.setState({active: name});
 	},
+	toggleDebug: function() {
+		this.setState({debug: !this.state.debug});
+	},
 	render: function() {
 		var active = this.state.active || 0;
 		var cursor = this.props.cursor;
 		var menuClick = this.handleMenuClick;
 		var handleFocus = this.handleFocus;
 		var updateModel = this.updateModel;
+		var toggleDebug = this.toggleDebug;
 		var cube = this.props.cube;
 		return DOM.div({id: 'layout'},
 			DOM.a({href: '#menu', id: 'menuLink', className: 'menu-link'}, [DOM.span()]),
@@ -777,9 +831,12 @@ var MultiEditor = createClass({
 							[DOM.a({href:"#" + n}, n)])
 					})),
 					DOM.ul({}, [DOM.li({onClick: menuClick},
-							[DOM.a({href:"#Scratch"}, 'Scratch')])])
+							[DOM.a({href:"#Scratch"}, 'Scratch')])]),
+					DOM.ul({}, [DOM.li({onClick: toggleDebug},
+							[DOM.a({href:"#"}, 'Debug')])])
 					)]),
-			DOM.div({id: 'main'}, mapObjToArr(cube.models, function(name, value) {
+			DOM.div({id: 'main', className: (this.state.debug ? 'show-debug' : '') }, 
+				mapObjToArr(cube.models, function(name, value) {
 				return Editor({
 					model: value,
 					active: name === active,

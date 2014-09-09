@@ -598,6 +598,7 @@ function renderComponent(component, element) {
 
 //exports
 Friar.DOM = DOM;
+Friar.Wrap = Wrap;
 Friar.renderComponent = renderComponent;
 Friar.createClass = createClass;
 
