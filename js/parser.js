@@ -493,7 +493,7 @@ var parse = function(ts) { //,multi) {
 					getToken();
 					temp = parseOperators(parsePrimary(), 0);
 					getOperator(')');
-					return temp;
+					return ['Bracket',temp]; //add bracket so we can merge the flat stuff.
 				case '{':
 					return getList();
 					//case '"': return getString();
@@ -549,8 +549,8 @@ var parse = function(ts) { //,multi) {
 			if ((token.type === 'bracket' && (token.value === '{' || token.value === '(')) ||
 				token.type === 'symbol' || token.type === 'number' || token.type === 'string') {
 					// Juxtaposition means apply
-					if (applyPrec > min_prec ||
-					   (op.prec === min_prec && op.assoc === right)) {
+					if (applyPrec >= min_prec) { // ||
+					   //(applyPrec === min_prec && op.assoc === right)) {
 						rhs = parseOperators(rhs, applyPrec);
 						continue;
 					}
@@ -560,7 +560,7 @@ var parse = function(ts) { //,multi) {
 					break;
 				}
 				if (op = infixes[token.value]) {
-					if (op.prec >= min_prec ||
+					if (op.prec > min_prec || //This must be > and not >= for left assoc to work
 					   (op.prec === min_prec && op.assoc === right)) {
 						rhs = parseOperators(rhs,op.prec);
 						continue;

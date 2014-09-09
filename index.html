@@ -1096,6 +1096,8 @@ return _ret;'
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' + ') + ')';
 		case 'Subtract':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' - ') + ')';
+		case 'Bracket':
+			return '(' + me.compileExpr(expr[1], basepack) + ')';
 		case 'Divide':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
 		case 'Equal':

@@ -605,52 +605,6 @@ var Editor = createClass({
 		if (!this.props.active) this.props.focus(this.props.index);
 		this.updateText();
 	},
-	handleContentKeyDown: function(e) { /*
-		//Ignore movement keys...
-		var key = e.key || e.keyIdentifier;
-		if (IgnoreKeys.hasOwnProperty(key)
-			&& (!IgnoreKeys[key]
-			||e.ctrlKey||e.shiftKey||e.altKey||e.metaKey)) {
-			this.handleMouseUp(e);
-			return;
-		}
-		//console.log(key);
-		var ta = this.textarea.node;
-		var cur = this.state.selection;
-		this.blur = document.activeElement !== ta;
-		if (this.blur) {
-			this.dontUpdate = true;
-			ta.focus();
-			if (ta.setSelectionRange) {
-				if (cur.anchor <= cur.focus)
-					ta.setSelectionRange(cur.anchor, cur.focus);
-				else
-					ta.setSelectionRange(cur.focus, cur.anchor);
-			}
-			this.dontUpdate = false;
-		}
-		
-		//
-
-		// if (e.keyCode === 13) {
-		// 	var val = this.textarea.node.value;
-		// 	var start = this.textarea.node.selectionStart;
-		// 	var lineStart = val.lastIndexOf('\n',start-1) + 1;
-		// 	var cap = val.slice(lineStart,lineStart+1);
-		//  	if (cap === '.' || cap === ' ' || cap === '*') {
-		//  		insertText(this.textarea.node, '\n' + cap);
-		//  		e.preventDefault();
-		// 	}
-		// }*/
-	},
-	handleContentKeyUp: function(e) {
-		/*if (this.blur) {
-			this.dontUpdate = true;
-			this.textarea.node.blur();
-			this.blur = false;
-			this.dontUpdate = false;
-		}*/
-	},
 	didMount: function() {
 		console.log('mounted');
 		//TODO: this stuff should be on the actual textarea node itself
