@@ -13,6 +13,7 @@ var isDOMAttribute = {
 	id: PROPERTY,
 	className: PROPERTY,
 	value: PROPERTY,
+	href: PROPERTY,
 	src: true,
 	alt: true,
 	colSpan: function(action, node, value) { if (action==='delete') node.colSpan = 1; node.colSpan = value; },
@@ -468,7 +469,22 @@ ComponentBase.prototype.mount = function() {
 	return this.node;
 };
 
-ComponentBase.prototype.performUpdateIfNecessary = function() {
+function debounce(func, wait) {
+	return func;
+	var timeout, result;
+	return function() {
+    	var context = this, args = arguments;
+    	var later = function() {
+      		timeout = null;
+      		result = func.apply(context, args);
+    	};
+    	clearTimeout(timeout);
+    	timeout = setTimeout(later, wait);
+    	return result;
+    };
+}
+
+ComponentBase.prototype.performUpdateIfNecessary = debounce(function() {
 	if (this._pendingProps === null && 
 		(this._pendingState === null || this._pendingState === undefined) && 
 		!this._pendingUpdate) return;
@@ -504,7 +520,7 @@ ComponentBase.prototype.performUpdateIfNecessary = function() {
   if (this.didUpdate) {
 		this.didUpdate(prevProps, prevState);
   }
-};
+}, 1); // wait until after we have done it all
 
 ComponentBase.prototype.updateComponent = function(prevProps) {
 	var prevRendered = this._rendered;
