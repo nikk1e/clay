@@ -65,7 +65,9 @@ pre[class*='lang-javascript'] {
 pre[class*='lang-javascript'] > code {
 	color: #E9E9EB;
 }
-
+.error {
+	color: red;
+}
 textarea.hiddenTextArea {
 	width: 100%;
 	max-width: 800px;
@@ -91,7 +93,7 @@ textarea.hiddenTextArea {
 var DOM = Friar.DOM, 
     createClass = Friar.createClass,
     Model = Cube.Model,
-    parse = Cube.parse;
+    parseRaw = Cube.parseRaw;
 
 var KEY_PREFIX = 'clay:';
 var reKey = /clay:/;
@@ -163,16 +165,25 @@ function renderToFriar(model) {
 	}
 
 	function renderCode(lang) {
+		var ret = []
 		var items = [];
 		var langClass;
-		while (token && token.type === 'code' && !token.result && token.lang === lang) {
+		do {
 			var props = {id: keyToId(token.key)};//TODO: add key
 			if (token.lang) langClass = props.className = 'lang-' + token.lang
-			items.push(DOM.code(props,fixSpaces(token.text))); 
+			items.push(DOM.code(props,fixSpaces(token.text)));
+			if (token.result || token.error) {
+				ret.push(DOM.pre({className: langClass}, items));
+				items = [];
+				if (token.error)
+					ret.push(DOM.div({className: 'error'}, token.error.toString()));
+			}
 			getToken();
-		}
+		} while (token && token.type === 'code' && token.lang === lang);
 		ungetToken();
-		return [DOM.pre({className: langClass}, items)];
+		if (items.length > 0)
+			ret.push(DOM.pre({className: langClass}, items));
+		return ret
 	}
 
 	function renderList(listType, itemType) {
@@ -494,11 +505,11 @@ var Selection = createClass({
 
 var Editor = createClass({
 	getInitialState: function() {
-		var text = this.props.text;
+		var text = this.props.model.toRaw();
 		return {
 			text: text,
 			selection: { focus: 0, anchor: 0 },
-			model: new Model(parse(text)),
+			//model: new Model(parseRaw(text)),
 		};
 	},
 	updateText: function() {
@@ -515,9 +526,9 @@ var Editor = createClass({
 			ta.selectionEnd == cur.focus)
 
 		if (hasTextChanged && hasSelectionChanged) {
+			this.props.update(this.props.name, text);
 			this.setState({
 				text: text, 
-				model: this.state.model.merge(parse(text)),
 				selection: {anchor: ta.selectionStart, focus: ta.selectionEnd},
 			});
 		} else if (hasSelectionChanged) {
@@ -525,9 +536,9 @@ var Editor = createClass({
 				selection: {anchor: ta.selectionStart, focus: ta.selectionEnd},
 			});
 		} else if (hasTextChanged) {
+			this.props.update(this.props.name, text);
 			this.setState({
-				text: text, 
-				model: this.state.model.merge(parse(text))
+				text: text
 			});
 		}
 	},
@@ -541,13 +552,13 @@ var Editor = createClass({
 		if (!childOfId(selected.anchorNode, 'preview') ||
 			!childOfId(selected.focusNode, 'preview')) return;
 		var range = selected.getRangeAt(0);
-		var focus = pathFor(selected.focusNode, selected.focusOffset, this.state.model);
+		var focus = pathFor(selected.focusNode, selected.focusOffset, this.props.model);
 		var anchor = focus;
 		if (!selected.isCollapsed) {
-			anchor = pathFor(selected.anchorNode, selected.anchorOffset, this.state.model);
+			anchor = pathFor(selected.anchorNode, selected.anchorOffset, this.props.model);
 		}
 		//check roundTrip
-		var x = nodeAtOffset(focus, this.state.model);
+		var x = nodeAtOffset(focus, this.props.model);
 		if (x && (x.node !== selected.focusNode || x.offset !== selected.focusOffset)) {
 			console.log('WARNING: selection not round tripping');
 			console.log(x);
@@ -580,7 +591,7 @@ var Editor = createClass({
 	},
 	handleChange: function(e) {
 		console.log('change');
-		if (!this.props.active) this.props.focus(this.props.index);
+		if (!this.props.active) this.props.focus(this.props.name);
 		this.updateText();
 	},
 	handleKeyDown: function(e) {
@@ -593,7 +604,7 @@ var Editor = createClass({
 	},
 	handleFocus: function(e) {
 		console.log('focus');
-		if (!this.props.active) this.props.focus(this.props.index);
+		if (!this.props.active) this.props.focus(this.props.name);
 		this.updateText();
 	},
 	handleBlur: function(e) {
@@ -602,7 +613,7 @@ var Editor = createClass({
 	},
 	handleInput: function(e) {
 		console.log('input');
-		if (!this.props.active) this.props.focus(this.props.index);
+		if (!this.props.active) this.props.focus(this.props.name);
 		this.updateText();
 	},
 	didMount: function() {
@@ -617,9 +628,9 @@ var Editor = createClass({
 		var sel = this.state.selection;
 		var anchor, focus;
 		var range = document.createRange();
-		anchor = focus = nodeAtOffset(sel.focus, this.state.model);
+		anchor = focus = nodeAtOffset(sel.focus, this.props.model);
 		if (sel.focus !== sel.anchor) {
-			anchor = nodeAtOffset(sel.anchor, this.state.model);
+			anchor = nodeAtOffset(sel.anchor, this.props.model);
 		}
 
 		try {
@@ -684,7 +695,7 @@ var Editor = createClass({
 
 		if (this.props.active) {
 			//children.push(this.selection);
-			children.push(Preview({model: this.state.model}));
+			children.push(Preview({model: this.props.model}));
 		}
 		return DOM.div({
 				className: 'content',
@@ -729,54 +740,76 @@ var text = "#Cube\n"
 var MultiEditor = createClass({
 	getInitialState: function() {
 		return {
-			models: [text, "#Test1\n", "#Test2\n"],
-			names: ['Main','Test1', 'Test2'],
-			active: 0,
+			active: this.props.active,
 		};
 	},
 	handleMenuClick: function(e) {
 		console.log('clicked');
-		e.preventDefault();
-		e.stopPropagation();
+		//e.preventDefault();
+		//e.stopPropagation();
 		if (e.target.hash) {
-			this.setState({active: this.state.names.indexOf(e.target.hash.slice(1))});
+			this.setState({active: e.target.hash.slice(1)});
 		}
 	},
-	handleFocus: function(i) {
-		console.log('focus to ' + i)
-		if (i !== this.state.active) this.setState({active: i});
+	handleFocus: function(name) {
+		console.log('focus to ' + name)
+		if (name !== this.state.active) this.setState({active: name});
+	},
+	updateModel: function(name, text) {
+		this.props.cube.mergeModel(name, parseRaw(text));
+		//trigger redraw?
+		this.setState({active: name});
 	},
 	render: function() {
 		var active = this.state.active || 0;
 		var cursor = this.props.cursor;
 		var menuClick = this.handleMenuClick;
 		var handleFocus = this.handleFocus;
+		var updateModel = this.updateModel;
+		var cube = this.props.cube;
 		return DOM.div({id: 'layout'},
 			DOM.a({href: '#menu', id: 'menuLink', className: 'menu-link'}, [DOM.span()]),
 			DOM.div({id: 'menu'}, 
 				[DOM.div({className:"pure-menu pure-menu-open"},
 					DOM.a({className:"pure-menu-heading", href:"#"},'Clay'),
-					DOM.ul({}, this.state.names.map(function(n,i) {
+					DOM.ul({}, cube.names.map(function(n,i) {
 						return DOM.li({onClick: menuClick},
 							[DOM.a({href:"#" + n}, n)])
-					})))]),
-			DOM.div({id: 'main'}, this.state.models.map(function(text, i) {
+					})),
+					DOM.ul({}, [DOM.li({onClick: menuClick},
+							[DOM.a({href:"#Scratch"}, 'Scratch')])])
+					)]),
+			DOM.div({id: 'main'}, mapObjToArr(cube.models, function(name, value) {
 				return Editor({
-					text: text,
-					active: i === active,
-					index: i,
+					model: value,
+					active: name === active,
+					name: name,
 					cursor: cursor,
 					focus: handleFocus,
+					update: updateModel,
 				}); 
 			}))
 		);
 	}
 });
 
+
+function mapObjToArr(obj, func) {
+	var ret = [];
+	for (var k in obj) {
+		if (obj.hasOwnProperty(k)) ret.push(func(k, obj[k]));
+	}
+	return ret;
+}
+
+var cube = new Cube();
+cube.addModel('Main', new Model(parseRaw(text), 'Main'));
+cube.addModel('Test1', new Model(parseRaw("#Test1\nThis is some test text\n"), 'Test1'));
+cube.addModel('Test2', new Model(parseRaw("#Test2\nMore text here\n And some code\n"), 'Test2'));
 var cursor = new Selection();
 Friar.renderComponent(cursor, document.getElementById('cursor'));
 var x;
-Friar.renderComponent(x = new MultiEditor({cursor: cursor}), document.getElementById('view'))
+Friar.renderComponent(x = new MultiEditor({cursor: cursor, cube: cube, active: 'Main'}), document.getElementById('view'))
 //Friar.renderComponent(x = new Editor({text: text, active: true}), document.getElementById('main'));
 
 /*
