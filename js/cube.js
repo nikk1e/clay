@@ -747,6 +747,8 @@ Model.prototype.cellForOffset = function(offset) {
 		if (cell.raw.length > offset) return {cell: cell, index: i, offset: offset};
 		offset -= cell.raw.length;
 	}
+	if (offset === 0) offset = cells[len-1].raw.length || 1;
+	return {cell: cells[len-1], index: len-1, offset: offset};
 }
 
 Model.prototype.toRaw = function() {
@@ -976,7 +978,8 @@ function parseRaw(text) {
 		var type = _constructors[cap];
 		paras.push(new type(l));
 	}
-	paras.push(new P(''));
+	if (textN[textN.length-1] == '\n')
+		paras.push(new P(''));
 	return paras;
 }
 
