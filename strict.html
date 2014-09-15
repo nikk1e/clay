@@ -893,10 +893,11 @@ Cube.Import = function(path) {
 };
 
 cube.import('Main');
+cube.recalculate();
 var cursor = new Selection();
 Friar.renderComponent(cursor, document.getElementById('cursor'));
 var x;
-Friar.renderComponent(x = new MultiEditor({cursor: cursor, cube: cube, active: cube.names[cube.names.length-1] || '#Scratch'}), document.getElementById('view'))
+Friar.renderComponent(x = new MultiEditor({cursor: cursor, cube: cube, active: cube.names[0] || '#Scratch'}), document.getElementById('view'))
 //Friar.renderComponent(x = new Editor({text: text, active: true}), document.getElementById('main'));
 
 /*

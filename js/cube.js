@@ -1447,13 +1447,6 @@ Cube.prototype.recalculate = function() {
 	function Namespace() {};
 	Namespace.prototype = environment;
 
-	//Root packages
-	for (var name in this.models) {
-		if (!packages.hasOwnProperty(name)) {
-			packages[name] = new Package(name);
-		}
-	}
-
 	//Collect packages
 	//TODO: allow subnamespaces (where they cannot have the same name as a root namespace)
 	for (var name in this.models) {
@@ -1550,7 +1543,7 @@ Cube.prototype.recalculate = function() {
 				findDimensions(func, model.namespace);
 			}
 		};
-		var pack = packages[model.namespace];
+		var pack = packages[model.namespace] || new Package(model.namespace);
 		//collect expressions (after so we can get the errors)
 		for (var k in expressions) {
 			clearDimensions(expressions[k]); //clear dimensions to ensure recalc
