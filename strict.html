@@ -844,12 +844,12 @@ var MultiEditor = createClass({
 				[DOM.div({className:"pure-menu pure-menu-open"},
 					DOM.a({className:"pure-menu-heading", href:"#"},'Cube'),
 					DOM.ul({}, cube.names.map(function(n,i) {
-						return DOM.li({onClick: me.handleMenuClick},
+						return DOM.li({onClick: me.handleMenuClick, className: (n === active ? 'pure-menu-selected ' : '') + (cube.models[n].modified ? 'menu-modified' : '') },
 							[DOM.a({href:"#" + n}, n)])
 					})),
-					DOM.ul({}, [DOM.li({},[DOM.span({},"Add")])]),
-					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick},
-							[DOM.a({href:"#Scratch"}, 'Scratch')])]),
+					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick, 
+						className: ('#Scratch' === active ? 'pure-menu-selected' : '') },
+							[DOM.a({href:"##Scratch"}, 'Scratch')])]),
 					DOM.ul({}, [DOM.li({onClick: this.toggleDebug},
 							[DOM.a({href:"#"}, 'Debug')]),
 							DOM.li({onClick: this.save},
@@ -886,16 +886,17 @@ var cube = new Cube();
 var dummy = {
 	Test1: parseRaw("#Test1\nThis is some test text\n import(\"TestFred\")\n 1 + 2 + 3"),
 	Test2: parseRaw("#Test2\nMore text here\n And some code\n"),
+	Main: parseRaw(text),
 };
 Cube.Import = function(path) {
 	return dummy[path];
 };
 
-cube.addModel('Main', new Model(parseRaw(text), 'Main'));
+cube.import('Main');
 var cursor = new Selection();
 Friar.renderComponent(cursor, document.getElementById('cursor'));
 var x;
-Friar.renderComponent(x = new MultiEditor({cursor: cursor, cube: cube, active: 'Main'}), document.getElementById('view'))
+Friar.renderComponent(x = new MultiEditor({cursor: cursor, cube: cube, active: cube.names[cube.names.length-1] || '#Scratch'}), document.getElementById('view'))
 //Friar.renderComponent(x = new Editor({text: text, active: true}), document.getElementById('main'));
 
 /*

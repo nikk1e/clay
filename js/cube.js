@@ -696,10 +696,11 @@ function normaliseHeadToPackage(node, basepackage) {
 }
 
 
-function Model(cells, namespace, seed) {
+function Model(cells, namespace, seed, modified) {
 	this.cells = cells || [];
 	this.namespace = namespace || 'Main';
 	this.seed = seed || 0;
+	this.modified = !!modified;
 
 	if (cells && !seed) {
 		var me = this;
@@ -764,6 +765,7 @@ Model.prototype.insertCell = function(cell, index, mutate) {
 	cell.key = me.seed++;
 	cell.initialise(undefined, me);
 	me.cells.splice(index,0,cell);
+	me.modified = true;
 	return me;
 };
 
@@ -773,11 +775,13 @@ Model.prototype.updateCell = function(cell, index, mutate) {
 	cell.key = this.cells[index].key;
 	cell.initialise(this.cells[index], me);
 	me.cells[index] = cell;
+	me.modified = true;
 	return me;
 };
 
 Model.prototype.removeCell = function(index, mutate) {
 	var me = mutate ? this : this.clone();
+	me.modified = true;
 	me.cells.splice(index,1);
 	return me;
 };
@@ -967,7 +971,7 @@ function parseRaw(text) {
 }
 
 function Cube() {
-	this.models = {Scratch: new Model(parseRaw('#Scratch\nUse the scratchpad for your workings. This will not be saved!\n'))};
+	this.models = {'#Scratch': new Model(parseRaw('#Scratch\nUse the scratchpad for your workings. This will not be saved!\n'))};
 	this.names = [];
 	this._packages = {};
 	this._genSyms = {};
