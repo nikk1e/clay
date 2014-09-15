@@ -1776,8 +1776,11 @@ Cube.prototype.recalculate = function() {
 					var func = packg.functions[name];
 					try {
 						environment[pack][name] = this.compileFunc(func, pack)
+						if (func.sourceNode)
+							func.sourceNode.error = undefined;;
 					} catch(e) {
-						func.sourceNode.error =  e.toString();
+						if (func.sourceNode)
+							func.sourceNode.error =  e.toString();
 					}
 					
 				}
@@ -1811,6 +1814,7 @@ Cube.prototype.recalculate = function() {
 						expr.func = this.compileFunc(expr, pack);
 						expr.compiled = expr.func.bind(env);
 						expr.sourceNode.result = expr.compiled;
+						expr.sourceNode.error = undefined;
 					} catch(e) {
 						console.log(e);
 						expr.sourceNode.error = e.toString();
