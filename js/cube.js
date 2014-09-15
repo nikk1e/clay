@@ -872,26 +872,7 @@ Code.prototype.initialise = function(old, model) {
 				.map(function(node) { 
 					return normaliseHeadToPackage(node, model.namespace); 
 				});
-/*
-			//expand macros
-			var sexpr = []
-			this.sexpr.forEach(function(expr) {
-				var nodes = transform(expr, expandMacros);
-				if (nodes[0] === 'Do') {
-					nodes = nodes.slice(1);
-					Array.prototype.push.apply(sexpr, nodes.map(function(node) {
-						return normaliseHeadToPackage(node, model.namespace);
-					}));
-				} else {
-					sexpr.push(nodes);
-				}
-			});
 
-			//expand slices
-			this.sexpr = sexpr.map(function(expr) { 
-				return transform(expr, expandSlice); 
-			});
-*/
 		} catch (e) {
 			return this.error = e;
 		}
