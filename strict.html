@@ -826,26 +826,36 @@ var MultiEditor = createClass({
 	toggleDebug: function() {
 		this.setState({debug: !this.state.debug});
 	},
+	save: function() {
+		console.log('save clicked')
+	},
+	revert: function() {
+		console.log('revert clicked')
+	},
 	render: function() {
+		var me = this;
 		var active = this.state.active || 0;
 		var cursor = this.props.cursor;
-		var menuClick = this.handleMenuClick;
-		var updateModel = this.updateModel;
-		var toggleDebug = this.toggleDebug;
 		var cube = this.props.cube;
 		return DOM.div({id: 'layout'},
 			DOM.a({href: '#menu', id: 'menuLink', className: 'menu-link'}, [DOM.span()]),
 			DOM.div({id: 'menu'}, 
 				[DOM.div({className:"pure-menu pure-menu-open"},
-					DOM.a({className:"pure-menu-heading", href:"#"},'Clay'),
+					DOM.a({className:"pure-menu-heading", href:"#"},'Cube'),
 					DOM.ul({}, cube.names.map(function(n,i) {
-						return DOM.li({onClick: menuClick},
+						return DOM.li({onClick: me.handleMenuClick},
 							[DOM.a({href:"#" + n}, n)])
 					})),
-					DOM.ul({}, [DOM.li({onClick: menuClick},
+					DOM.ul({}, [DOM.li({},[DOM.span({},"Add")])]),
+					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick},
 							[DOM.a({href:"#Scratch"}, 'Scratch')])]),
-					DOM.ul({}, [DOM.li({onClick: toggleDebug},
-							[DOM.a({href:"#"}, 'Debug')])])
+					DOM.ul({}, [DOM.li({onClick: this.toggleDebug},
+							[DOM.a({href:"#"}, 'Debug')]),
+							DOM.li({onClick: this.save},
+							[DOM.a({href:"#"}, 'Save')]),
+							DOM.li({onClick: this.revert},
+							[DOM.a({href:"#"}, 'Revert')]),
+					])
 					)]),
 			DOM.div({id: 'main', className: (this.state.debug ? 'show-debug' : '') }, 
 				mapObjToArr(cube.models, function(name, value) {
@@ -854,7 +864,7 @@ var MultiEditor = createClass({
 					active: name === active,
 					name: name,
 					cursor: cursor,
-					update: updateModel,
+					update: me.updateModel,
 				}); 
 			}))
 		);
