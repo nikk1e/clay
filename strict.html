@@ -800,7 +800,8 @@ var text = "#Cube\n"
 		 + "Idea ... use non printing characters to stand in for bold and italics and links in the code so that you don't have extra characters to delete or insert in those cases. This might not help much. It might be easier to just store the list and manage it based on keypresses.\n"
 		 + "There is an empty paragraph at the end after this one. ⊕\n"
 		 + "\n"
-		 + "[1](http://google.co.uk \"Google\")\n";
+		 + "[1](http://google.co.uk \"Google\")\n"
+		 + " import(\"Test1\")\n import(\"Test2\")\n import(\"TestMe\")";
 
 
 var MultiEditor = createClass({
@@ -881,9 +882,16 @@ function mapObjToArr(obj, func) {
 }
 
 var cube = new Cube();
+
+var dummy = {
+	Test1: parseRaw("#Test1\nThis is some test text\n import(\"TestFred\")"),
+	Test2: parseRaw("#Test2\nMore text here\n And some code\n"),
+};
+Cube.Import = function(path) {
+	return dummy[path];
+};
+
 cube.addModel('Main', new Model(parseRaw(text), 'Main'));
-cube.addModel('Test1', new Model(parseRaw("#Test1\nThis is some test text\n"), 'Test1'));
-cube.addModel('Test2', new Model(parseRaw("#Test2\nMore text here\n And some code\n"), 'Test2'));
 var cursor = new Selection();
 Friar.renderComponent(cursor, document.getElementById('cursor'));
 var x;

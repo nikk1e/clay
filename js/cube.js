@@ -1019,11 +1019,13 @@ Cube.prototype.mergeModel = function(name, model) {
 };
 
 Cube.prototype.import = function(path, opt_as_namespace) {
-	if (!this.models[path]) {
-		//load model using import helper
-		this.models[path] = new Model([new Header('#' + path)], opt_as_namespace || path); //path fallback should be end of path
-	}
 	var model = this.models[path];
+	if (!model) {
+		//load model using import helper
+		var cells = Cube.Import(path) || [new Header('#' + path)];
+		model = new Model(cells, opt_as_namespace || path); //path fallback should be end of path
+		this.models[path] = model; 
+	}
 	if (opt_as_namespace && model.namespace !== opt_as_namespace) {
 		model.namespace = opt_as_namespace;
 	}
@@ -1955,6 +1957,9 @@ Cube.parseRaw = parseRaw;
 Cube.showM = showM;
 Cube.showMr = showMr;
 Cube.showS = showS;
+
+//Cube.Import should return a cells array
+Cube.Import = function(path) { return; }; //should be replace by editor with a real function
 
 base.Cube = Cube;
 
