@@ -1447,9 +1447,12 @@ Cube.prototype.recalculate = function() {
 	function Namespace() {};
 	Namespace.prototype = environment;
 
+	this.names = this.names.slice(0,1); //run imports again
+
 	//Collect packages
 	//TODO: allow subnamespaces (where they cannot have the same name as a root namespace)
-	for (var name in this.models) {
+	for (var ni = 0; ni <= this.names.length; ni++) { //go off the end so we can get Scratch
+		var name = this.names[ni] || '#Scratch';
 		var model = this.models[name];
 		var functions = {};
 		var expressions = {};
@@ -1543,7 +1546,8 @@ Cube.prototype.recalculate = function() {
 				findDimensions(func, model.namespace);
 			}
 		};
-		var pack = packages[model.namespace] || new Package(model.namespace);
+		var pack = packages[model.namespace] 
+		if (!pack) pack = packages[model.namespace] = new Package(model.namespace);
 		//collect expressions (after so we can get the errors)
 		for (var k in expressions) {
 			clearDimensions(expressions[k]); //clear dimensions to ensure recalc
@@ -1795,7 +1799,7 @@ Cube.prototype.recalculate = function() {
 					try {
 						environment[pack][name] = this.compileFunc(func, pack)
 						if (func.sourceNode)
-							func.sourceNode.error = undefined;;
+							func.sourceNode.error = undefined;
 					} catch(e) {
 						if (func.sourceNode)
 							func.sourceNode.error =  e.toString();
