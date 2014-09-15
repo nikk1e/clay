@@ -872,14 +872,16 @@ Code.prototype.initialise = function(old, model) {
 				.map(function(node) { 
 					return normaliseHeadToPackage(node, model.namespace); 
 				});
-
+/*
 			//expand macros
 			var sexpr = []
 			this.sexpr.forEach(function(expr) {
 				var nodes = transform(expr, expandMacros);
 				if (nodes[0] === 'Do') {
 					nodes = nodes.slice(1);
-					Array.prototype.push.apply(sexpr, nodes.map(normaliseHead));
+					Array.prototype.push.apply(sexpr, nodes.map(function(node) {
+						return normaliseHeadToPackage(node, model.namespace);
+					}));
 				} else {
 					sexpr.push(nodes);
 				}
@@ -889,7 +891,7 @@ Code.prototype.initialise = function(old, model) {
 			this.sexpr = sexpr.map(function(expr) { 
 				return transform(expr, expandSlice); 
 			});
-
+*/
 		} catch (e) {
 			return this.error = e;
 		}
@@ -1006,7 +1008,7 @@ Cube.prototype.Symbol = function(val) {
 };
 
 Cube.prototype.addModel = function(name, model) {
-	this.names.push(name);
+	this.names.push(name); //TODO: don't push names (import should be pushing here)
 	this.models[name] = model;
 	this.recalculate()
 };
@@ -1016,19 +1018,32 @@ Cube.prototype.mergeModel = function(name, model) {
 	this.recalculate()
 };
 
+Cube.prototype.import = function(path, opt_as_namespace) {
+	if (!this.models[path]) {
+		//load model using import helper
+		this.models[path] = new Model([new Header('#' + path)], opt_as_namespace || path); //path fallback should be end of path
+	}
+	var model = this.models[path];
+	if (opt_as_namespace && model.namespace !== opt_as_namespace) {
+		model.namespace = opt_as_namespace;
+	}
+	//if not in names then add it.
+	if (this.names.indexOf(path) == -1) this.names.push(path);
+};
+
 
 //Compiler
 
 //func takes non atom and path (e.g. expandMacros)
 function transform(ast, func, path) {
 	if (path === undefined) path = [];
-	var ret = func(ast, path);
+	var ret = func.call(this, ast, path);
 	if (ret === undefined) ret = [];
 	path.push(ast);
 	for(var i=0; i<ret.length; i++) {
 		var node = ret[i], node1;
 		if (node instanceof Array) {
-			node1 = transform(node, func, path);
+			node1 = transform.call(this, node, func, path);
 			if (node !== node1) ret[i] = node1; //NOTE (in place edit)
 		}
 	}
@@ -1438,6 +1453,7 @@ function visit(ast, func, path, index) {
 
 
 Cube.prototype.recalculate = function() {
+	var me = this;
 	var environment = new Environment(), packages = {}, pack;
 
 	//Namespace is the compiled equivalent of Package
@@ -1459,7 +1475,26 @@ Cube.prototype.recalculate = function() {
 		var expressions = {};
 		model.cells.forEach(function(node) {
 			if (node.type !== 'code' || node.lang !== 'cube' || !node.sexpr) return;
-			node.sexpr.forEach(function(sexpr, index) {
+			//expand macros
+			var sexpr = []
+			node.sexpr.forEach(function(expr) {
+				var nodes = transform.call(me, expr, expandMacros);
+				if (nodes[0] === 'Do') {
+					nodes = nodes.slice(1);
+					Array.prototype.push.apply(sexpr, nodes.map(function(node) {
+						return normaliseHeadToPackage(node, model.namespace);
+					}));
+				} else {
+					sexpr.push(nodes);
+				}
+			});
+
+			//expand slices
+			sexpr = sexpr.map(function(expr) { 
+				return transform.call(me, expr, expandSlice); 
+			});
+
+			sexpr.forEach(function(sexpr, index) {
 				//Collect packages
 				visit(sexpr, function(ast, path, index) {
 					switch (ast[0]) {
@@ -1907,7 +1942,12 @@ var table = function(expr, opt_dims) {
 	return ['NoDim', pm]; 
 };
 
-Cube.Macros = {TABLE: table}; //see js/macros.js
+var imp = function(path, opt_as_namespace) {
+	this.import(path[1], opt_as_namespace ? opt_as_namespace[1] : undefined); //TODO: don't assume strings
+	return ['Do']; //replace with call to assert namespace of is the same as....
+};
+
+Cube.Macros = {TABLE: table, IMPORT: imp}; //see js/macros.js
 Cube.PostMacros = {}; //see js/macros.js
 Cube.Functions = Functions; // we add functions to this to make them available
 Cube.Model = Model;
