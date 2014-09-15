@@ -1266,6 +1266,7 @@ var quote = function quote(expr) {
 
 Cube.prototype.compileExpr = function(expr, basepack) {
 	var me = this;
+	if (expr === undefined) return 0; //treat null as 0 (as per Spreadsheets)
 	switch(expr[0]) {
 		case 'PostMacro':
 			return me.compileExpr(expandPostMacros(expr), basepack);
@@ -1520,12 +1521,14 @@ Cube.prototype.recalculate = function() {
 			} else {
 				pack.functions[name] = func;
 				func._baseNamespace = model.namespace;
+				clearDimensions(func); //clear dimensions to ensure recalc
 				findDimensions(func, model.namespace);
 			}
 		};
 		var pack = packages[model.namespace];
 		//collect expressions (after so we can get the errors)
 		for (var k in expressions) {
+			clearDimensions(expressions[k]); //clear dimensions to ensure recalc
 			pack.expressions[k] = expressions[k];
 			pack.expressions[k]._baseNamespace = model.namespace;
 		};
@@ -1533,6 +1536,15 @@ Cube.prototype.recalculate = function() {
 
 	this._environment = environment;
 	this._packages = packages;
+
+	function clearDimensions(expr) {
+		if (expr === undefined) return;
+		delete expr.pass;
+		delete expr.dimensions;
+		if (expr instanceof Array) {
+			for(var i=expr.length - 1; i > 0; i--) clearDimensions(expr[i]);
+		}
+	}
 
 	//find all dimensions (here not in the package as it needs to go over package)
 	function findDimensions(expr, basepack) {
@@ -1640,7 +1652,7 @@ Cube.prototype.recalculate = function() {
 	function annotateDimensions(expr, pass, basepack) {
 		if (typeof(expr) === 'string' || expr === undefined || expr === null)
 			return [];
-		if (expr.dimensions !== undefined) {
+		if (expr.dimensions !== undefined) { 
 			if (expr.pass === pass) {
 				return expr.dimensions;
 			}
@@ -1781,7 +1793,7 @@ Cube.prototype.recalculate = function() {
 			for (var name in packg.expressions) {
 				if (packg.expressions.hasOwnProperty(name)) {
 					var expr = packg.expressions[name];
-					annotateDimensions(expr, pass-1, pack);
+					annotateDimensions(expr, 0, pack);
 					if (expr.dimensions.length > 0) {
 						//Wrap expressions with table
 						//TODO: use original expression
@@ -1791,7 +1803,7 @@ Cube.prototype.recalculate = function() {
 						expr2.sourceNode = expr.sourceNode;
 						expr = expr2;
 						packg.expressions[name] = expr;
-						annotateDimensions(expr, pass-1, pack);
+						annotateDimensions(expr, 0, pack); 
 						
 
 					}
@@ -1821,6 +1833,7 @@ Cube.prototype.recalculate = function() {
 //TODO: this needs to take a prec so we can
 // avoid too many brackets in output.
 function showMr(s, skip) {
+	if (s === undefined) return 'NULL'
 	if (!skip && s.originalSexpr !== undefined) return showMr(s.originalSexpr);
 	switch (s[0]) {
 		case 'Number': return s[1].toString();
