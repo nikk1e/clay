@@ -696,15 +696,19 @@ function normaliseHeadToPackage(node, basepackage) {
 }
 
 
-function Model(cells, namespace, seed, modified) {
+function Model(cells, namespace, seed, modified, dirty) {
 	this.cells = cells || [];
 	this.namespace = namespace || 'Main';
 	this.seed = seed || 0;
 	this.modified = !!modified;
+	this._dirty = !!dirty;
 
 	if (cells && !seed) {
 		var me = this;
 		this.cells.forEach(function(cell, i) {
+			if (!this._dirty && (cell.type === 'code' || cell.type === 'table')) {
+				this._dirty = true
+			}
 			cell.key = me.seed++;
 			cell.initialise(undefined, me);
 		});
@@ -757,7 +761,8 @@ Model.prototype.toRaw = function() {
 };
 
 Model.prototype.clone = function() {
-	return new Model(this.cells.slice(0), this.namespace, this.seed);
+	return new Model(this.cells.slice(0),
+		this.namespace, this.seed,  this.modified, this._dirty);
 };
 
 Model.prototype.insertCell = function(cell, index, mutate) {
@@ -865,6 +870,7 @@ function Code(raw) {
 Code.prototype = new Cell();
 Code.prototype.type = 'code';
 Code.prototype.initialise = function(old, model) {
+	model._dirty = true;
 	var raw = this.raw;
 	this.lang = (/^ function +[$A-Za-z_][0-9A-Za-z_$]* *\(/.test(raw)) ? 'javascript' : 'cube';
 	this.text = raw.slice(1).replace(/\n /g,'\n');
@@ -920,6 +926,7 @@ function Table(raw) {
 Table.prototype = new Cell();
 Table.prototype.type = 'table';
 Table.prototype.initialise = function(old, model) {
+	model._dirty = true;
 	var raw = this.raw;
 	var t = raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
 
@@ -998,9 +1005,33 @@ Cube.prototype.addModel = function(name, model) {
 	this.recalculate()
 };
 
+Cube.prototype.dirty = function() {
+	var names = this.names;
+	var len = names.length;
+	var name;
+	var model;
+	for (var i = 0; i <= len; i++) {
+		name = (i === len) ? '#Scratch' : names[i];
+		model = this.models[name];
+		if (model._dirty) return true;
+	}
+	return false;
+};
+
+Cube.prototype.clean = function() {
+	for (var n in this.models) {
+		if (this.models.hasOwnProperty(n)) {
+			this.models[n]._dirty = false;
+		}
+	}
+};
+
 Cube.prototype.mergeModel = function(name, model) {
 	this.models[name] = this.models[name].merge(model);
-	this.recalculate()
+	if (this.dirty()) {
+		this.recalculate();
+		this.clean();
+	}
 };
 
 Cube.prototype.import = function(path, opt_as_namespace) {
@@ -1440,6 +1471,7 @@ function visit(ast, func, path, index) {
 
 
 Cube.prototype.recalculate = function() {
+	console.log('Recalculating');
 	var me = this;
 	var environment = new Environment(), packages = {}, pack;
 
@@ -1844,6 +1876,16 @@ Cube.prototype.recalculate = function() {
 					
 				}
 			}
+		}
+	}
+
+	//remove unimported models that are not modified
+	for (var n in this.models) {
+		if (this.models.hasOwnProperty(n)
+			&& n !== '#Scratch'
+			&& !this.models[n].modified 
+			&& this.names.indexOf(n) === -1) {
+			delete this.models[n];
 		}
 	}
 
