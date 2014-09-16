@@ -706,11 +706,8 @@ function Model(cells, namespace, seed, modified, dirty) {
 	if (cells && !seed) {
 		var me = this;
 		this.cells.forEach(function(cell, i) {
-			if (!this._dirty && (cell.type === 'code' || cell.type === 'table')) {
-				this._dirty = true
-			}
 			cell.key = me.seed++;
-			cell.initialise(undefined, me);
+			cell.initialise(undefined, me); //initialise will dirty *me* if needed
 		});
 	}
 }
