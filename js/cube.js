@@ -1050,23 +1050,20 @@ Cube.prototype.import = function(path, opt_as_namespace) {
 //Compiler
 
 //func takes non atom and path (e.g. expandMacros)
-function transform(ast, func, path) {
-	if (path === undefined) path = [];
-	var ret = func.call(this, ast, path);
+function transform(ast, func) {
+	var ret = func.call(this, ast);
 	if (ret === undefined) ret = [];
-	path.push(ast);
 	for(var i=0; i<ret.length; i++) {
 		var node = ret[i], node1;
 		if (node instanceof Array) {
-			node1 = transform.call(this, node, func, path);
+			node1 = transform.call(this, node, func);
 			if (node !== node1) ret[i] = node1; //NOTE (in place edit)
 		}
 	}
-	path.pop(ast);
 	return ret;
 }
 
-var expandMacros = function(expr, path) {
+var expandMacros = function(expr) {
 	var rep;
 	var sexpr;
 	var symb = expr[1];
@@ -1112,7 +1109,7 @@ var expandPostMacros = function(expr) {
 	return expr;
 };
 
-function expandSlice(expr, path) {
+function expandSlice(expr) {
 	var ret;
 	switch(expr[0]) {
 		case 'Slice': {
@@ -1121,7 +1118,7 @@ function expandSlice(expr, path) {
 				var para = expr[i];
 				switch(para[0]) {
 					case 'Let':
-						ret = expandSlice(['LetS', para[1], para[2], ret], path);
+						ret = expandSlice(['LetS', para[1], para[2], ret]);
 						break;
 					case 'Symbol':
 						overs.push(para);
@@ -1471,6 +1468,8 @@ Cube.prototype.recalculate = function() {
 	console.log('Recalculating');
 	var me = this;
 	var environment = new Environment(), packages = {}, pack;
+
+	environment._Cube = me; //allow access to the Cube for variant functions and tables
 
 	//Namespace is the compiled equivalent of Package
 	function Namespace() {};
