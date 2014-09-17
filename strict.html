@@ -59,6 +59,9 @@ td.empty {
 	height: 20px;
 	border-bottom: 1px dotted #cbcbcb;
 }
+td.error {
+	border-top: 1px solid #cbcbcb;
+}
 hr {
 	border-top: 1px solid #edece4;
 	border-bottom: 0;
@@ -143,7 +146,7 @@ var Table = createClass({
 		var rows = token.rows;
 		var alignments = token.alignments;
 		var classes = token.classes;
-
+		var foot = [];
 		//TODO: give the rows keys within the table
 		function renderRow(row, type, alignments, classes) {
 			return DOM.tr({id: keyToId(token.key) + '.' + row.key.toString(36)},
@@ -153,11 +156,16 @@ var Table = createClass({
 				}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
 		}
 
+		if (token.error) {
+			foot.push(DOM.tr({},[DOM.td({className: 'error', colSpan: alignments.length}, token.error)]));
+		}
+
 		return DOM.table({id: keyToId(token.key),  
 						  className: 'pure-table pure-table-bordered'}, 
 			DOM.thead({},[renderRow(rows[0], 'th', alignments, classes)]), 
 			DOM.tbody({},rows.slice(1).map(
-				function(row) { return renderRow(row, 'td', alignments, classes); })));
+				function(row) { return renderRow(row, 'td', alignments, classes); })),
+			DOM.tfoot({},foot));
 	}
 });
 
@@ -776,7 +784,7 @@ var text = "#Cube\n"
 		 + "|this|is|a|table\n"
 		 + "|more|table|stuff|here\n"
 		 +"Paragraph to separate tables\n"
-		 + "|State[Row]|Gender[]|City[]|Pop[]\n"
+		 + "|State[Row]|Gender[Row]|City[Row]|Pop[Row]\n"
 		 + "|WA|M|Seattle|2\n"
 		 + "|WA|F|Seattle|23\n"
 		 + "|KS|M|Lawrence|4\n"
@@ -873,7 +881,7 @@ var MultiEditor = createClass({
 			DOM.a({href: '#menu', id: 'menuLink', className: 'menu-link'}, [DOM.span()]),
 			DOM.div({id: 'menu'}, 
 				[DOM.div({className:"pure-menu pure-menu-open"},
-					DOM.a({className:"pure-menu-heading", href:"#"},'Cube'),
+					DOM.a({className:"pure-menu-heading", href:"#"},DOM.text('Clay'), DOM.sup({},'3')),
 					DOM.ul({}, cube.names.map(function(n,i) {
 						return DOM.li({onClick: me.handleMenuClick, className: (n === active ? 'pure-menu-selected ' : '') + (cube.models[n].modified ? 'menu-modified' : '') },
 							[DOM.a({href:"#" + n}, n)])

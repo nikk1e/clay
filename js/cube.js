@@ -696,9 +696,10 @@ function normaliseHeadToPackage(node, basepackage) {
 }
 
 
-function Model(cells, namespace, seed, modified, dirty) {
+function Model(name, cells, namespace, seed, modified, dirty) {
 	this.cells = cells || [];
 	this.namespace = namespace || 'Main';
+	this.name = name;
 	this.seed = seed || 0;
 	this.modified = !!modified;
 	this._dirty = !!dirty;
@@ -706,11 +707,25 @@ function Model(cells, namespace, seed, modified, dirty) {
 	if (cells && !seed) {
 		var me = this;
 		this.cells.forEach(function(cell, i) {
-			cell.key = me.seed++;
+			cell.key = me.seed++; // need key before we initialise
 			cell.initialise(undefined, me); //initialise will dirty *me* if needed
 		});
 	}
 }
+
+function sym() {
+	var symb = ['Symbol'];
+	Array.prototype.push.apply(symb, arguments);
+	return symb;
+};
+
+function str(strn) {
+	return ['String', strn];
+};
+
+function num(numb) {
+	return ['Number', numb];
+};
 
 //Usage: Model.fromObj(JSON.parse(str));
 //TODO: convert children
@@ -719,6 +734,11 @@ Model.fromObj = function(raw) {
 	for(var i in raw)
 		obj[i] = raw[i];
 	return obj;
+};
+
+Model.prototype.cellByKey = function(key) {
+	var ind = this.indexOfKey(key);
+	if (ind >= 0) return this.cells[ind];
 };
 
 Model.prototype.indexOfKey = function(key) {
@@ -758,7 +778,7 @@ Model.prototype.toRaw = function() {
 };
 
 Model.prototype.clone = function() {
-	return new Model(this.cells.slice(0),
+	return new Model(this.name, this.cells.slice(0),
 		this.namespace, this.seed,  this.modified, this._dirty);
 };
 
@@ -923,25 +943,125 @@ function Table(raw) {
 Table.prototype = new Cell();
 Table.prototype.type = 'table';
 Table.prototype.initialise = function(old, model) {
-	model._dirty = true;
+	var me = this;
 	var raw = this.raw;
-	var t = raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
+	var text = raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
 
-	this.rows = t.split('\n').map(function(row,i) { 
+	this.rows = text.split('\n').map(function(row,i) { 
 		if (row.length === 0) return {key: i, cells:[], raw: row};
 		return {key: i, cells:row.slice(1).split('|'), raw: row};
 	});
 
-	this.alignments = this.rows[0].cells.map(function(c) {
-	 	return /^ /.test(c) ? 
-	 		{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
+	this.alignments = this.rows[0].cells.map(function(cell) {
+	 	return /^ /.test(cell) ? 
+	 		{'text-align': (/ $/.test(cell) ? 'center' : 'right')} : {};
 	});
 
-	this.classes = this.rows[0].cells.map(function(c) {
-	 	return /= *$/.test(c) ? 'highlight' : undefined;
+	this.classes = this.rows[0].cells.map(function(cell) {
+	 	return /= *$/.test(cell) ? 'highlight' : undefined;
 	});
+
+	model._dirty = true; //TODO: only do this if we or old have code
+
+	//check type (i.e row based, key based, with formulas)
+	var modelColumns = [];
+	var keys = [];
+	var predicates = {};
+	var cubeNames = {};
+	var keyColumns = [];
+	var cubeColumns = [];
+	var rows = this.rows;
+	var header = rows[0].cells;
+	header.forEach(function(cell, col) {
+		var match = cell.match(/ *(.*)= *$/)
+		if (match) {
+			keys.push(match[1]);
+			keyColumns.push(col);
+			modelColumns.push(col);
+		} else if (match = cell.match(/^\s*(.*)\[([^\]]*)\] *$/)) {
+			modelColumns.push(col);
+			cubeColumns.push(col);
+			predicates[col] = match[2];
+			cubeNames[col] = match[1];
+			//todo check for non row based predicate
+		}
+	});
+	if (modelColumns.length > 0) {
+		var formulaColumns = [];
+		modelColumns.forEach(function(col) {
+			var hasFormula = rows.some(function(row) {
+				return /^ *=/.test(row.cells[col]);
+			});
+			if (hasFormula) formulaColumns.push(col);
+		});
+		var hasFormulas = formulaColumns.length > 0;
+		
+		modelColumns.forEach(function(i) {
+			var cell = header[i]
+			var match = cell.match(/ *(.*)= *$/)
+			if (match) {
+				keys.push(match[1]);
+				keyColumns.push(i);
+			}
+		});
+		var isRowBased = keys.length === 0;
+
+		//Compile the table.
+		//Don't support functions in key based columns if the
+		//key is being defined by the table.
+
+		//Don't support Row keyed tables with formulas.
+		if (isRowBased && hasFormulas) {
+			this.error = 'A Row keyed table column cannot contain formulas'
+		} else if (isRowBased) {
+			//assume all the predicates are the same (or only the first has anything in)
+			var catName = predicates[cubeColumns[0]];
+			
+			this.sexpr = [
+				//define Row category
+				['Category', 
+					sym(model.namespace, catName), //TODO. check for namespace
+					['Call', sym('range'), num(this.rows.length - 1)]],
+			];
+			//define Cubes for cubeColumns
+			cubeColumns.forEach(function(col) {
+				var cubeName = cubeNames[col];
+				var expr = ['Set', sym(model.namespace, cubeName), //TODO (check if we have a namespace on the column)
+					['Indexed', ['Call', sym('_tableColumn'), str(model.name), num(me.key), num(col)], 
+					            ['Index', sym(catName)]]
+				];
+				me.sexpr.push(expr);
+			});
+		} else if (hasFormulas) {
+			//when we come to define the key (not here*) we need to
+			// assert it doesn't have any formulas if we want the 
+			// table to be where the key is defined
+			//* wait until end to see if the key is defined outside
+			// of the table so we don't attempt to define it twice.
+		} else {
+			//key based with no formulas
+			// * see above with regards to key handling
+		}
+
+	}
+
 };
 
+function _tableColumn(name, key, col) {
+	//this should be
+	var cube = this._Cube;
+	var model = cube.models[name];
+	var cell = model.cellByKey(key);
+	//assume table cell
+	if (cell && cell.rows) {
+		return cell.rows.slice(1).map(function(row) {
+			var value = row.cells[col]; //TODO might want to convert to number if number
+			var num = parseFloat(value);
+			return (isNaN(num) ? value : num);
+		});
+	}
+	return [];
+}
 
 var _constructors = {
 	'#': Header,
@@ -1040,7 +1160,7 @@ Cube.prototype.import = function(path, opt_as_namespace) {
 	if (!model) {
 		//load model using import helper
 		var cells = Cube.Import(path) || [new Header('#' + path)];
-		model = new Model(cells, opt_as_namespace || path); //path fallback should be end of path
+		model = new Model(path, cells, opt_as_namespace || path); //path fallback should be end of path
 		this.models[path] = model; 
 	}
 	if (opt_as_namespace && model.namespace !== opt_as_namespace) {
@@ -1353,7 +1473,8 @@ return _ret;'
 			return '(function() {\nswitch (' + me.compileExpr(expr[2], basepack) + ') {\n' +
 				expr[1].slice(1).map(function(e,i) { return '  case ' + i + ': return ' + me.compileExpr(e, basepack) + ';\n'}).join('') +
 				'}; })()'
-		case 'Indexed': 
+		case 'Indexed':
+			//TODO: this needs optimizing
 			if (expr.length > 3) throw new Error('Indexed does not yet support multiple args');
 			var ex = me.compileExpr(expr[1], basepack);
 			return '(' + ex + ')[' + me.compileExpr(expr[2], basepack) + ']';
@@ -1950,6 +2071,7 @@ var Functions = {
 	sin: Math.sin,
 	cos: Math.cos,
 	tan: Math.tan, //etc (see js/functions.js and js/functions/*)
+	_tableColumn: _tableColumn, //internal - for table compile
 };
 
 function Environment() {}
