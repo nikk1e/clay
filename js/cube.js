@@ -1485,7 +1485,7 @@ Cube.prototype.recalculate = function() {
 		var functions = {};
 		var expressions = {};
 		model.cells.forEach(function(node) {
-			if (node.type !== 'code' || node.lang !== 'cube' || !node.sexpr) return;
+			if (!node.sexpr) return; //find all cells with sexprs
 			//expand macros
 			var sexpr = []
 			node.sexpr.forEach(function(expr) {
