@@ -936,12 +936,16 @@ Table.prototype.initialise = function(old, model) {
 	 	return /^ /.test(c) ? 
 	 		{'text-align': (/ $/.test(c) ? 'center' : 'right')} : {};
 	});
+
+	this.classes = this.rows[0].cells.map(function(c) {
+	 	return /= *$/.test(c) ? 'highlight' : undefined;
+	});
 };
 
 
 var _constructors = {
 	'#': Header,
-	p:   P,
+	'p': P,
 	'!': Figure,
 	' ': Code,
 	'*': Ulli,

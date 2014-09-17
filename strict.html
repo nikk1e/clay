@@ -142,20 +142,22 @@ var Table = createClass({
 		var token = this.props;
 		var rows = token.rows;
 		var alignments = token.alignments;
+		var classes = token.classes;
 
 		//TODO: give the rows keys within the table
-		function renderRow(row, type, alignments) {
+		function renderRow(row, type, alignments, classes) {
 			return DOM.tr({id: keyToId(token.key) + '.' + row.key.toString(36)},
 				row.cells.length > 0 ? row.cells.map(function(c,i) {
-					return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
+					return DOM[type]({style: (alignments[i] || {}), 
+						className: classes[i]}, fixSpaces(c)); //TODO (c should be spans)
 				}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
 		}
 
 		return DOM.table({id: keyToId(token.key),  
 						  className: 'pure-table pure-table-bordered'}, 
-			DOM.thead({},[renderRow(rows[0], 'th', alignments)]), 
+			DOM.thead({},[renderRow(rows[0], 'th', alignments, classes)]), 
 			DOM.tbody({},rows.slice(1).map(
-				function(row) { return renderRow(row, 'td', alignments); })));
+				function(row) { return renderRow(row, 'td', alignments, classes); })));
 	}
 });
 
