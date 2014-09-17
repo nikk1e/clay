@@ -1039,12 +1039,14 @@ Table.prototype.initialise = function(old, model) {
 			//* wait until end to see if the key is defined outside
 			// of the table so we don't attempt to define it twice.
 			/*
-			(Set (Symbol Main Description) 
-			     (Restrict (Equal (Symbol Portfolio) (Symbol Equity)) 
-			               (String Equities)))
-			(Set (Symbol Main Weight) 
-			     (Restrict (Equal (Symbol Portfolio) (Symbol Equity)) 
-			               (Number 0.6)))
+			(Set (Symbol Main Description)
+			     (LetG (Symbol Portfolio)
+			     	   (Symbol Equity)
+			     	   (String Equities)))
+			 (Set (Symbol Main Weight)
+			      (LetG (Symbol Portfolio) 
+			            (Symbol Equity) 
+			            (Number 0.6)))
 			(Category (Symbol Main Portfolio) (List (Symbol Equity)))
 			*/
 		}
@@ -1705,11 +1707,12 @@ Cube.prototype.recalculate = function() {
 			} else {
 				pack.functions[name] = func;
 				func._baseNamespace = model.namespace;
-				//clearDimensions(func); //clear dimensions to ensure recalc
-				//findDimensions(func, model.namespace);
 			}
 		};
 
+		//TODO: INSERT CODE TO MAKE TABLE CATEGORIES HERE
+
+		//Note: findDimensions also makes dummy Categories for missing
 		for (var k in functions) {
 			var func = functions[k];
 			clearDimensions(func); //clear dimensions to ensure recalc
