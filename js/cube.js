@@ -1032,15 +1032,21 @@ Table.prototype.initialise = function(old, model) {
 				];
 				me.sexpr.push(expr);
 			});
-		} else if (hasFormulas) {
+		} else {
 			//when we come to define the key (not here*) we need to
 			// assert it doesn't have any formulas if we want the 
 			// table to be where the key is defined
 			//* wait until end to see if the key is defined outside
 			// of the table so we don't attempt to define it twice.
-		} else {
-			//key based with no formulas
-			// * see above with regards to key handling
+			/*
+			(Set (Symbol Main Description) 
+			     (Restrict (Equal (Symbol Portfolio) (Symbol Equity)) 
+			               (String Equities)))
+			(Set (Symbol Main Weight) 
+			     (Restrict (Equal (Symbol Portfolio) (Symbol Equity)) 
+			               (Number 0.6)))
+			(Category (Symbol Main Portfolio) (List (Symbol Equity)))
+			*/
 		}
 
 	}
@@ -1054,11 +1060,15 @@ function _tableColumn(name, key, col) {
 	var cell = model.cellByKey(key);
 	//assume table cell
 	if (cell && cell.rows) {
-		return cell.rows.slice(1).map(function(row) {
+		if (!cell._columns) cell._columns = {};
+		if (!cell._columns[col]) {
+			cell._columns[col] = cell.rows.slice(1).map(function(row) {
 			var value = row.cells[col]; //TODO might want to convert to number if number
 			var num = parseFloat(value);
 			return (isNaN(num) ? value : num);
-		});
+			});
+		}
+		return cell._columns[col];
 	}
 	return [];
 }
@@ -1695,10 +1705,17 @@ Cube.prototype.recalculate = function() {
 			} else {
 				pack.functions[name] = func;
 				func._baseNamespace = model.namespace;
-				clearDimensions(func); //clear dimensions to ensure recalc
-				findDimensions(func, model.namespace);
+				//clearDimensions(func); //clear dimensions to ensure recalc
+				//findDimensions(func, model.namespace);
 			}
 		};
+
+		for (var k in functions) {
+			var func = functions[k];
+			clearDimensions(func); //clear dimensions to ensure recalc
+			findDimensions(func, model.namespace);
+		};
+
 		var pack = packages[model.namespace] 
 		if (!pack) pack = packages[model.namespace] = new Package(model.namespace);
 		//collect expressions (after so we can get the errors)
