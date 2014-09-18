@@ -20,7 +20,7 @@ function Sum(list) {
 	var sum = 0;
 	list.forEach(function(v,i) { if (v !== undefined) sum += v; });
 	return sum;
-};
+}
 
 
 function Max(list) {
@@ -29,7 +29,7 @@ function Max(list) {
 		if (max === undefined || max < v) max = v; 
 	});
 	return max;
-};
+}
 
 function range(start, end, step) {
 	if (end === undefined) {
@@ -45,13 +45,13 @@ function range(start, end, step) {
 		cur = cur + step;
 	}
 	return ret;
-};
+}
 
 function Head(list) {
 	var head;
 	list.some(function(v,i) { head = v; return true;});
 	return head;
-};
+}
 
 function Unique(list) {
 	var included = {}, ret = [];
@@ -62,12 +62,12 @@ function Unique(list) {
 		}
 	});
 	return ret;
-};
+}
 
 function _Table(list, ast) {
 	//TODO: use the ast to figure out the table.
 	return clay.code.show(ast);
-};
+}
 
 function BasicTable(headers, rows, highlight) {
 	var c = document.createElement.bind(document);
@@ -108,7 +108,7 @@ function BasicTable(headers, rows, highlight) {
 // returns only defined values
 function Values(list) {
 	return list.filter(function() { return true; });
-};
+}
 
 //
 mixin(Cube.Functions, {

@@ -18,26 +18,26 @@ function mixin(obj, mix) {
 
 //Macros
 
-var makeRecursion = function(func) {
+function makeRecursion(func) {
 	return function(expr) {
 		var head = expr[0];
 		if (head == 'Symbol') {
 			return ['Let', ['Index', expr], func(expr)];
-		};
+		}
 		if (head == 'Subtract' || head == 'Plus') {
 			var lhs = expr[1], rhs = expr[2];
 			if (lhs[0] == 'Symbol' && rhs[0] == 'Number') {
 				return ['Let', ['Index', lhs], [head, func(lhs), rhs]];
 			}
 		}
-	}
+	};
 }
 
 
 //This should only be called at the base level
 // as Flip(X, Line, {Net Income, etc})
 // or X = Flip(Line, {Net Income, etc})
-var flip = function(symb, catSymb, expr) {
+function flip(symb, catSymb, expr) {
 	if (expr[0] !== 'List')
 		return ['Error', 'Flip joins a list of expr', sexpr];
 	var qexpr = ['List'];
@@ -47,7 +47,7 @@ var flip = function(symb, catSymb, expr) {
 	var cat = ['Category', catSymb, qexpr];
 	var func = ['Set*', symb, ['Indexed*', expr, ['Index', catSymb]]]; //need Indexed* and Set* to not do memo
 	return ['Do', cat, func]; //Do A B is same as A\nB
-};
+}
 
 
 //Table({Table({Graph.Line(Net Income[Month])},{Assum})})
@@ -55,7 +55,7 @@ var flip = function(symb, catSymb, expr) {
 //Table({Graph.Line(Net Income[Month][Growth])})
 //Table({Graph.Line(Net Income[Month][Growth])},{Year})
 //Y = Table({Graph.Line(Net Income[Month][Growth])})
-var postTable = function(exprs, quoteds, dims) {
+function postTable(exprs, quoteds, dims) {
 	//exprs and quoteds are both expected to be list literals
 
 	// ***** TODO : don't bother with all this dimension stuff
@@ -64,19 +64,17 @@ var postTable = function(exprs, quoteds, dims) {
 		dims = exprs.dimensions;
 	} else {
 		dims = dims.slice(1).map(function(d) { 
-			return d.dimensions[0]; }
-		);
+			return d.dimensions[0]; 
+		});
 	}
 
 	var len = ['Number', dims.length];
 	var heads = ['List'];
-	heads.dimensions = []
+	heads.dimensions = [];
 	var fexpr = ['List'];
 	fexpr.dimensions = dims;
-	if (dims.length > 0)
-		var over = ['Over', fexpr];
-	else
-		var over = ['List', fexpr];
+	var type = (dims.length > 0) ? 'Over' : 'List';
+	var over = [type, fexpr];
 	over.dimensions = [];
 	dims.forEach(function(d) { 
 		var s = d.split('.'); 
@@ -87,34 +85,34 @@ var postTable = function(exprs, quoteds, dims) {
 	exprs.slice(1).forEach(function(d) { fexpr.push(d); });
 	quoteds.slice(1).forEach(function(d) { heads.push(d); });
 	return ['Call', ['Symbol', 'BasicTable'], heads, over, len]; 
-};
+}
 
 //pages should be of form {symb=value,...}
-var pivot = function(expr, pages, cols, rows, descriptions) {
+function pivot(expr, pages, cols, rows, descriptions) {
 	return ['NoDim', ['PostMacro', ['Symbol', 'Pivot'], expr, 
 		showM(expr), pages, cols, rows, descriptions]]; 
-};
+}
 
-var postPivot = function(expr, quoted, pages, cols, rows, descriptions) {
+function postPivot(expr, quoted, pages, cols, rows, descriptions) {
 	//TODO: .. implement this
 	return ['Call', ['Symbol', '_Pivot'], showM(expr), expr]; 
-};
+}
 
-var quoteM = function(expr) {
+function quoteM(expr) {
 	return showM(expr);
-};
+}
 
-var expand = function(expr) {
+function expand(expr) {
 	return expandMacros(expr);
-};
+}
 
-var quoteS = function(expr) {
-	return clay.code.show(expr);
-};
+function quoteS(expr) {
+	return Cube.showS(expr);
+}
 
-var nodim = function(expr) {
+function nodim(expr) {
 	return ['NoDim', expr];
-};
+}
 
 function graphLine(expr, over, series) {
 	if (series !== undefined) {
@@ -123,15 +121,17 @@ function graphLine(expr, over, series) {
 		//{expr, expr2}, over
 	} else {
 		//expr[over][over]
-		if (expr[0] == 'Slice' 
-			&& expr[1][0] == 'Slice'
-			&& expr[2][0] == 'Symbol' 
-			&& expr[1][2][0] == 'Symbol') {
+		if (expr[0] == 'Slice' &&
+			expr[1][0] == 'Slice' &&
+			expr[2][0] == 'Symbol' &&
+			expr[1][2][0] == 'Symbol') {
 			var iexpr = expr[1][1];
 			var xexpr = ['Over', expr[1][2], expr[1][2]];
 			var sexpr = ['Over', expr[2], expr[2]];
-			var eexpr = ['Over', ['Over', iexpr,  expr[1][2]], expr[2]]
-			return ['Call', ['Symbol', 'Graph', 'LineB'], showM(iexpr), eexpr, xexpr, sexpr];
+			var eexpr = ['Over', ['Over', iexpr,  expr[1][2]], expr[2]];
+			return ['Call', 
+				['Symbol', 'Graph', 'LineB'], 
+				showM(iexpr), eexpr, xexpr, sexpr];
 		}
 	}
 	return ['Call', ['Symbol', 'Graph', 'Line'], showM(expr), expr]; 
@@ -163,7 +163,5 @@ var PostMacros = {
 
 mixin(Cube.Macros, Macros);
 mixin(Cube.PostMacros, PostMacros);
-
-
 
 }(this || (typeof window !== 'undefined' ? window : global)));

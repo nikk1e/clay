@@ -10,11 +10,11 @@ function fetchFile(path, callback) {
     };
     httpRequest.open('GET', path);
     httpRequest.send();
-};
+}
 
 function fetchJSONFile(path, callback) {
 	fetchFile(path, function(raw) {
 		var data = JSON.parse(raw);
 		if (callback) callback(data);
-	})
+	});
 }

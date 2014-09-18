@@ -881,7 +881,8 @@ var MultiEditor = createClass({
 			DOM.a({href: '#menu', id: 'menuLink', className: 'menu-link'}, [DOM.span()]),
 			DOM.div({id: 'menu'}, 
 				[DOM.div({className:"pure-menu pure-menu-open"},
-					DOM.a({className:"pure-menu-heading", href:"#"},DOM.text('Clay'), DOM.sup({},'3')),
+					DOM.a({className:"pure-menu-heading", href:"#"},
+						DOM.text('Clay'), DOM.sup({},'3')),
 					DOM.ul({}, cube.names.map(function(n,i) {
 						return DOM.li({onClick: me.handleMenuClick, className: (n === active ? 'pure-menu-selected ' : '') + (cube.models[n].modified ? 'menu-modified' : '') },
 							[DOM.a({href:"#" + n}, n)])
@@ -991,5 +992,6 @@ function test(n) {
 
 </script>
 <script src="js/ui.js"></script>
+<script src="//localhost:35729/livereload.js"></script>
 </body>
 </html>

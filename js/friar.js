@@ -39,7 +39,7 @@ Base.prototype.construct = function(props, children) {
 		this.props = { text: props };
 		this.node = null;
 		return;
-	};
+	}
 
 	this.props = props || {};
 	this.node = null;
@@ -59,9 +59,9 @@ Base.prototype.construct = function(props, children) {
 			if (typeof child == 'string' || typeof child === 'number') {
 				child = DOM.text(typeof child === 'number' ? '' + child : child);
 			}
-			if (prevChild
-			 && child.type === DOM.text.type
-			 && prevChild.type === DOM.text.type) {
+			if (prevChild &&
+			    child.type === DOM.text.type &&
+			    prevChild.type === DOM.text.type) {
 				prevChild.props.text += child.props.text; //join text nodes together
 			} else {
 				childArr.push(child);
@@ -134,7 +134,7 @@ function DOMClass(tag) {
 DOMClass.prototype = new Base();
 
 DOMClass.prototype.mount = function() {
-	if (this.node != null) {
+	if (this.node !== null) {
 		return this.node;
 	}
 	if (this.type === DOM.text.type) {
@@ -187,6 +187,7 @@ DOMClass.prototype.removeListener = function(key) {
 // will not be assuming that an objects keys are itterated over in order (not to js spec)
 DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 	var me = this;
+	var name;
 	if (!nextChildren && !prevChildren) {
 		return;
 	}
@@ -198,11 +199,11 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 		prevChildrenByName[c.props.key ? '$' + c.props.key : '.' + (pi++)] = c;
 	});
 	var nextChildrenByName = {};
-	var lastIndex = 0
+	var lastIndex = 0;
 	for (var nextIndex = 0; nextIndex < nextChildren.length; nextIndex ++) {
 		var child = nextChildren[nextIndex];
 	//nextChildren.forEach(function(child, nextIndex) {
-		var name = child.props.key ? '$' + child.props.key : '.' + (ni++);
+		name = child.props.key ? '$' + child.props.key : '.' + (ni++);
 		nextChildrenByName[name] = child;
 		var prevChild = prevChildrenByName[name];
 		if (shouldUpdateComponent(prevChild, child)) {
@@ -227,7 +228,7 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 		}
 	}//);
 	//delete
-	for (var name in prevChildrenByName) {
+	for (name in prevChildrenByName) {
 		if (prevChildrenByName.hasOwnProperty(name) &&
 			!nextChildrenByName[name]) {
 			me.unmountChild(prevChildrenByName[name]);
@@ -286,14 +287,16 @@ var STYLE = 'style';
 DOMClass.prototype._updateDOMProperties = function(prevProps) {
 	var nextProps = this.props;
 	var styleUpdates;
-	for (var key in prevProps) {
+	var key;
+	var styleName;
+	for (key in prevProps) {
 		if (nextProps.hasOwnProperty(key) ||
 			!prevProps.hasOwnProperty(key)) {
 				continue;
 		}
 		if (key === STYLE) {
 			var prevStyle = prevProps[STYLE];
-			for (var styleName in prevStyle) {
+			for (styleName in prevStyle) {
 				if (prevStyle.hasOwnProperty(styleName)) {
 					styleUpdate = styleUpdates || {};
 					styleUpdate[styleName] = '';
@@ -301,7 +304,7 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 			}
 		} else if (isDOMAttribute[key]) {
 			if (isDOMAttribute[key] === PROPERTY) {
-				delete this.node[key]
+				delete this.node[key];
 			} else if (typeof isDOMAttribute[key] === 'function') {
 				isDOMAttribute[key]('delete', this.node);
 			} else {
@@ -311,45 +314,45 @@ DOMClass.prototype._updateDOMProperties = function(prevProps) {
 			this.removeListener(key);
 		}
 	}
-	for (var key in nextProps) {
-    var nextProp = nextProps[key];
-    var prevProp = prevProps[key];
+	for (key in nextProps) {
+    	var nextProp = nextProps[key];
+    	var prevProp = prevProps[key];
 		if (!nextProps.hasOwnProperty(key) || nextProp === prevProp) {
 			continue;
 		}
 		if (key === STYLE) {
 			if (prevProp) {
-				for (var styleName in prevProp) {
-					if (prevProp.hasOwnProperty(styleName) 
-						&& !nextProp.hasOwnProperty(styleName)) {
+				for (styleName in prevProp) {
+					if (prevProp.hasOwnProperty(styleName) &&
+						!nextProp.hasOwnProperty(styleName)) {
 						styleUpdates = styleUpdates || {};
 						styleUpdates[styleName] = '';
 					}
 				}
-				for (var styleName in nextProp) {
-					if (nextProp.hasOwnProperty(styleName)
-						&& prevProp[styleName] !== nextProp[styleName]) {
+				for (styleName in nextProp) {
+					if (nextProp.hasOwnProperty(styleName) &&
+						prevProp[styleName] !== nextProp[styleName]) {
 						styleUpdates = styleUpdates || {};
 						styleUpdates[styleName] = nextProp[styleName];
 					}
 				}
 			} else {
-				styleUpdates = nextProp
+				styleUpdates = nextProp;
 			}
 		} else if (isDOMAttribute[key] === PROPERTY) {
-			if (nextProp == null) {
+			if (nextProp === null) {
 				delete this.node[key];
 			} else {
 				this.node[key] = '' + nextProp;
 			}
 		} else if (typeof isDOMAttribute[key] === 'function') {
-			if (nextProp == null) {
+			if (nextProp === null) {
 				isDOMAttribute[key]('delete', this.node);
 			} else {
 				isDOMAttribute[key]('set', this.node, nextProp);
 			}
 		} else if (isDOMAttribute[key]) {
-			if (nextProp == null) {
+			if (nextProp === null) {
 				this.node.removeAttribute(key);
 			} else {
 				this.node.setAttribute(key, '' + nextProp);
@@ -455,7 +458,7 @@ ComponentBase.prototype.mount = function() {
 
 	//auto map (bind function to this)
 	if (this.type._autoMap) {
-		var autoMap = this.type._autoMap
+		var autoMap = this.type._autoMap;
 		for (var name in autoMap) {
 			if (autoMap.hasOwnProperty(name)) {
 				this[name] = autoMap[name].bind(this);
@@ -471,17 +474,17 @@ ComponentBase.prototype.mount = function() {
 
 function debounce(func, wait) {
 	return func;
-	var timeout, result;
-	return function() {
-    	var context = this, args = arguments;
-    	var later = function() {
-      		timeout = null;
-      		result = func.apply(context, args);
-    	};
-    	clearTimeout(timeout);
-    	timeout = setTimeout(later, wait);
-    	return result;
-    };
+	//var timeout, result;
+	//return function() {
+    //	var context = this, args = arguments;
+    //	var later = function() {
+    //  		timeout = null;
+    //  		result = func.apply(context, args);
+    //	};
+    //	clearTimeout(timeout);
+    //	timeout = setTimeout(later, wait);
+    //	return result;
+    //};
 }
 
 ComponentBase.prototype.performUpdateIfNecessary = debounce(function() {
@@ -547,9 +550,10 @@ ComponentBase.prototype.setState = function(obj) {
 };
 
 function merge(base, upd) {
-	var result = {}
-	for (var k in base) result[k] = base[k];
-	for (var k in upd) result[k] = upd[k];
+	var result = {};
+	var k;
+	for (k in base) result[k] = base[k];
+	for (k in upd) result[k] = upd[k];
 	return result;
 }
 
@@ -584,7 +588,7 @@ function createClass(spec) {
 			Constructor._autoMap = Constructor._autoMap || {};
 			Constructor._autoMap[name] = property;
 		}
-	};
+	}
 
 	ConvConstructor.type = Constructor;
 	Constructor.prototype.type = Constructor;
