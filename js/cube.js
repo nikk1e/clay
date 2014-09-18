@@ -1054,6 +1054,26 @@ Table.prototype.initialise = function(old, model) {
 			            (Number 0.6)))
 			(Category (Symbol Main Portfolio) (List (Symbol Equity)))
 			*/
+			var body = rows.slice(1);
+			var sexpr = this.sexpr = [];
+			cubeColumns.forEach(function(col) {
+				var cubeName = cubeNames[col].split('.');
+				var cubeSym = (cubeName.length === 1) ? 
+					sym(model.namespace, cubeName[0]) :
+					sym.apply(this, cubeName);
+				body.forEach(function(row) {
+					//TODO: need to check if the column has predicates
+					try {
+						var mexpr = (row.cells[col] || '').replace(/ *= */,'');
+						var expr = parse(lex(mexpr))[0];
+						//TODO: wrap expr with keys 'LetG'
+
+						sexpr.push(['Set', cubeSym, expr]);
+					} catch (e) {
+						me.error = e.toString();
+					}
+				});
+			});
 		}
 	}
 };
@@ -1667,36 +1687,36 @@ Cube.prototype.recalculate = function() {
 			});
 			//Collect functions and expressions
 			sexpr.sourceNode = node;
-   		switch(sexpr[0]) {
-   			case 'Set*':
-   			case 'Set':
-   					if (sexpr[1][0] !== 'Symbol') {
-   					node.error = 'Cannot Set '+ showS(sexpr[1]);
-   				} else {
-   					fkey = sexpr[1].slice(1).join('.');
-   					if (!functions.hasOwnProperty(fkey)) {
-   						functions[fkey] = [(sexpr[0] === 'Set*' ? 'Func*' : 'Func'), sexpr[1]];
-   						functions[fkey].sourceNode = node;
+   			switch(sexpr[0]) {
+   				case 'Set*':
+   				case 'Set':
+   						if (sexpr[1][0] !== 'Symbol') {
+   						node.error = 'Cannot Set '+ showS(sexpr[1]);
+   					} else {
+   						fkey = sexpr[1].slice(1).join('.');
+   						if (!functions.hasOwnProperty(fkey)) {
+   							functions[fkey] = [(sexpr[0] === 'Set*' ? 'Func*' : 'Func'), sexpr[1]];
+   							functions[fkey].sourceNode = node;
+   						}
+   						functions[fkey].push(sexpr[2]); //just rhs
    					}
-   					functions[fkey].push(sexpr[2]); //just rhs
-   				}
-   				break;
-   			case 'Category':
-   				if (sexpr[1][0] !== 'Symbol') {
-   					node.error = 'Cannot create Category ' + showS(sexpr[1]);
-   				} else {
-   					fkey = sexpr[1].slice(1).join('.');
-   					if (!functions.hasOwnProperty(fkey)) functions[fkey] = sexpr;
-   					else node.error = 'Cannot redefine Category ' + showS(sexpr[1]);
-   				}
-   				break;
-   			case 'Rule':
-   				node.error = 'Rules not implemented';
-   				break;
-   			default:
-   				//expression
-   				expressions[name + ':' + node.key] = sexpr;
-   		}
+   					break;
+   				case 'Category':
+   					if (sexpr[1][0] !== 'Symbol') {
+   						node.error = 'Cannot create Category ' + showS(sexpr[1]);
+   					} else {
+   						fkey = sexpr[1].slice(1).join('.');
+   						if (!functions.hasOwnProperty(fkey)) functions[fkey] = sexpr;
+   						else node.error = 'Cannot redefine Category ' + showS(sexpr[1]);
+   					}
+   					break;
+   				case 'Rule':
+   					node.error = 'Rules not implemented';
+   					break;
+   				default:
+   					//expression
+   					expressions[name + ':' + node.key] = sexpr;
+   			}
 		});
 	}
 
@@ -1704,7 +1724,7 @@ Cube.prototype.recalculate = function() {
 	//TODO: allow subnamespaces (where they cannot have the same name as a root namespace)
 	for (var ni = 0; ni <= this.names.length; ni++) { //go off the end so we can get Scratch
 		var k, func;
-		name = this.names[ni] || '#Scratch';
+		name = (ni < this.names.length) ? this.names[ni] : '#Scratch';
 		model = this.models[name];
 		functions = {};
 		expressions = {};
