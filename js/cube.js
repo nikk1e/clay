@@ -1114,7 +1114,7 @@ function parseRaw(text) {
 }
 
 function Cube() {
-	this.models = {'#Scratch': new Model(parseRaw('#Scratch\nUse the scratchpad for your workings. This will not be saved!\n'))};
+	this.models = {'#Scratch': new Model('#Scratch', parseRaw('#Scratch\nUse the scratchpad for your workings. This will not be saved!\n'))};
 	this.names = [];
 	this._packages = {};
 	this._genSyms = {};
