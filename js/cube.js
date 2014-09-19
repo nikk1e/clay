@@ -973,7 +973,7 @@ Table.prototype.initialise = function(old, model) {
 	var keys = {};
 	var predicates = {};
 	var cubeNames = {};
-	var keyColumns = [];
+	var keyNames = [];
 	var cubeColumns = [];
 	var rows = this.rows;
 	var header = rows[0].cells;
@@ -981,7 +981,7 @@ Table.prototype.initialise = function(old, model) {
 		var match = cell.match(/ *(.*)= *$/);
 		if (match) {
 			keys[col] = match[1];
-			keyColumns.push(col);
+			keyNames.push(match[1]);
 			modelColumns.push(col);
 		} else if ((match = cell.match(/^\s*(.*)\[([^\]]*)\] *$/))) {
 			modelColumns.push(col);
@@ -991,6 +991,7 @@ Table.prototype.initialise = function(old, model) {
 			//todo check for non row based predicate
 		}
 	});
+
 	if (modelColumns.length > 0) {
 		var formulaColumns = [];
 		modelColumns.forEach(function(col) {
@@ -1001,7 +1002,7 @@ Table.prototype.initialise = function(old, model) {
 		});
 		var hasFormulas = formulaColumns.length > 0;
 		
-		var isRowBased = keyColumns.length === 0;
+		var isRowBased = keyNames.length === 0;
 
 		//Compile the table.
 		//Don't support functions in key based columns if the
@@ -1048,6 +1049,14 @@ Table.prototype.initialise = function(old, model) {
 			*/
 			var body = rows.slice(1);
 			var sexpr = this.sexpr = [];
+
+			this.keyValues = {};
+			for (var kcol in keys) {
+				if (formulaColumns.indexOf(kcol) === -1) {
+					this.keyValues[keys[kcol]] = {};
+				}
+			}
+
 			cubeColumns.forEach(function(col) {
 				var cubeName = cubeNames[col].split('.');
 				var cubeSym = (cubeName.length === 1) ? 
@@ -1060,7 +1069,12 @@ Table.prototype.initialise = function(old, model) {
 						var expr = parse(lex(mexpr))[0];
 						//TODO: wrap expr with keys 'LetG'
 						for (var kcol in keys) {
-							expr = ['LetG', sym(keys[kcol]), str(row.cells[kcol]), expr];
+							var key = keys[kcol];
+							var keyValues = me.keyValues[key];
+							if (keyValues !== undefined && !keyValues[row.cells[kcol]]) {
+								keyValues[row.cells[kcol]] = str(row.cells[kcol]); //TODO: String or number
+							}
+							expr = ['LetG', sym(key), str(row.cells[kcol]), expr];
 						}
 						sexpr.push(['Set', cubeSym, expr]);
 					} catch (e) {
@@ -1625,8 +1639,22 @@ Cube.prototype.recalculate = function() {
 
 	this.names = this.names.slice(0,1); //run imports again
 
+	var keyValueDefs = {}; //store any keys that might be defined by tables
+
 	function _collectCell(node) { //closeure over name,model,etc //TODO: refactor
 		if (!node.sexpr) return; //find all cells with sexprs
+
+		if (node.keyValues) {
+			for (var keyName in node.keyValues) {
+				var keyValues = node.keyValues[keyName];
+				if (keyName.indexOf('.') === -1)
+					keyName = model.namespace + '.' + keyName;
+				if (!keyValueDefs.hasOwnProperty(keyName)) {
+					keyValueDefs[keyName] = [];
+				}
+				keyValueDefs[keyName].push(keyValues);
+			}
+		}
 		//expand macros
 		var sexpr = [];
 		node.sexpr.forEach(function(expr) {
@@ -1696,7 +1724,7 @@ Cube.prototype.recalculate = function() {
    					expressions[name + ':' + node.key] = sexpr;
    			}
 		});
-	}
+	} // end of _collectCell
 
 	//Collect packages
 	//TODO: allow subnamespaces (where they cannot have the same name as a root namespace)
@@ -1778,11 +1806,22 @@ Cube.prototype.recalculate = function() {
 			}
 			if (packages.hasOwnProperty(name)) pack = name; //for Data tables
 			if (!packages[pack].functions.hasOwnProperty(name)) {
-				//create dummy function for unsatisfied category
-				var sy = ['Symbol', pack, name];
-				packages[pack].functions[name] = ['Category', sy, ['List']];
-				packages[pack].functions[name].dimensions = [pack + '.' + name];
-				packages[pack].unsatisfieds[name] = true;
+				var fullDim = pack + '.' + name;
+				var list = ['List'];
+				if (keyValueDefs[fullDim]) {
+					var kvds = keyValueDefs[fullDim];
+					var hash = {};
+					for (var i = 0; i < kvds.length; i++) {
+						for (var kvalue in kvds[i])
+							hash[kvalue] = kvds[i][kvalue];
+					}
+					for (var kvalue in hash) list.push(hash[kvalue]);
+				} else {
+					packages[pack].unsatisfieds[name] = true;
+					//create dummy function for unsatisfied category
+				}
+				packages[pack].functions[name] = ['Category', sym(pack, name), list];
+				packages[pack].functions[name].dimensions = [fullDim];
 			}
 			packages[pack].dimensions[name] = packages[pack].functions[name];
 
