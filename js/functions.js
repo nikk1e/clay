@@ -96,7 +96,7 @@ function BasicTable(headers, rows, highlight) {
 			if (isElement(e)) {
 				th.appendChild(e);
 			} else {
-				th.appendChild(document.createTextNode(e.toString()));
+				th.appendChild(document.createTextNode(e === undefined ? 'NULL' : e.toString()));
 			}
 		});
 	});

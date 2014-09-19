@@ -781,6 +781,7 @@ var Editor = createClass({
 
 var text = "#Cube\n"
 		 + "This is a paragraph\n"
+		 + " Weight\n Graph.Line(Unit Sales[Month][Growth])\n"
 		 + "|this|is|a|table\n"
 		 + "|more|table|stuff|here\n"
 		 +"Paragraph to separate tables\n"
@@ -928,7 +929,7 @@ function mapObjToArr(obj, func) {
 var cube = new Cube();
 
 var dummy = {
-	Test1: parseRaw("#Test1\nThis is some test text\n import(\"TestFred\")\n 1 + 2 + 3"),
+	Test1: parseRaw("#Test1\nThis is some test text\n import(\"TestFred\")\n 1 + 2 + 3\n Portfolio[] = {ALTS, PROP, INFRA, Equity, UK, EU, Bond, Other}\n Main.Portfolio = `Test1`.Portfolio\n"),
 	Test2: parseRaw("#Test2\nMore text here\n And some code\n"),
 	Main: parseRaw(text),
 };

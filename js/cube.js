@@ -970,7 +970,7 @@ Table.prototype.initialise = function(old, model) {
 
 	//check type (i.e row based, key based, with formulas)
 	var modelColumns = [];
-	var keys = [];
+	var keys = {};
 	var predicates = {};
 	var cubeNames = {};
 	var keyColumns = [];
@@ -980,7 +980,7 @@ Table.prototype.initialise = function(old, model) {
 	header.forEach(function(cell, col) {
 		var match = cell.match(/ *(.*)= *$/);
 		if (match) {
-			keys.push(match[1]);
+			keys[col] = match[1];
 			keyColumns.push(col);
 			modelColumns.push(col);
 		} else if ((match = cell.match(/^\s*(.*)\[([^\]]*)\] *$/))) {
@@ -1001,15 +1001,7 @@ Table.prototype.initialise = function(old, model) {
 		});
 		var hasFormulas = formulaColumns.length > 0;
 		
-		modelColumns.forEach(function(i) {
-			var cell = header[i];
-			var match = cell.match(/ *(.*)= *$/);
-			if (match) {
-				keys.push(match[1]);
-				keyColumns.push(i);
-			}
-		});
-		var isRowBased = keys.length === 0;
+		var isRowBased = keyColumns.length === 0;
 
 		//Compile the table.
 		//Don't support functions in key based columns if the
@@ -1067,7 +1059,9 @@ Table.prototype.initialise = function(old, model) {
 						var mexpr = (row.cells[col] || '').replace(/ *= */,'');
 						var expr = parse(lex(mexpr))[0];
 						//TODO: wrap expr with keys 'LetG'
-
+						for (var kcol in keys) {
+							expr = ['LetG', sym(keys[kcol]), str(row.cells[kcol]), expr];
+						}
 						sexpr.push(['Set', cubeSym, expr]);
 					} catch (e) {
 						me.error = e.toString();
@@ -1114,12 +1108,12 @@ var _constructors = {
 //an array of cells.
 function parseRaw(text) {
 	var match;
-	var textN = text;
+	var textN = text + '\n';
 	var paras = [];
 	//       break|code                                |table                   |other
-	var block = /-|(?: [^\n]*(?:\n }[^\n]*|\n  [^\n]*)*|\|(?:[^\n]|\n\||\n\n\|)*|[^\n]*)(?:\n|$)/g;
+	var block = /-|(?: [^\n]*(?:\n }[^\n]*|\n  [^\n]*)*|\|(?:[^\n]|\n\||\n\n\|)*|[^\n]*)(?:\n)/g;
 
-	while (block.lastIndex < text.length && (match = block.exec(textN))) {
+	while (block.lastIndex < textN.length && (match = block.exec(textN))) {
 		var l = match[0];
 		var capm = /^[\#\! \*\.\>\-\|]/.exec(l);
 		var cap = capm ? capm[0] : 'p';
@@ -1128,8 +1122,6 @@ function parseRaw(text) {
 		var type = _constructors[cap];
 		paras.push(new type(l));
 	}
-	if (textN[textN.length-1] == '\n')
-		paras.push(new P(''));
 	return paras;
 }
 
@@ -1520,33 +1512,19 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			ex = me.compileExpr(expr[1], basepack);
 			return '(' + ex + ')[' + me.compileExpr(expr[2], basepack) + ']';
 		case 'Index':
-			if (expr[1][0] !== 'Symbol') throw new Error('Invalid index parameter ' + showS(expr));
-			expr = expr[1];
-			if (expr.length > 2) {
-				pack = expr[1];
-				name = expr[2];
-			} else {
-				name = expr[1];
-				if (me._packages.hasOwnProperty(name))
-					pack = name; //for Data tables
-				else
-					pack = basepack;
-			}
-			return me.Symbol(pack + '.' + name);
+			if (!expr[1] || 
+				!expr[1].dimensions || 
+				expr[1].dimensions.length !== 1)
+				throw new Error('Invalid index parameter ' + showS(expr));
+			return me.Symbol(expr[1].dimensions[0]);
 		case 'IndexOf':
-			if (expr[1][0] !== 'Symbol') throw new Error('Invalid indexOf parameter ' + showS(expr));
 			ex = me.compileExpr(expr[2], basepack);
 			expr = expr[1];
-			if (expr.length > 2) {
-				pack = expr[1];
-				name = expr[2];
-			} else {
-				name = expr[1];
-				if (me._packages.hasOwnProperty(name))
-					pack = name; //for Data tables
-				else
-					pack = basepack;
-			}
+			if (!expr.dimensions || expr.dimensions.length !== 1)
+				throw new Error('Invalid indexOf parameter ' + showS(expr));
+			//TODO: better store of dimensions as symbol
+			pack = expr.dimensions[0].split('.',1)[0];
+			name = expr.dimensions[0].slice(pack.length+1);
 			return "env['" + pack + "']['" + name +"'].indexOf(" + ex + ")";
 		case 'Over':
 			return me.compileOver(expr, basepack);
@@ -1723,13 +1701,12 @@ Cube.prototype.recalculate = function() {
 	//Collect packages
 	//TODO: allow subnamespaces (where they cannot have the same name as a root namespace)
 	for (var ni = 0; ni <= this.names.length; ni++) { //go off the end so we can get Scratch
-		var k, func;
 		name = (ni < this.names.length) ? this.names[ni] : '#Scratch';
 		model = this.models[name];
 		functions = {};
 		expressions = {};
 		model.cells.forEach(_collectCell);
-
+		var k, func;
 		//collect functions
 		for (k in functions) {
 			func = functions[k];
@@ -1747,13 +1724,11 @@ Cube.prototype.recalculate = function() {
 			}
 		}
 
-		//TODO: INSERT CODE TO MAKE TABLE CATEGORIES HERE
-
 		//Note: findDimensions also makes dummy Categories for missing
 		for (k in functions) {
 			func = functions[k];
 			clearDimensions(func); //clear dimensions to ensure recalc
-			findDimensions(func, model.namespace);
+			//findDimensions(func, model.namespace);
 		}
 
 		pack = packages[model.namespace];
@@ -1763,6 +1738,18 @@ Cube.prototype.recalculate = function() {
 			clearDimensions(expressions[k]); //clear dimensions to ensure recalc
 			pack.expressions[k] = expressions[k];
 			pack.expressions[k]._baseNamespace = model.namespace;
+		}
+	}
+
+	//TODO: INSERT CODE TO MAKE TABLE CATEGORIES HERE
+
+	for (p in packages) {
+		if (!packages.hasOwnProperty(p)) continue;
+		pack = packages[p];
+		for (fname in pack.functions) {
+			if (!pack.functions.hasOwnProperty(fname)) continue;
+			func = pack.functions[fname];
+			findDimensions(func, func._baseNamespace);
 		}
 	}
 
@@ -1780,7 +1767,7 @@ Cube.prototype.recalculate = function() {
 
 	//find all dimensions (here not in the package as it needs to go over package)
 	function findDimensions(expr, basepack) {
-		function addDimension(symb, parent) {
+		function addDimension(symb) {
 			var pack, name;
 			if (symb.length > 2) {
 				pack = symb[1];
@@ -1803,6 +1790,7 @@ Cube.prototype.recalculate = function() {
 		//set dimensions on actual categories
 		if (expr[0] === 'Category') {
 			expr.dimensions = [expr[1][1] + '.' + expr[1][2]];
+			addDimension(expr[1]);
 		}
 
 		visit(expr, function(ast, path, index) {
@@ -1812,14 +1800,14 @@ Cube.prototype.recalculate = function() {
 				case 'LetG': {
 					lhs = ast[1];
 					if (lhs[0] === 'Symbol')
-						addDimension(lhs, ast);
+						addDimension(lhs);
 					break;
 				}
 				case 'Over':
 				case 'Indexed': {
 					//all symbols are dimensions (Over expr symb..)
 					for (var i = ast.length - 1; i >= 2; i--) {
-						addDimension(ast[i], ast);	
+						addDimension(ast[i]);	
 					}
 					break;
 				}
