@@ -2013,7 +2013,7 @@ Cube.prototype.recalculate = function() {
 	objMap(packages, function(pack, packg) {
 		return objMap(packg.functions, function(fname, func) {
 			try {
-				var comp = this.compileFunc(func, pack);
+				var comp = this.compileFunc(func, func._baseNamespace || pack);
 				if (func.sourceNode)
 					func.sourceNode.error = undefined;
 				return comp;
