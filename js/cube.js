@@ -1922,8 +1922,10 @@ Cube.prototype.recalculate = function() {
 						pack = basepack;
 				}
 				//if symbol defined (then annotateDimensions of definition)
-				if (packages[pack] !== undefined && packages[pack].functions[name])
-					ret = annotateDimensions(packages[pack].functions[name], pass, basepack);
+				if (packages[pack] !== undefined && packages[pack].functions[name]) {
+					temp = packages[pack].functions[name];
+					ret = annotateDimensions(temp, pass, temp._baseNamespace);
+				}
 				//else (nothing)
 				break;
 			case 'Number':
