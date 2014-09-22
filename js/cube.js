@@ -1568,35 +1568,40 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 	}
 };
 
-Cube.prototype.compileFunc = function(expr, basepack) {
-	var me = this;
-	var type = expr[0];
-	var dims = expr.dimensions.map(me.Symbol, me);
-	switch(expr[0]) {
-		case 'Category':
-			/*jshint evil:true */
-			return indexed(new Function('var env = this;' + me.compileExpr(expr, basepack)), me._environment);
-		case 'Func*':
-			/*jshint evil:true */
-			return unmemoize(new Function(dims, 'var env = this;' + me.compileExpr(expr, basepack)));
-		case 'Func':
-			/*jshint evil:true */
-			return memoize(new Function(dims, 'var env = this;' + me.compileExpr(expr, basepack)));
-		default:
-			var ov = 'var env = this; return (' + me.compileExpr(expr, basepack) + ');';
-			//console.log(ov);
-			try {
-				/*jshint evil:true */
-				return memoize(new Function(dims, ov));
-			} catch (er) {
-				console.log('Could not compile: ' + ov);
-				console.log(er.message);
-				/*jshint evil:true */
-				return memoize(new Function('return undefined;'));
-			}
-			
-	}
+Cube.prototype._compileFunc = function(code, expr) {
+
+    var func;
+    var dims = expr.dimensions.map(this.Symbol, this);
+
+    function _undefined() { return; }
+
+    try {
+        /*jshint evil:true */
+        func = new 2(dims, code);
+    } catch (er) {
+        console.log('Could not compile: ' + code);
+        console.log(er.message);
+        func = _undefined;
+    }
+    switch(expr[0]) {
+        case 'Category': return indexed(func, this._environment);
+        case 'Func*':    return unmemoize(func);
+        default:         return memoize(func);
+    }
 };
+
+Cube.prototype.compileExpression = function(expr, basepack) {
+    return this._compileFunc(
+    	'var env = this; return (' + 
+    		this.compileExpr(expr, basepack) + ');', expr);
+};
+
+Cube.prototype.compileFunc = function(expr, basepack) {
+    return this._compileFunc(
+    	'var env = this;' + 
+    	this.compileExpr(expr, basepack), expr);
+};
+
 
 //Package is the ast representation of a Namespace
 function Package(name) {
@@ -2080,7 +2085,7 @@ Cube.prototype.recalculate = function() {
 					annotateDimensions(expr, 0, pack); 
 				}
 				try {
-					expr.func = me.compileFunc(expr, pack);
+					expr.func = me.compileExpression(expr, pack);
 					expr.compiled = expr.func.bind(env);
 					expr.sourceNode.result = expr.compiled;
 					expr.sourceNode.error = undefined;
