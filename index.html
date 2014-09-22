@@ -5,7 +5,6 @@
 	<meta http-equiv="Content-Type" content="application/xhtml+xml">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title></title>
-	<script src="http://code.jquery.com/jquery-1.10.0.min.js"></script>
 <link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
 <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
 
@@ -15,10 +14,6 @@
 <!--[if gt IE 8]><!-->
         <link rel="stylesheet" href="css/layouts/side-menu.css">
 <!--<![endif]-->
-
-
-<script src="js/clay.js"></script>
-<script src="js/parser.js"></script>
 <link rel="stylesheet" href="css/clay.css"/>
 <style type="text/css">
 .axis path,
@@ -37,1652 +32,470 @@
   stroke: steelblue;
   stroke-width: 1.5px;
 }
+
+figcaption {
+	position: absolute;
+	top: 0;
+	left: -170px;
+	width: 150px;
+	font-style: italic;
+	text-align: right;
+	color: rgba(0,0,0,0.5);
+	font-family: serif;
+}
+figcaption:before {
+	width: 35%;
+	margin-left: 65%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-bottom: 5px;
+}
+figure {
+	position: relative;
+	clear: both;
+}
+td.empty {
+	height: 20px;
+	border-bottom: 1px dotted #cbcbcb;
+}
+td.error {
+	border-top: 1px solid #cbcbcb;
+}
+hr {
+	border-top: 1px solid #edece4;
+	border-bottom: 0;
+	border-left: 0;
+	border-right: 0;
+}
+section:after {
+	width: 16%;
+	margin-left: 38%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-top: 50px;
+	margin-bottom: 50px;
+}
+pre[class*='lang-javascript'] {
+	background-color: #2A2C39;
+}
+pre[class*='lang-javascript'] > code {
+	color: #E9E9EB;
+}
+pre[class*='lang-sexpr'] {
+	display: none;
+	background-color: #283593;
+}
+pre[class*='lang-sexpr'] > code {
+	color: #E9E9EB;
+}
+.show-debug pre[class*='lang-sexpr'] {
+	display: block;
+	background-color: #283593;
+}
+
+.error {
+	color: red;
+}
+textarea.hiddenTextArea {
+	width: 100%;
+	max-width: 800px;
+	font-family: 'Open Sans', 'Segoe UI', verdana, sans-serif;
+	height: 50px;
+	opacity: 0;
+	position: absolute;
+	left: -3000px;
+}
+#cursor {
+	pointer-events:none; /* so clicks get passed through - Tested: Chrome, firefox, IE11 */
+}
 </style>
 </head>
-
 <body>
-<div class='debug'>
-<div class='content'>
-<textarea id="model" class="editor pure-u-5-5">
-# Clay
-
-Requires Chrome, Firefox, or IE9>.
-</textarea>	
+<div id="cursor"></div>
+<div id="view">
 </div>
-</div>
-<div id="layout">
-    <!-- Menu toggle -->
-
-    <div id="main">
-<div class="content">
-	
-<div id="preview" class="editor">
-</div>
-</div>
-</div>
-</div>
-<script type="text/javascript" src="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
-<script type="text/javascript" src="js/react/react-with-addons.js"></script>
-<script type="text/javascript" src="js/utils.js"></script>
+<script type="text/javascript" src="js/friar.js"></script>
+<script type="text/javascript" src="js/cube.js"></script>
+<script type="text/javascript" src="js/macros.js"></script>
+<script type="text/javascript" src="js/functions.js"></script>
 <script src="http://d3js.org/d3.v3.js"></script>
+<script type="text/javascript" src="js/functions/graph.js"></script>
 <script type="text/javascript">
-var title = "Clay"
-var DOM = React.DOM,
-	div = DOM.div, ul = DOM.ul, li = DOM.li, p = DOM.p
-	h1 = DOM.h1, h2 = DOM.h2, a = DOM.a, span = DOM.span;
 
+var DOM = Friar.DOM, 
+    createClass = Friar.createClass,
+    Model = Cube.Model,
+    parseRaw = Cube.parseRaw;
+
+var KEY_PREFIX = 'clay:';
+var reKey = /clay:/;
+
+function keyToId(key) {
+	return KEY_PREFIX + key.toString(36);
+}
+
+function idToKey(id) {
+	return parseInt(id.slice(KEY_PREFIX.length), 36);
+}
+
+var Table = createClass({
+	render: function() {
+		var token = this.props;
+		var rows = token.rows;
+		var alignments = token.alignments;
+		var classes = token.classes;
+		var foot = [];
+		//TODO: give the rows keys within the table
+		function renderRow(row, type, alignments, classes) {
+			return DOM.tr({id: keyToId(token.key) + '.' + row.key.toString(36)},
+				row.cells.length > 0 ? row.cells.map(function(c,i) {
+					return DOM[type]({style: (alignments[i] || {}), 
+						className: classes[i]}, fixSpaces(c)); //TODO (c should be spans)
+				}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
+		}
+
+		if (token.error) {
+			foot.push(DOM.tr({},[DOM.td({className: 'error', colSpan: alignments.length}, token.error)]));
+		}
+
+		return DOM.table({id: keyToId(token.key),  
+						  className: 'pure-table pure-table-bordered'}, 
+			DOM.thead({},[renderRow(rows[0], 'th', alignments, classes)]), 
+			DOM.tbody({},rows.slice(1).map(
+				function(row) { return renderRow(row, 'td', alignments, classes); })),
+			DOM.tfoot({},foot));
+	}
+});
+
+function fixSpaces(str) {
+	return str.replace(/^ +|  +| +(?=\n|$)/, function(m,a,b) {
+				return Array(m.length + 1).join('\u00A0');
+			});
+}
 
 function isElement(o){
   return (
     typeof HTMLElement === "object" ? o instanceof HTMLElement : //DOM2
     o && typeof o === "object" && o !== null && o.nodeType === 1 && typeof o.nodeName==="string"
-);
+	);
 }
 
-//helper string functions
-if (typeof String.prototype.startsWith != 'function') {
-  String.prototype.startsWith = function (str){
-    return this.slice(0, str.length) == str;
-  };
-}
-
-var _defaultPakageName = 'Main';
-
-var Model = function(name, source) {
-	this.name = name;
-	this.source = this.originalSource = source.replace(/\r\n/g,'\n');
-	this.package = _defaultPakageName
-	this.expressions = {};
-	this.functions =  {};
-	this.properties = {}; //meta
-	this.ast = {type: 'root', children: []};
-	this.packages = [this.package];
-	this.recalculate();
-};
-
-Model.prototype.isModified = function() {
-	return this.source != this.originalSource;
-};
-
-Model.prototype.update = function(source) {
-	var s = source.replace(/\r\n/g,'\n');
-	if (s != this.source) {
-		this.source = s;
-		this.recalculate();
-	}
-};
-
-Model.prototype.revert = function() {
-	if (this.originalSource != this.source) {
-		this.source = this.originalSource;
-		this.recalculate();
-	}
-};
-
-
-var makeRecursion = function(func) {
-	return function(expr) {
-		var head = expr[0];
-		if (head == 'Symbol') {
-			return ['Let', ['Index', expr], func(expr)];
-		};
-		if (head == 'Subtract' || head == 'Plus') {
-			var lhs = expr[1], rhs = expr[2];
-			if (lhs[0] == 'Symbol' && rhs[0] == 'Number') {
-				return ['Let', ['Index', lhs], [head, func(lhs), rhs]];
-			}
-		}
-	}
-}
-
-//TODO: this needs to take a prec so we can
-// avoid too many brackets in output.
-function showMr(s) {
-	if (s.originalSexpr !== undefined) return showMr(s.originalSexpr);
-	switch (s[0]) {
-		case 'Number': return s[1].toString();
-		case 'String': return s[1];
-		case 'Symbol': return s.slice(1).join('.');
-		case 'List':   return '{' + s.slice(1).map(showMr).join(', ') + '}';
-		case 'Slice':  return showMr(s[1]) + '[' + s.slice(2).map(showMr).join(', ') + ']';
-		case 'Call':   return showMr(s[1]) + '(' + s.slice(2).map(showMr).join(', ') + ')';
-		case 'Set':
-		case 'Set*':
-		case 'Let': return showMr(s[1]) +'=' + showMr(s[2]);
-		case 'Plus': return '(' + s.slice(1).map(showMr).join(' + ') + ')';
-		case 'Times': return '(' + s.slice(1).map(showMr).join(' * ') + ')';
-		case 'Subtract': return '(' + s.slice(1).map(showMr).join(' - ') + ')';
-		case 'Divide': return '(' + s.slice(1).map(showMr).join(' / ') + ')';
-		//TODO: make the infix check 
-		default: return clay.code.show(s);
-	};
-}
-
-var showM = function(s) {
-	return ['String', showMr(s)];
-};
-
-//This should only be called at the base level
-// as Flip(X, Line, {Net Income, etc})
-// or X = Flip(Line, {Net Income, etc})
-var flip = function(symb, catSymb, expr) {
-	if (expr[0] !== 'List')
-		return ['Error', 'Flip joins a list of expr', sexpr];
-	var qexpr = ['List'];
-	expr.slice(1).forEach(function(s) {
-		qexpr.push(showM(s));
-	});
-	var cat = ['Category', catSymb, qexpr];
-	var func = ['Set*', symb, ['Indexed*', expr, ['Index', catSymb]]]; //need Indexed* and Set* to not do memo
-	return ['Do', cat, func]; //Do A B is same as A\nB
-};
-
-var table = function(expr, opt_dims) {
-	if (expr[0] !== 'List') {
-		expr = ['List', expr];
-	}
-	var quoteds = expr.map(function(e, i) { return (i > 0) ? showM(e) : e });
-	var pm = ['PostMacro', ['Symbol', 'Table'], expr, quoteds];
-	if (opt_dims !== undefined) {
-		pm.push(opt_dims);
-		return ['RemDims', pm, opt_dims];
-	}
-	return ['NoDim', pm]; 
-};
-//Table({Table({Graph.Line(Net Income[Month])},{Assum})})
-//Table({Graph.Line(Net Income[Month][Growth]*Year)})
-//Table({Graph.Line(Net Income[Month][Growth])})
-//Table({Graph.Line(Net Income[Month][Growth])},{Year})
-//Y = Table({Graph.Line(Net Income[Month][Growth])})
-var postTable = function(exprs, quoteds, dims) {
-	//exprs and quoteds are both expected to be list literals
-
-	// ***** TODO : don't bother with all this dimension stuff
-	//    just call annotateDimentions on it during compile.
-	if (dims === undefined) {
-		dims = exprs.dimensions;
-	} else {
-		dims = dims.slice(1).map(function(d) { 
-			return d.dimensions[0]; }
-		);
-	}
-
-	var len = ['Number', dims.length];
-	var heads = ['List'];
-	heads.dimensions = []
-	var fexpr = ['List'];
-	fexpr.dimensions = dims;
-	if (dims.length > 0)
-		var over = ['Over', fexpr];
-	else
-		var over = ['List', fexpr];
-	over.dimensions = [];
-	dims.forEach(function(d) { 
-		var s = d.split('.'); 
-		s.unshift('Symbol');
-		s.dimensions = [d];
-		fexpr.push(s); over.push(s); heads.push(['String', s[2]]); 
-	});
-	exprs.slice(1).forEach(function(d) { fexpr.push(d); });
-	quoteds.slice(1).forEach(function(d) { heads.push(d); });
-	return ['Call', ['Symbol', 'BasicTable'], heads, over, len]; 
-};
-
-//pages should be of form {symb=value,...}
-var pivot = function(expr, pages, cols, rows, descriptions) {
-	return ['NoDim', ['PostMacro', ['Symbol', 'Pivot'], expr, 
-		showM(expr), pages, cols, rows, descriptions]]; 
-};
-
-var postPivot = function(expr, quoted, pages, cols, rows, descriptions) {
-	//TODO: .. implement this
-	return ['Call', ['Symbol', '_Pivot'], showM(expr), expr]; 
-};
-
-var quoteM = function(expr) {
-	return showM(expr);
-};
-
-var expand = function(expr) {
-	return expandMacros(expr);
-};
-
-var quoteS = function(expr) {
-	return clay.code.show(expr);
-};
-
-var nodim = function(expr) {
-	return ['NoDim', expr];
-};
-
-function graphLine(expr, over, series) {
-	if (series !== undefined) {
-		//expr, over, series
-	} else if (over !== undefined) {
-		//{expr, expr2}, over
-	} else {
-		//expr[over][over]
-		if (expr[0] == 'Slice' 
-			&& expr[1][0] == 'Slice'
-			&& expr[2][0] == 'Symbol' 
-			&& expr[1][2][0] == 'Symbol') {
-			var iexpr = expr[1][1];
-			var xexpr = ['Over', expr[1][2], expr[1][2]];
-			var sexpr = ['Over', expr[2], expr[2]];
-			var eexpr = ['Over', ['Over', iexpr,  expr[1][2]], expr[2]]
-			return ['Call', ['Symbol', 'Graph', 'LineB'], showM(iexpr), eexpr, xexpr, sexpr];
-		}
-	}
-	return ['Call', ['Symbol', 'Graph', 'Line'], showM(expr), expr]; 
-}
-
-//most macros are applied before 
-var Macros = {
-	PREV: makeRecursion(function(symb) { return ['Subtract', ['Index', symb], ['Number', 1]];}),
-	NEXT: makeRecursion(function(symb) { return ['Plus', ['Index', symb], ['Number', 1]];}),
-	THIS: makeRecursion(function(symb) { return ['Index', symb];}),
-	FIRST: makeRecursion(function(symb) { return ['Number', 0];}),
-	LAST: makeRecursion(function(symb) { return ['Subtract', ['Count', symb], ['Number', 1]];}),
-	TABLE: table,
-	PIVOT: pivot,
-	QUOTE: quoteM,
-	QUOTES: quoteS,
-	EXPAND: expand, //usage Expand(QuoteS(...))
-	NODIM: nodim,
-	FLIP: flip,
-	'GRAPH.LINE': graphLine,
-};
-
-//macros applied after analyse dimensions
-// cannot be used in definitions as they 
-// change the dimensions
-var PostMacros = {
-	TABLE: postTable,
-	PIVOT: postPivot,
-};
-
-
-var expandMacros = function(expr, path) {
-	var symb, rep;
+// render model to array of Friar components
+function renderToFriar(model) {
+	var rendered = [];
+	var tokens = model.cells;
+	var index = 0;
+	var token;
 	
-	if (expr[0] !== 'Call')
-		return expr;
-
-	var symb = expr[1];
-	
-	if (symb[0] !== 'Symbol')
-		return expr;
-
-	var sexp = symb.slice(1).join('.').toUpperCase();
-
-	if (!Macros.hasOwnProperty(sexp))
-		return expr;
-
-	rep = Macros[sexp].apply(this, expr.slice(2));
-
-	if (rep !== undefined) {
-		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
-		return rep;
+	function getToken() {
+		return token = tokens[index++];
 	}
 
-	return expr;
-};
-
-var expandPostMacros = function(expr) {
-	var symb, rep;
-	
-	if (expr[0] !== 'PostMacro')
-		throw new Exception('Cannot expand non post macro' + clay.code.show(expr));
-
-	var symb = expr[1];
-	
-	if (symb[0] !== 'Symbol' || 
-		symb.length !== 2 || 
-		!PostMacros.hasOwnProperty(symb[1].toUpperCase()))
-		return expr;
-
-	rep = PostMacros[symb[1].toUpperCase()].apply(this, expr.slice(2));
-
-	if (rep !== undefined) {
-		rep.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr
-		return rep;
+	function ungetToken() {
+		return token = tokens[(--index)-1];
 	}
 
-	return expr;
-};
-
-
-var expandSlice = function expandSlice(expr, path) {
-	var ret;
-	switch(expr[0]) {
-		case 'Slice': {
-			var ret = expr[1], overs = ['Over', 0];
-			for (var i = expr.length - 1; i >= 2; i--) {
-				var para = expr[i];
-				switch(para[0]) {
-					case 'Let':
-						ret = expandSlice(['LetS', para[1], para[2], ret], path);
-						break;
-					case 'Symbol':
-						overs.push(para);
-						break;
-					default:
-						ret = ['Restrict', para, ret];
-				};
-			}
-			//wrap over on the outside
-			if (overs.length > 2) {
-				overs[1] = ret;
-				ret = overs;
-			}
-			break;
+	function renderSpans(item, para) {
+		if (item.spans.length === 0) {
+			return para ? [DOM.text('\u00A0'), DOM.br()] : [DOM.text('\u00A0')]; //id: keyToId(token.key)
 		}
-		case 'LetS': {
-			//(LetS symb value expr) -> (LetS (Index symb) (IndexOf symb value) expr)
-			if (expr[1][0] === 'Symbol')
-			{
-				var symb = expr[1], value = expr[2], exp = expr[3];
-				ret = ['LetS', ['Index', symb], ['IndexOf', symb, value], exp];
-			}
-			break;
-		}
-		case 'Guards': {
-			var ret = expr[1], overs = ['Indexed', 0];
-			for (var i = expr.length - 1; i >= 2; i--) {
-				var para = expr[i];
-				if (para[0] === 'Symbol')
-					overs.push(['Index', para]);
-			};
-			//wrap indexed on the inside
-			if (overs.length > 2) {
-				overs[1] = ret;
-				ret = overs;
-			}
-			for (var i = expr.length - 1; i >= 2; i--) {
-				var para = expr[i];
-				switch(para[0]) {
-					case 'Let':
-						ret = ['LetG', para[1], para[2], ret];
-						break;
-					case 'Symbol':
-						break;
-					default:
-						ret = ['Restrict', para, ret];
-				};
-			}
-			break;
-		}
-	}
-	if (ret !== undefined) {
-		ret.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr;
-		return ret;
-	}
-
-	return expr;
-};
-
-Model.prototype.recalculate = function() {
-	var lex = clay.lexer(this.source);
-	this.ast.children = clay.parser(lex);
-	//collect properties, code, tables
-	var properties = {}, code = [], tables = [], functions = {}, expressions = {}, packages = {};
-	depthFirstVisit(this.ast, function(node, depth, parent, idx) {
-		var nodetype = node.type
-		if (nodetype === 'meta') {
-			if (properties.hasOwnProperty(node.head)) {
-				//insert an error into the ast after the node.
-				parent.children[idx] = {type: 'error', pos: node.pos,
-					text: 'Property {' + node.head + '} already defined as: ' + properties[node.head],
-					children: [node]};
-			} else {
-				properties[node.head] = node.value;
-			}
-			return true; // don't recurse to children
-		} else if (nodetype === 'code' || nodetype === 'codespan') {
-			code.push(node);
-		} else if (nodetype === 'table') {
-			tables.push(node);
-		}
-	});
-	this.properties = properties;
-	this.package = this.properties['package'] || _defaultPakageName;
-	packages[this.package] = true;
-	var basepack = this.package;
-	var normaliseHead = function(n) { return clay.code.normaliseHead(n, basepack); };
-	//TODO: Create functions from tables
-
-	for (var i = 0; i < code.length; i++) {
-		var node = code[i];
-		node.sexpr = clay.code(node.code, this.package);
-
-		//expand macros
-		var sexpr = []
-		node.sexpr.forEach(function(expr) {
-			//TODO: try catch for errors in macro expansion
-			var nodes = clay.code.transform(expr, expandMacros);
-			if (nodes[0] === 'Do') {
-				nodes = nodes.slice(1);
-				//nodes.forEach(function(n) { n.originalSexpr = expr; })
-				Array.prototype.push.apply(sexpr, nodes.map(normaliseHead));
-			} else {
-				sexpr.push(nodes);
-			}
-		});
-		node.sexpr = sexpr;
-
-		node.sexpr = node.sexpr.map(function(expr) {
-			var nexpr = clay.code.transform(expr, expandSlice);
-			//nexpr.originalSexpr = (expr.originalSexpr !== undefined) ? expr.originalSexpr : expr;
-			return nexpr;
-		});
-
-		//collect packages referenced
-		node.sexpr.forEach(function(f) {
-			clay.code.visit(f, function(ast, path, index) {
-				switch (ast[0]) {
-					case 'Symbol':
-						//namespace except for function calls
-						//does not support nested namespaces
-						if (ast.length === 3 && !(index === 1 && path[path.length-1] == 'Call')) {
-							packages[ast[1]] = true;
-						}
-						break;
-				}
-			});
-		});
-
-        node.sexpr.forEach(function(sexpr, index) {
-        	sexpr.sourceNode = node;
-        	switch(sexpr[0]) {
-        		case 'Set*':
-        		case 'Set':
-        			if (sexpr[1][0] !== 'Symbol') {
-        				node.sexpr[index] = ['Error', 'Cannot Set ', sexpr[1]];
-        			} else {
-        				var fkey = sexpr[1].slice(1).join('.');
-        				if (!functions.hasOwnProperty(fkey)) {
-        					functions[fkey] = [(sexpr[0] === 'Set*' ? 'Func*' : 'Func'), sexpr[1]];
-        				}
-        				functions[fkey].push(sexpr[2]); //just rhs
-        			}
-        			break;
-        		case 'Category':
-        			if (sexpr[1][0] !== 'Symbol') {
-        				node.sexpr[index] = ['Error', 'Cannot create Category ', sexpr[1]];
-        			} else {
-        				var fkey = sexpr[1].slice(1).join('.');
-        				if (!functions.hasOwnProperty(fkey)) functions[fkey] = sexpr;
-        				else node.sexpr[index] = ['Error', 'Cannot redefine Category ', sexpr[1]];
-        			}
-        			break;
-        		case 'Rule':
-        			node.sexpr[index] = ['Error', 'Rules not implemented', sexpr];
-        			break;
-        		default:
-        			//expression
-        			var ekey = clay.code.show(sexpr);
-        			if (!expressions.hasOwnProperty(ekey))
-        					expressions[ekey] = sexpr;
-        	}
-        });
-        node.result = clay.code.show(node.sexpr);
-	}
-	this.functions = functions;
-	this.expressions = expressions;
-	this.packages = [];
-	for (var p in packages) {
-		if (packages.hasOwnProperty(p))
-			this.packages.push(p);
-	}
-};
-
-
-Model.prototype.charOffset = function(path, toff) {
-	var node = this.ast, path = path.reverse(), cur, off = 0, row;
-	while ((cur = path.pop()) !== undefined) {
-		if (cur === '_') continue;
-		else if (cur === 'result') return node.pos + node.length; //off + // no toff
-		node = node.children[cur];
-		if (node === undefined) return off + toff;
-		off = node.pos; //+= //change pos to be against level
-		if (node.type === 'table') {
-			switch(cur = path.pop()) {
-				case 'body':
-					row = path.pop();
-					cur = path.pop();
-					node = {children: node.cells[row][cur]};
-					break;
-				case 'head':
-					row = path.pop(); //should be 0
-					cur = path.pop();
-					if (row === 'align') {
-						off = node.align.pos;
-						for (var i = 0; i < cur; i++) {
-							off += node.alignText[i].length + 1;
-						}
-						return off + toff;
-					} else {
-						node = {children: node.header[cur]};
-					}
-					break;
-				//case 'foot': 
-				//	return off + toff; //TODO: don't support foot yet
-			}
-		}
-	}
-	return off + toff;
-};
-
-var Blank = new Model('Blank', '# Blank\n\nEnter your model here.');
-
-//f should return undefined to visit children
-// false to skip rest of tree
-// any other value to just skip children
-function depthFirstVisit(node, f, depth, parent, index) {
-	if (depth === undefined) depth = 0;
-	var r = f(node, depth, parent, index);
-	if (r === undefined && node.hasOwnProperty('children')) {
-		depth += 1;
-		var i, cs = node.children, l = cs.length;
-		for (i = 0; i < l; i++) {
-			if (depthFirstVisit(cs[i],f, depth, node, i) === false) {
-				return false;
-			}
-		}
-	}
-	return r;
-}
-
-
-var camelCase = function(name) {
-	return (name
-		.toLowerCase()
-		.replace(/[^a-zA-Z]+([a-zA-Z]|$)/g,
-			function(s,m) { return m.toUpperCase(); }));
-};
-
-var joinComma = function(items) { return Array.prototype.join.call(items, ','); };
-
-//memoize assumes indirect recursion
-var memoize = function(func, hasher) {
-	hasher = (hasher !== undefined) ? hasher : joinComma;
-	var memo = function() {
-		var cache = memo.cache, args = hasher(arguments);
-		if (cache[args] === undefined)
-			cache[args] = memo.func.apply(this, arguments);
-		return cache[args];
-	}
-	memo.func = func; //so we can replace the func
-	memo.clearCache = function() { memo.cache = {}; };
-	memo.cache = {};
-	return memo;
-};
-
-//place to store dependedOn
-var unmemoize = function(func) {
-	var memo = function() {
-		return memo.func.apply(this, arguments);
-	}
-	memo.func = func; //so we can replace the func
-	memo.clearCache = function() { };
-	return memo;
-};
-
-var indexed = function(func, athis) {
-	var memo = function(i) {
-		if (memo.cache === undefined)
-			memo.cache = memo.func.apply(athis);
-		return memo.cache[i];
-	};
-	memo.func = func; //so we can replace the function
-	memo.clearCache = function() { memo.cache = undefined; }
-	memo.cache = undefined;
-	memo.len = function() { 
-		if (memo.cache === undefined)
-			memo(0);
-		return memo.cache.length;
-	};
-	memo.forEach = function(f) {
-		if (memo.cache === undefined)
-			memo(0);
-		memo.cache.forEach(f);
-	};
-	memo.indexOf = function(v)  {
-		if (memo.cache === undefined)
-			memo(0);
-		return memo.cache.indexOf(v); //TODO: cache the index of
-	};
-	return memo;
-};
-
-
-var Clay = function() {
-	this.models = [Blank];
-	this._models = {'Blank': Blank};
-	this._environment = new Environment();
-	this._packages = {};
-	this._genSyms = {};
-	this._genSymCount = {};
-};
-
-Clay.prototype.Symbol = function(val) {
-	if (this._genSyms[val] !== undefined)
-		return this._genSyms[val];
-	var hint = camelCase(val);
-	if (this._genSymCount.hasOwnProperty(hint)) {
-		this._genSyms[val] = hint + '_' + this._genSymCount[hint];
-		this._genSymCount[hint] += 1;
-	} else {
-		this._genSymCount[hint] = 1;
-		this._genSyms[val] = hint;
-	}
-	return this._genSyms[val];
-};
-
-var Graph = {};
-
-Graph.Line = function(matrix, x, series) {
-	var elem = document.createElement('div');
-
-	d3.select(elem).attr("style", "width: 100%; min-width: 400px; min-height: 250px;")
-
-// DUMMY graph to test the result concept
-
-	var margin = {top: 20, right: 30, bottom: 30, left: 30},
-    width = 800 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
-
-var parseDate = d3.time.format("%Y%m%d").parse;
-
-var x = d3.time.scale()
-    .range([0, width]);
-
-var y = d3.scale.linear()
-    .range([height, 0]);
-
-var color = d3.scale.category10();
-
-var xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom");
-
-var yAxis = d3.svg.axis()
-    .scale(y)
-    .orient("left");
-
-var line = d3.svg.line()
-    .interpolate("basis")
-    .x(function(d) { return x(d.date); })
-    .y(function(d) { return y(d.temperature); });
-
-var svg = d3.select(elem).append('svg')
-	//.attr("height", height + margin.top + margin.bottom)
-	.attr("style", "width: 100%;")
-	.attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
-    //.attr("width", width + margin.left + margin.right)
-    
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-d3.tsv("data.tsv", function(error, data) {
-  color.domain(d3.keys(data[0]).filter(function(key) { return key !== "date"; }));
-
-  data.forEach(function(d) {
-    d.date = parseDate(d.date);
-  });
-
-  var cities = color.domain().map(function(name) {
-    return {
-      name: name,
-      values: data.map(function(d) {
-        return {date: d.date, temperature: +d[name]};
-      })
-    };
-  });
-
-  x.domain(d3.extent(data, function(d) { return d.date; }));
-
-  y.domain([
-    d3.min(cities, function(c) { return d3.min(c.values, function(v) { return v.temperature; }); }),
-    d3.max(cities, function(c) { return d3.max(c.values, function(v) { return v.temperature; }); })
-  ]);
-
-  svg.append("g")
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis);
-
-  svg.append("g")
-      .attr("class", "y axis")
-      .call(yAxis)
-    .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 6)
-      .attr("dy", ".71em")
-      .style("text-anchor", "end")
-      .text("Net Income");
-
-  var city = svg.selectAll(".city")
-      .data(cities)
-    .enter().append("g")
-      .attr("class", "city");
-
-  city.append("path")
-      .attr("class", "line")
-      .attr("d", function(d) { return line(d.values); })
-      .style("stroke", function(d) { return color(d.name); });
-
-  city.append("text")
-      .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
-      .attr("transform", function(d) { return "translate(" + x(d.value.date) + "," + y(d.value.temperature) + ")"; })
-      .attr("x", 3)
-      .attr("dy", ".35em")
-      .text(function(d) { return d.name; });
-});
-
-	return elem;
-};
-
-Graph.LineB = function(ytitle, values, xvalues, series) {
-	var elem = document.createElement('div');
-
-	d3.select(elem).attr("style", "width: 100%; min-width: 400px; min-height: 250px;")
-
-// DUMMY graph to test the result concept
-
-	var margin = {top: 20, right: 30, bottom: 30, left: 80},
-    width = 800 - margin.left - margin.right,
-    height = 500 - margin.top - margin.bottom;
-
-
-	var x = d3.scale.ordinal()
-	//.range(xvalues.map(function(d,i) { return i; }));
-    //.range(xvalues)
-    	.rangeBands([0, width]);
-
-	var y = d3.scale.linear()
-    	.range([height, 0]);
-
-	var color = d3.scale.category10();
-
-	var xAxis = d3.svg.axis()
-    	.scale(x)
-    	.orient("bottom");
-
-	var yAxis = d3.svg.axis()
-    	.scale(y)
-    	.orient("left");
-
-	var line = d3.svg.line()
-    	//.interpolate("basis")
-    	.x(function(d, i) { return x(xvalues[i]) + x.rangeBand()/2; })
-    	.y(function(d, i) { return y(d); });
-
-	var svg = d3.select(elem).append('svg')
-		//.attr("height", height + margin.top + margin.bottom)
-		.attr("style", "width: 100%;")
-		.attr("viewBox", "0 0 " + (width + margin.left + margin.right) + " " + (height + margin.top + margin.bottom))
-    	//.attr("width", width + margin.left + margin.right)    
-  		.append("g")
-	    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-
-  color.domain(series);
-  x.domain(xvalues);
-  y.domain([
-  	d3.min(values, function(vs) { return d3.min(vs, function(v) { return v }); }),
-    d3.max(values, function(vs) { return d3.max(vs, function(v) { return v }); })
-  ]);
-
-  svg.append("g")
-      .attr("class", "x axis")
-      .attr("transform", "translate(0," + height + ")")
-      .call(xAxis);
-
-  svg.append("g")
-      .attr("class", "y axis")
-      .call(yAxis)
-    .append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("y", 6)
-      .attr("dy", ".71em")
-      .style("text-anchor", "end")
-      .text(ytitle);
-
-    var serieses = svg.selectAll(".series")
-      .data(values)
-      .enter().append("g")
-      .attr("class", "series");
-
-  	serieses.append("path")
-      .attr("class", "line")
-      .attr("d", function(d) { return line(d); })
-      .style("stroke", function(d, i) { return color(series[i]); });
-
-  	serieses.append("text")
-      .datum(function(d, i) { return {name: xvalues[xvalues.length - 1], value: d[d.length - 1]}; })
-      .attr("transform", function(d) { 
-      	return "translate(" + (x(d.name) + x.rangeBand()/2) + "," + y(d.value) + ")"; 
-      })
-      .attr("x", 3)
-      .attr("dy", ".35em")
-      .text(function(d, i) { return series[i]; });
-
-	return elem;
-};
-Clay.prototype.evaluate = function(package, expression) {
-	//TODO: replace this with real expression evaluation.
-	var e = clay.code.show(expression);
-	var exps = this._packages[package].expressions;
-	if (exps.hasOwnProperty(e)) {
-		try {
-			//TODO: need to know the dimensions and type of the expression first
-			return exps[e].compiled();
-		} catch(ex) {
-			console.log(e + ' resulted in ' + ex.message);
-		}
-	}
-	return null;
-};
-
-Clay.prototype.model = function(name) {
-	return this._models[name];
-};
-
-//Package is the ast representation of a Namespace
-var Package = function(name) {
-	this.name = name;
-	this.dimensions = {};
-	this.functions = {};
-	this.expressions = {};
-	this.unsatisfieds = {}; //dimensions that have no function
-};
-
-var Environment = function() {
-	//Dummy object to store all the functions
-	//and from which all the namespaces inherit
-};
-
-Environment.prototype.range = function(start, end, step) {
-	if (end === undefined) {
-		end = start;
-		start = 0;
-	}
-	if (step === undefined) step = 1;
-	if (step <= 0) return [];
-
-	var ret = [], cur = start;
-	while (cur < end) {
-		ret.push(cur);
-		cur = cur + step;
-	}
-	return ret;
-};
-
-Environment.prototype.Math = Math;
-
-Environment.prototype.Graph = {
-	Line: Graph.Line,
-	LineB: Graph.LineB,
-};
-
-Environment.prototype.Sum = function(list) {
-	var sum = 0;
-	list.forEach(function(v,i) { if (v !== undefined) sum += v; });
-	return sum;
-};
-
-
-Environment.prototype.Max = function(list) {
-	var max;
-	list.forEach(function(v,i) { 
-		if (max === undefined || max < v) max = v; 
-	});
-	return max;
-};
-
-Environment.prototype.Head = function(list) {
-	var head;
-	list.some(function(v,i) { head = v; return true;});
-	return head;
-};
-
-Environment.prototype.Unique = function(list) {
-	var included = {}, ret = [];
-	list.forEach(function(v, i) {
-		if (!included.hasOwnProperty(v)) {
-			ret.push(v);
-			included[v] = true;
-		}
-	});
-	return ret;
-};
-
-Environment.prototype._Table = function(list, ast) {
-	//TODO: use the ast to figure out the table.
-	return clay.code.show(ast);
-};
-
-Environment.prototype.BasicTable = function(headers, rows, highlight) {
-	var c = document.createElement.bind(document);
-	var table = c('table'), head = table.createTHead(), body = table.createTBody();
-	table.className = 'pure-table pure-table-horizontal';
-	if (highlight === undefined) highlight = 0;
-
-	var hr = head.insertRow();
-
-	headers.forEach(function(h, i) {
-		var th = c('th');
-		hr.appendChild(th);
-		if (i < highlight) th.className = 'highlight';
-		if (isElement(h)) {
-			th.appendChild(h);
-		} else {
-			th.appendChild(document.createTextNode(h.toString()));
-		}
-	});
-
-	rows.forEach(function(r, j) {
-		var tr = body.insertRow();
-		r.forEach(function(e, i) {
-			var th = tr.insertCell(-1);
-			if (i < highlight) th.className = 'highlight';
-			if (isElement(e)) {
-				th.appendChild(e);
-			} else {
-				th.appendChild(document.createTextNode(e.toString()));
-			}
-		});
-	});
-
-	return table;
-}
-
-//Table({Math.round(Net Income), Tax, Revenue})
-// returns only defined values
-Environment.prototype.Values = function(list) {
-	return list.filter(function() { return true; });
-};
-
-
-Clay.prototype.compileOver = function(expr, basepack) {
-	var me = this;
-	var exp = this.compileExpr(expr[1], basepack);
-	var dims = expr.dimensions.map(function(d) {
-		return me.Symbol(d);
-	}).join(', ');
-	var retDims = expr.slice(2).map(function(e) { 
-		return '"' + e.dimensions[0] + '"'; });
-	var overs = expr.slice(2).map(function(e) { 
-		var pack = e.dimensions[0].split('.',1)[0];
-		var name = e.dimensions[0].slice(pack.length+1);
-		return {pack: pack,
-				name: name,
-				sym: me.Symbol(e.dimensions[0]) ,
-			};
-		});
-
-	var vars = '    var _k0m = 1'
-	var ends = [];
-	var starts = [];
-	var indexes = [];
-	overs.forEach(function(o, i) {
-		var obj = 'this["' + o.pack + '"]["' + o.name + '"]';
-		indexes.push('_k' + (i+1));
-		vars = vars + ', _k' + (i+1) + ', _k' + (i+1) +
-		'm = _k'+ i +'m * ' + obj +'.len()'; //.len must be defined on category
-		starts.push(obj + '.forEach(function(v, ' + o.sym + ') {\n\
-        _k' + (i+1) + ' = _k' + i +'m * ' + o.sym + ';');
-		ends.push('}.bind(this))');
-	});
-	var t = dims.length	> 0 ? 'this, ' : 'this'
-	var ov = '(function(' + dims + ') { var _ret=[], _val;\n\
-' + vars + ';\n\
-    ' + starts.join('\n    ') + '\n\
-        _val = '+exp+';\n\
-        if (_val !== undefined) _ret['+ indexes.join(' + ') +'] = _val;\n\
-    ' + ends.join('') +';\n\
-    _ret.dimensions = ['+ retDims.join(', ') +'];\n\
-    return _ret; \n\
-}.call('+ t + dims + '))';
-	return ov;
-};
-
-var quote = function quote(expr) {
-	if (expr instanceof Array) {
-		return '[' + expr.map(function(e) { return quote(e); }).join(', ') + ']';
-	} 
-	switch(typeof(expr)) {
-		case 'string': return "'" + expr + "'";
-		case 'number': return expr.toString();
-		default: return expr.toString();
-	};
-}
-
-Clay.prototype.compileExpr = function(expr, basepack) {
-	var me = this;
-	switch(expr[0]) {
-		case 'PostMacro':
-			return me.compileExpr(expandPostMacros(expr), basepack);
-		case 'Category':
-			return 'return (' + me.compileExpr(expr[2], basepack) + ');';
-		case 'Func*':
-		case 'Func':
-			var exprs = expr.slice(2).map(function(e) {
-				return '_ret = (' + me.compileExpr(e, basepack) + ');'
-			});
-			var ov = 'var _ret;\n\
-' + exprs.join('\nif(_ret !== undefined) return _ret;\n') + '\n\
-return _ret;'
-			return ov;
-		case 'RemDims':
-		case 'NoDim':
-			return me.compileExpr(expr[1], basepack);
-		case 'Quote':
-			return quote(expr[1]);
-		case 'LetG':
-			return '('+ me.compileExpr(expr[1], basepack) +' == '+ me.compileExpr(expr[2], basepack)+') ? (' + me.compileExpr(expr[3], basepack) + ') : undefined';
-		case 'LetS':
-			return '(function(' + me.compileExpr(expr[1], basepack) + ') { \nreturn ('+ me.compileExpr(expr[3], basepack) +'); \n}.call(this, '+me.compileExpr(expr[2], basepack)+'))';
-		case 'Restrict':
-			return '('+ me.compileExpr(expr[1], basepack) +') ? (' + me.compileExpr(expr[2], basepack) + ') : undefined';
-		case 'Call':
-			return 'this.' + expr[1].slice(1).join('.') + '(' +
-				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
-		case 'List':
-			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
-		case 'Times':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' * ') + ')';
-		case 'Plus':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' + ') + ')';
-		case 'Subtract':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' - ') + ')';
-		case 'Bracket':
-			return '(' + me.compileExpr(expr[1], basepack) + ')';
-		case 'Divide':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
-		case 'Equal':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
-		case 'LessEqual':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' <= ') + ')';
-		case 'Less':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' < ') + ')';
-		case 'Indexed*':
-			if (expr[1][0] !== 'List') throw new Error('Indexed* requires literal list');
-			if (expr.length > 3) throw new Error('Indexed* does not yet support multiple args');
-			return '(function() {\nswitch (' + me.compileExpr(expr[2], basepack) + ') {\n' +
-				expr[1].slice(1).map(function(e,i) { return '  case ' + i + ': return ' + me.compileExpr(e, basepack) + ';\n'}).join('') +
-				'}; }).call(this)'
-		case 'Indexed': 
-			if (expr.length > 3) throw new Error('Indexed does not yet support multiple args');
-			var ex = me.compileExpr(expr[1], basepack);
-			return '(' + ex + ')[' + me.compileExpr(expr[2], basepack) + ']';
-		case 'Index':
-			if (expr[1][0] !== 'Symbol') throw new Error('Invalid index parameter ' + clay.code.show(expr));
-			expr = expr[1];
-			var pack, name;
-			if (expr.length > 2) {
-				pack = expr[1];
-				name = expr[2];
-			} else {
-				name = expr[1];
-				if (me._packages.hasOwnProperty(name))
-					pack = name; //for Data tables
-				else
-					pack = basepack;
-			}
-			return me.Symbol(pack + '.' + name);
-		case 'IndexOf':
-			if (expr[1][0] !== 'Symbol') throw new Error('Invalid indexOf parameter ' + clay.code.show(expr));
-			var ex = me.compileExpr(expr[2], basepack);
-			expr = expr[1];
-			var pack, name;
-			if (expr.length > 2) {
-				pack = expr[1];
-				name = expr[2];
-			} else {
-				name = expr[1];
-				if (me._packages.hasOwnProperty(name))
-					pack = name; //for Data tables
-				else
-					pack = basepack;
-			}
-			return "this['" + pack + "']['" + name +"'].indexOf(" + ex + ")";
-		case 'Over':
-			return me.compileOver(expr, basepack);
-		case 'Symbol':
-			var pack, name;
-			if (expr.length > 2) {
-				pack = expr[1];
-				name = expr[2];
-			} else {
-				name = expr[1];
-				if (me._packages.hasOwnProperty(name))
-					pack = name; //for Data tables
-				else
-					pack = basepack;
-			}
-			//if symbol defined (then annotateDimensions of definition)
-			if (me._packages[pack] !== undefined && me._packages[pack].functions[name]) {
-				var dims = me._packages[pack].functions[name].dimensions.map(function(d) { return me.Symbol(d); });
-				return "this['" + pack + "']['" + name +"'](" + dims.join(', ') + ")";
-			} else {
-				return '"' + expr.slice(1).join('.') + '"';
-			}
-		case 'String':
-			return '"' + expr[1] + '"';
-		case 'Number':
-			return expr[1].toString();
-		default:
-			throw new Error('Compile Error: Not implemented for ' + clay.code.show(expr));
-	};
-};
-
-Clay.prototype.compileFunc = function(expr, basepack) {
-	var me = this;
-	switch(expr[0]) {
-		case 'Category':
-			return indexed(new Function(me.compileExpr(expr, basepack)), me._environment[basepack]);
-		case 'Func*':
-			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
-			return unmemoize(new Function(dims, me.compileExpr(expr, basepack)));
-		case 'Func':
-			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
-			return memoize(new Function(dims, me.compileExpr(expr, basepack)));
-		default:
-			var dims = expr.dimensions.map(function(d) { return me.Symbol(d); });
-			var ov = 'return (' + me.compileExpr(expr, basepack) + ');';
-			//console.log(ov);
-			try {
-				return memoize(new Function(dims, ov));
-			} catch (er) {
-				console.log('Could not compile: ' + ov);
-				console.log(er.message);
-				return memoize(new Function('return undefined;'));
-			}
-			
-	};
-};
-
-Clay.prototype.recalculate = function() {
-	var environment, packages = {}, pack;
-	
-	environment = new Environment();
-
-	//Namespace is the compiled equivalent of Package
-	function Namespace() {};
-	Namespace.prototype = environment;
-
-	this.models.forEach(function(model) {
-		//add missing packages
-		model.packages.forEach(function(p) {
-			if (!packages.hasOwnProperty(p)) {
-				packages[p] = new Package(p);
-			}
-		});
-		//collect functions
-		for (var k in model.functions) {
-			var func = model.functions[k];
-			var symb = func[1];
-			var p = symb[1];
-			var name = symb[2];
-			pack = packages[p];
-			if (pack.functions.hasOwnProperty(name)) {
-				func.length = 0;
-				func[0] = 'Error';
-				func[1] = 'Cannot redefine ' + name;
-			} else {
-				pack.functions[name] = func;
-			}
-		};
-
-		var pack = packages[model.package];
-		//collect expressions (after so we can get the errors)
-		for (var k in model.expressions) {
-			pack.expressions[k] = model.expressions[k];
-		};
-	});
-
-	//find all dimensions (here not in the package as it needs to go over package)
-	function findDimensions(expr, basepack) {
-		function addDimension(symb, parent) {
-			var pack, name;
-			if (symb.length > 2) {
-				pack = symb[1];
-				name = symb[2];
-			} else {
-				pack = basepack;
-				name = symb[1];
-			}
-			if (packages.hasOwnProperty(name)) pack = name; //for Data tables
-			if (!packages[pack].functions.hasOwnProperty(name)) {
-				//create dummy function for unsatisfied category
-				var sy = ['Symbol', pack, name];
-				packages[pack].functions[name] = ['Category', sy, ['List']];
-				packages[pack].functions[name].dimensions = [pack + '.' + name];
-				packages[pack].unsatisfieds[name] = true;
-			}
-			packages[pack].dimensions[name] = packages[pack].functions[name];
-
-		}
-		//set dimensions on actual categories
-		if (expr[0] === 'Category') {
-			expr.dimensions = [expr[1][1] + '.' + expr[1][2]];
-		}
-
-		clay.code.visit(expr, function(ast, path, index) {
-			switch (ast[0]) {
-				case 'LetS':
-				case 'LetG': {
-					var lhs = ast[1];
-					if (lhs[0] === 'Symbol')
-						addDimension(lhs, ast);
-					break;
-				}
-				case 'Over':
-				case 'Indexed': {
-					//all symbols are dimensions (Over expr symb..)
-					for (var i = ast.length - 1; i >= 2; i--) {
-						addDimension(ast[i], ast);	
-					}
-					break;
-				}
-				case 'Count': //param must be a dimension
-				case 'Index': //param must be a dimension
-				case 'IndexOf': //lhs must be a dimension
-				case 'Name': //param must be a dimension
-					var lhs = ast[1];
-					if (lhs !== undefined && lhs[0] === 'Symbol')
-						addDimension(lhs, ast);
-					break;
-			};
+		return item.spans.map(function(c) {
+			return DOM.text(fixSpaces(c.text)); //TODO: assmuing everything is text
 		});
 	}
 
-	this.models.forEach(function(model) {
-		for (var k in model.functions) 
-			if (model.functions.hasOwnProperty(k))
-				findDimensions(model.functions[k], model.package);
-		//definitions should not depend on expressions
-		/*for (var k in model.expressions) 
-			if (model.expressions.hasOwnProperty(k))
-				findDimensions(model.expressions[k], model.package);*/
-	});
-
-	function union(l,r) {
-		var u = {}, ret = [];
-		for (var i = l.length - 1; i >= 0; i--) {
-			u[l[i]] = true;
-		};
-		for (var i = r.length - 1; i >= 0; i--) {
-			u[r[i]] = true;
-		};
-		for (var k in u) {
-			if (u.hasOwnProperty(k))
-				ret.push(k);
-		};
-		return ret;
+	function renderRow(type, alignments) {
+		return DOM.tr({id: keyToId(token.key)},token.values.map(function(c,i) { //
+			return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
+		}));
 	}
 
-	function equal(l, r) {
-		if (l.length !== r.length)
-			return false;
-		var u = {}, ret = [];
-		for (var i = l.length - 1; i >= 0; i--) {
-			u[l[i]] = true;
-		};
-		for (var i = r.length - 1; i >= 0; i--) {
-			if (!u.hasOwnProperty(r[i]))
-				return false;
-		};
-		return true;
-	}
-
-	function subtract(l, r) {
-		var u = {}, ret = [];
-		for (var i = l.length - 1; i >= 0; i--) {
-			u[l[i]] = true;
-		};
-		for (var i = r.length - 1; i >= 0; i--) {
-			if (u.hasOwnProperty(r[i]))
-				delete u[r[i]];
-		};
-		for (var k in u) {
-			if (u.hasOwnProperty(k))
-				ret.push(k);
-		};
-		return ret;
-	}
-
-	var hasChanged = true, pass = 0, maxPasses = 10;
-	//annotate dimensions of functions
-	function annotateDimensions(expr, pass, basepack) {
-		if (typeof(expr) === 'string')
-			return [];
-		if (expr.dimensions !== undefined) {
-			if (expr.pass === pass) {
-				return expr.dimensions;
-			}
-		} else {
-			expr.dimensions = [];
-		}
-		expr.pass = pass;
-		var ret = [];
-		switch(expr[0]) {
-			case 'LetS':
-				//(LetS symb value expr)
-				ret = annotateDimensions(expr[3], pass, basepack);
-				var symb = annotateDimensions(expr[1], pass, basepack);
-				var value = annotateDimensions(expr[2], pass, basepack);
-				if (symb.length > 1)
-					throw new Error('Category Error ' + clay.code.show(expr[1]) + ' used as category but has dimensions ' + symb);
-				ret = subtract(ret, symb);
-				ret = union(ret, value);
-				break;
-			case 'IndexOf': // dim(IndexOf (Symb ..), value) is dim(value)
-				return annotateDimensions(expr[2], pass, basepack);
-			case 'Category':
-				var x = annotateDimensions(expr[2], pass, basepack);
-				if (x.length > 0)
-					throw new Error('Categories cannot vary over another category: ' + clay.code.show(expr));
-				return expr.dimensions;
-			case 'Symbol':
-				var pack, name;
-				if (expr.length > 2) {
-					pack = expr[1];
-					name = expr[2];
-				} else {
-					name = expr[1];
-					if (packages.hasOwnProperty(name))
-						pack = name; //for Data tables
-					else
-						pack = basepack;
-				}
-				//if symbol defined (then annotateDimensions of definition)
-				if (packages[pack] !== undefined && packages[pack].functions[name])
-					ret = annotateDimensions(packages[pack].functions[name], pass, basepack);
-				//else (nothing)
-				break;
-			case 'Number':
-				return expr.dimensions;
-			case 'String':
-				return expr.dimensions;
-			case 'Over':
-				var temp = annotateDimensions(expr[1], pass, basepack);
-				var u = {}, x;
-				for(var i=expr.length - 1; i > 1; i--) {
-					if (expr[i] instanceof Array)
-						x = annotateDimensions(expr[i],pass, basepack);
-						if (x.length > 1) {
-							throw new Error('Category Error: ' + clay.code.show(expr[i]) + ' use as category but has multiple dimensions');
-						}
-						u[x[0]] = true;
-				};
-				for (var i = temp.length - 1; i >= 0; i--) {
-					if (!u.hasOwnProperty(temp[i]))
-						ret.push(temp[i]);
-				};
-				break;
-			case 'RemDims':
-				var temp = annotateDimensions(expr[1], pass, basepack);
-				var rem = annotateDimensions(expr[2], pass, basepack);
-				ret = [];
-				temp.forEach(function(d) {
-					if (rem.indexOf(d) === -1) ret.push(d);
+	function renderCode(lang) {
+		var ret = []
+		var items = [];
+		var sitems = [];
+		var langClass;
+		do {
+			var props = {id: keyToId(token.key)};//TODO: add key
+			if (token.lang) langClass = props.className = 'lang-' + token.lang
+			items.push(DOM.code(props,fixSpaces(token.text)));
+			if (token.sexpr) {
+				token.sexpr.forEach(function(sexpr) {
+					sitems.push(DOM.code({className: 'lang-sexpr'}, Cube.showS(sexpr) + '\n'));
 				});
-				break;
-			case 'NoDim': //NoDim has no dimensions
-				annotateDimensions(expr[1], pass, basepack);
-				ret = [];
-				break;
-			case 'Func':
-				for(var i=expr.length - 1; i > 1; i--) {
-					if (expr[i] instanceof Array)
-						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
-				};
-				break;
-			default:
-				for(var i=expr.length - 1; i > 0; i--) {
-					if (expr[i] instanceof Array)
-						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
-				};
-		};
-		if (!equal(ret,expr.dimensions)) {
-			expr.dimensions = ret;
-			hasChanged = true;
-		};
-		return expr.dimensions;
-	}
-
-	while (hasChanged && pass < maxPasses) {
-		hasChanged = false;
-		this.models.forEach(function(model) {
-			for (var k in model.functions) 
-				if (model.functions.hasOwnProperty(k))
-					annotateDimensions(model.functions[k],pass, model.package);
-			for (var k in model.expressions) 
-				if (model.expressions.hasOwnProperty(k))
-					annotateDimensions(model.expressions[k],pass, model.package);
-		});
-		pass = pass + 1;
-	}
-	if (pass === maxPasses) {
-		throw new Error('Dimensions Error: Could not infer dimensions');
-	}
-
-	this._environment = environment;
-	this._packages = packages;
-
-	//compile functions
-	for (pack in packages) {
-		if (packages.hasOwnProperty(pack)) {
-			var packg = packages[pack];
-			environment[pack] = new Namespace();
-			for (var name in packg.functions) {
-				if (packg.functions.hasOwnProperty(name)) {
-					var func = packg.functions[name];
-					environment[pack][name] = this.compileFunc(func, pack)
-				}
 			}
-		}
-	}
-
-	//compile expressions (and bind to namespace)
-	for (pack in packages) {
-		if (packages.hasOwnProperty(pack)) {
-			var env = environment[pack];
-			var packg = packages[pack];
-			for (var name in packg.expressions) {
-				if (packg.expressions.hasOwnProperty(name)) {
-					var expr = packg.expressions[name];
-					if (expr.dimensions.length > 0) {
-						//Wrap expressions with table
-						//TODO: use original expression
-						//Graph.Line(Net Income[Month])
-						expr = table(expr);
-						packg.expressions[name] = expr;
-						annotateDimensions(expr, pass-1, pack);
-						console.log(clay.code.show(expr) + ' has ' + expr.dimensions.join(', '));
-
+			if (token.result || token.error) {
+				ret.push(DOM.pre({className: langClass}, items));
+				items = [];
+				if (sitems.length > 0) {
+					ret.push(DOM.pre({className: 'lang-sexpr'}, sitems));
+					sitems = [];
+				}
+				if (token.result) {
+					try {
+						var result = token.result();
+						if (isElement(result)) {
+							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
+						} else {
+							ret.push(DOM.div({className: 'result'}, result.toString()));
+						}
+					} catch(e) {
+						token.error = e;
 					}
-					expr.compiled = this.compileFunc(expr, pack).bind(env);
 				}
+				if (token.error)
+					ret.push(DOM.div({className: 'error'}, token.error.toString()));
 			}
+			getToken();
+		} while (token && token.type === 'code' && token.lang === lang);
+		ungetToken();
+		if (items.length > 0)
+			ret.push(DOM.pre({className: langClass}, items));
+		if (sitems.length > 0)
+			ret.push(DOM.pre({className: 'lang-sexpr'}, sitems));
+		return ret
+	}
+
+	function renderList(listType, itemType) {
+		var items = [];
+		while (token && token.type === itemType) {
+			items.push(DOM.li({id: keyToId(token.key)},renderSpans(token))); //TODO: add key
+			getToken();
+		}
+		ungetToken();
+		return [DOM[listType]({}, items)];
+	}
+
+	function renderFigure() {
+		var f = token;
+		return [DOM.figure({id: keyToId(token.key)},
+			DOM.img({alt: f.alt, src: f.src}),
+			DOM.figcaption({}, f.caption)
+		)];
+	}
+
+	function renderPara() {
+		switch (token.type) {
+			case 'code':   return renderCode(token.lang);
+			case 'p':      return [DOM.p({id: keyToId(token.key)}, renderSpans(token, true))];
+			case 'header': return [DOM['h'+token.level]({id: keyToId(token.key)}, 
+				fixSpaces(token.text))];
+			case 'figure': return renderFigure();
+			case 'ulli':   return renderList('ul', 'ulli');
+			case 'olli':   return renderList('ol', 'olli');
+			case 'quote':  return [DOM.blockquote({id: keyToId(token.key)}, renderSpans(token))];
+			//case 'tr':     return renderTable();
+			case 'table':  return [Table(token)];
+			default: 
+				return [
+					DOM.p({className: 'error', id: keyToId(token.key)}, 
+						"Error: Don't know what to do with a " + token.type)
+				];
 		}
 	}
 
-	//TODO: add custom functions to namespace they were defined in
-
-
-};
-
-Clay.prototype.addModel = function(model) {
-	if (this.models.length === 1 && this.models[0] === Blank && !Blank.isModified()) {
-		this.models = [];
-		this._models = {};
+	function renderSection() {
+		var children = [];
+		getToken();
+		while (token && token.type !== 'break') {
+			Array.prototype.push.apply(children, renderPara());
+			getToken();
+		};
+		return DOM.section({}, children);
 	}
-	this.models.push(model);
-	this._models[model.name] = model;
-	this.recalculate();
+
+	while (index < tokens.length) {
+		rendered.push(renderSection());
+	}
+	return rendered;
+}
+
+var Preview = createClass({
+	render: function() {
+		return DOM.div({id: 'preview', className: 'editor'}, 
+			renderToFriar(this.props.model));
+	}
+});
+
+
+var IgnoreKeys = {
+	Shift: false,
+	Win: false,
+	Control: false,
+	CapsLock: false,
+	Alt: false,
+	Meta: false,
+	Left: true,
+	Right: true,
+	Up: true,
+	Down: true,
 };
 
-Clay.prototype.close = function(name) {
-	var m = this._models[name];
-	delete this._models[name];
-	var i = this.models.length;
-	while (i--)
-		if (this.models[i] === m) 
+var isOpera = !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+    // Opera 8.0+ (UA detection to detect Blink/v8-powered Opera)
+var isFirefox = typeof InstallTrigger !== 'undefined';   // Firefox 1.0+
+var isSafari = Object.prototype.toString.call(window.HTMLElement).indexOf('Constructor') > 0;
+    // At least Safari 3+: "[object HTMLElementConstructor]"
+var isChrome = !!window.chrome && !isOpera;              // Chrome 1+
+var isIE = /*@cc_on!@*/false || !!document.documentMode; // At least IE6
+
+
+var canInsertText = document.queryCommandSupported('insertText');
+var canMsUndo = document.queryCommandSupported('ms-beginUndoUnit');
+
+function insertText(ta, str) {
+	if (canInsertText && !isFirefox) {
+		document.execCommand('insertText', false, str);
+		return;
+	}
+	if (canMsUndo) document.execCommand('ms-beginUndoUnit');
+	var val = ta.value;
+	var start = ta.selectionStart;
+	var end = ta.selectionEnd;
+	ta.value = val.substring(0,start) + str + val.substring(end);
+	ta.selectionStart = ta.selectionEnd = start + str.length;
+	if (canMsUndo) document.execCommand('ms-endUndoUnit');
+}
+
+function pathFor(node, offset, model) {
+	var path = [];
+	while(!node.id && node.parentNode) {
+		var i = 0;
+		var no = node;
+		while(no = no.previousSibling) { ++i; }
+		path.push(i);
+		node = node.parentNode;
+	}
+	var id = node.id;
+	if (id === 'preview') {
+		//selection.node offset
+		console.log(focusPath + ' from preview');
+	} else if (reKey.test(id)) {
+		var key = id
+			.slice(KEY_PREFIX.length)
+			.split('.')
+			.map(function(k) { return parseInt(k, 36); });
+		var ind = model.indexOfKey(key[0]);
+		if (ind === -1) {
+			console.log('Key not found in model ' + id);
+			return;
+		}
+			
+		var cell = model.cells[ind];
+		return model.offsetOfIndex(ind) + offsetInCell(cell, path, key, offset);
+	}
+	return 0;
+}
+
+function offsetInCell(cell, path, key, offset) {
+	switch (cell.type) {
+		case 'table': 
+			var rowNum = key[1] || 0;
+			for (var i = 0; i < rowNum; i++) {
+				offset += cell.rows[i].raw.length + 1; //+1 for newline that gets removed from raw by split
+			}
+			var cellNum = path.pop(); //path is now span path
+			for (var i = 0; i< cellNum; i++) {
+				offset += cell.rows[rowNum].cells[i].length; //change to raw length when we span cell
+			}
+			offset += cellNum + 1; //add on pipes
 			break;
-	if (i >= 0)
-		this.names.splice(i, 1);
-	this.recalculate();
-};
+		case 'header':
+			offset += cell.level;
+			break;
+		case 'figure':
+			var w = path.pop();
+			if (w === 1) offset += cell.alt.length + cell.src.length + 5;
+			else offset = cell.alt.length + cell.src.length + 5;
+			break;
+		case 'quote':
+		case 'ulli':
+		case 'olli':
+			offset++;
+			break;
+		case 'code':
+			offset += (cell.text.slice(0,offset).match(/\n/g) || []).length; //space per newline
+			offset++; //inital space
+			break;
 
-Clay.prototype.charOffset = function(name, path, toff) {
-	return this.model(name).charOffset(path, toff);
-};
-
-Clay.prototype.openModel = function(name, callback) {
-	if (this._models[name] !== undefined) {
-		if (callback) callback(name); //file already open just switch to it
-	} else {
-		fetchFile('models/'+name + '.model', function(data) {
-			if (data !== undefined) {
-				this.addModel(new Model(name, data));
-				if (callback) callback(name);
-			}
-		}.bind(this));
 	}
-};
+	return offset;
+}
 
-Clay.prototype.revert = function(name, callback) {
-	this.model(name).revert();
-	this.recalculate();
-	if (callback) callback(name);
-};
+function nodeAtOffset(fullOffset, model) {
+	var cello = model.cellForOffset(fullOffset);
+	if (!cello) return;
+	var cell = cello.cell;
+	var offset = cello.offset;
+	var baseKey = keyToId(cell.key);
+	var baseElem = document.getElementById(baseKey);
+	switch (cell.type) {
+		case 'table':
+			var rowNum = 0;
+			for (var rowNum = 0; rowNum < cell.rows.length - 1; rowNum++) {
+				var l = cell.rows[rowNum].raw.length + 1;
+				if (offset < l) break;
+				offset -= l;
+			}
+			var row = cell.rows[rowNum].cells;
+			var cellNum;
+			offset--;
+			for (cellNum = 0; cellNum < row.length - 1; cellNum++) {
+				var l = row[cellNum].length + 1;
+				if (offset < l) break;
+				offset -= l;
+			}
+			if (rowNum === 0) {
+				baseElem = baseElem.firstChild.firstChild; //thead.tr
+			} else {
+				baseElem = baseElem.childNodes[1].childNodes[rowNum-1]; //tbody.tr;
+			}
+			baseElem = baseElem.childNodes[cellNum].firstChild;
+			break;
+		case 'p':
+			baseElem = baseElem.firstChild;
+			break;
+		case 'header':
+			offset -= cell.level;
+			baseElem = baseElem.firstChild;
+			break;
+		case 'figure':
+			var toff = 	cell.alt.length + cell.src.length + 5;
+			if (offset >= toff) {
+				offset -= toff;
+				baseElem = baseElem.childNodes[1].firstChild;
+			}
+			break;
+		case 'quote':
+		case 'ulli':
+		case 'olli':
+			offset--;
+			baseElem = baseElem.firstChild;
+			break;
+		case 'code':
+			offset--;
+			offset -= (cell.raw.slice(0,offset).match(/\n/g) || []).length; //space removed per newline
+			baseElem = baseElem.firstChild;
+			break;
+	}
+	return {node: baseElem, offset: offset};
+}
 
-Clay.prototype.update = function(name, source) {
-	this.model(name).update(source);
-	this.recalculate();
-};
+function childOfId(node, id) {
+	do {
+		if (node.id == id) return true;
+	} while (node = node.parentNode);
+	return false;
+}
 
-Clay.prototype.name = function(name) {
-	var i = this.names.length;
-	while (i--)
-		if (this.names[i].name == name)
-			return this.names[i];
-	return {}
-};
 
-var MenuToggle = React.createClass({
-	render: function() {
-		return a({href:"#menu", id:"menuLink", className:"menu-link"}, span(null));
-	},
-});
-
-var MenuItem = React.createClass({
-	clicked: function(event) {
-		this.props.clicked(this.props.item.name);
-	},
-	render: function() {
-		var item = this.props.item,
-			classes = React.addons.classSet({
-			'menu-item-divided': this.props.divided,
-			'pure-menu-selected': this.props.selected,
-			'menu-modified': item.isModified && item.isModified(),
-		});
-		return li({onClick: this.clicked, className: classes},
-			a({href:"#" + item.name}, item.name))
-	},
-});
-
-var Menu = React.createClass({
-	renderItem: function(item,idx) {
-		return MenuItem({item:item, 
-			key: idx,
-			divided: item.separator, 
-			selected: (item.name == this.props.selected), 
-			clicked: item.func});
-	},
-	renderFile: function(item, idx) {
-		return MenuItem({item:item, 
-			divided: (idx == 0),
-			key: idx,
-			selected: (item.name == this.props.selected), 
-			clicked: this.props.fileClick});
-	},
-	render: function() {
-
-		return div({id:"menu"},
-			div({className:"pure-menu pure-menu-open"},
-				a({className:"pure-menu-heading", href:"#"},title),
-				ul(null,this.props.items.map(this.renderItem),
-					this.props.files.map(this.renderFile))));
-	},
-});
-
-var FileItem = React.createClass({
-	clicked: function(event) {
-		this.props.clicked(this.props.path + this.props.item.name.replace(/\.model$/,''));
-	},
-	render: function() {
-		var item = this.props.item.name,
-			name = this.props.path + item.replace(/\.model$/,'');
-		return li({onClick: this.clicked},
-			a({href:"#" + name}, name))
-	},
-});
-
-var DirectoryItem = React.createClass({
-	renderItem: function(item, idx) {
-		if (item.type === 'directory') {
-			return DirectoryItem({clicked: this.props.clicked,
-				key: idx,
-				directory: item,
-				path: this.props.path + item.name + '/'});
-		}
-		return FileItem({clicked: this.props.clicked, key: idx, item: item, path: this.props.path});
-	},
-	render: function() {
-		return ul({className: 'models'}, this.props.directory.children.map(this.renderItem));
-	},
-});
-
-var FileList = React.createClass({
-	getInitialState: function() {
-		return {data: []};
-	},
-	componentWillMount: function() {
-		$.ajax({
-			url: 'models.json',
-			dataType: 'json',
-			success: function(data) {
-				this.setState({data: data});
-			}.bind(this),
-			error: function(xhr, status, err) {
-				console.error('models.json', status, err.toString());
-			}.bind(this)
-		});
-	},
-	render: function() {
-		return div(null,
-			div({className: 'header'}, h1(null, "Open Model"), h2(null, "Choose a model to open")),
-			DirectoryItem({directory:{children: this.state.data}, path:'', clicked: this.props.clicked}));
-	},
-});
-
-var Selection = React.createClass({
+var Selection = createClass({
 	getInitialState: function() {
 		return {
 			selection: null,
 		}
-	},
-	componentDidUpdate: function() {
-		/*var rects, rect;
-		if (this.state.selection !== null &&
-			(rects = this.state.selection.getClientRects()).length > 0) {
-			rect = rects[0];
-			window.scrollTo(rect.left, rect.top);
-		}*/
 	},
 	renderSelection: function(range) {
 		var rects = range.getClientRects(),
@@ -1706,7 +519,7 @@ var Selection = React.createClass({
         		width: (farRight - rect.left) + 'px',
         	}
 			fbot = rect.bottom;
-        	ret.push(div({style:cs, key:'first'}," "));
+        	ret.push(DOM.div({style:cs, key:'first'}," "));
         }
         if (len > 1) {
         	rect = rects[len - 1];
@@ -1722,542 +535,469 @@ var Selection = React.createClass({
         		cs.top = (rect.top + scrollTop) + 'px';
         		cs.height = rect.height + 'px';
         		// now draw the gap
-        		ret.push(div({style: {
+        		ret.push(DOM.div({style: {
         			top: (fbot + scrollTop) + 'px',
         			left: (farLeft + scrollLeft) + 'px',
         			width: (farRight - farLeft) + 'px',
         			height: gap + 'px'
         		}, key: 'mid'}, " "));
 			}
-			ret.push(div({style: cs, key: 'last'}, " "));
+			ret.push(DOM.div({style: cs, key: 'last'}, " "));
         }
         return ret;
 	},
 	render: function() {
-		var range = this.state.selection; //selection range
+		var range = this.state.selection;
 		if (range === null)
-			return div(null);
+			return DOM.div({className: 'selection'});
 
 		var rects = range.getClientRects(),
 			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
         	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
         if (rects.length === 0)
-        	return div(null);
+        	return DOM.div({className: 'selection'});
+
 
 		if (range.collapsed) {
-			var rect = rects[0],
-				cs = {
-					top: (rect.top + scrollTop) + 'px',
-					left: (rect.right + scrollLeft - 1) + 'px',
-					height: rect.height + 'px',
-					display: 'block',
-				};
-			return div(null,span({className: "cursor", style: cs}, " "));
+			var rect = rects[0];
+			var cs = {
+				top: (rect.top + scrollTop) + 'px',
+				left: (rect.right + scrollLeft - 1) + 'px',
+				height: rect.height + 'px',
+				display: 'block',
+			}
+			return DOM.div({className: 'selection'}, [DOM.span({className: 'cursor', style: cs},' ')]);
 		} else {
-			return div({className: "selection"},
-				this.renderSelection(range));
+			return DOM.div({className: 'selection'}, this.renderSelection(range)); //draw divs
 		}
-	},
-});
-
-var Result = React.createClass({
-	updateElementContent: function() {
-		if (isElement(this.props.value)) { // instanceof Array && this.props.value[0] === 'element') {
-			var el = this.getDOMNode(), last;
-			if (el.firstChild === el.lastChild && el.lastChild === this.props.value) return;
-			while (last = el.lastChild) el.removeChild(last);
-			el.appendChild(this.props.value);
-		}
-	},
-	componentDidMount: function() {
-		this.updateElementContent();
-	},
-	componentDidUpdate: function() {
-		this.updateElementContent();
-	},
-	render: function() {
-		if (this.props.inline)
-			return span({className: 'result'}, (this.props.value !== undefined) ? this.props.value.toString() : "NULL");
-		else
-			return div({className: 'result'}, (this.props.value !== undefined) ? this.props.value.toString() : "NULL");
+		
 	},
 });
 
 
-var touchDrag = false;
-var Renderer = React.createClass({
-	rangeFor: function(start, end) {
-		var rootId = this._rootNodeID + '.',
-			range = document.createRange(),
-			ast = this.props.model.model(this.props.name).ast.children;
-		function setEnd(items, pos, isStart) {
-			var item,
-			i,l,path = [];
-			while(items !== undefined) {
-				l = items.length;
-				for(i = 0; i < l; i++) {
-					item = items[i];
-					if (item.pos > pos) {
-						break;
-					}
-				}
-				item = items[--i];
-				path.push('$' + i);
-				switch(item.type) {
-					case 'code':
-						//path.push('$_'); //pre
-						path.push('$_'); //code
-						break;
-					//case 'codespan':
-					//	path.push('$_'); //code
-					//	break;
-					case 'table':
-						if (pos < item.cells.pos) {
-							path.push('$head');
-							if (pos < item.align.pos) {
-								path.push('$0');
-								item = item.header;
-							} else {
-								path.push('$align');
-								var tw = item.align.pos,w;
-								for (i = 0; i < item.alignText.length; i++) {
-									w = item.alignText[i].length + 1;
-									if (pos < w + tw) {
-										path.push('$' + i);
-										item = {pos: tw};
-										break;
-									}
-									tw += w;
-								}
-							}
-						}
-						else {
-							path.push('$body');
-							item = item.cells;
-						}
-						break;
-				}
-				if (item.hasOwnProperty('children')) {
-					items = item.children;
-				} else if ($.isArray(item)) {
-					//items are a
-					items = item;
-				} else {
-					items = undefined;
-					pos -= item.pos;
-				}
-			}
-			var x = $('[data-reactid="'+ rootId + path.join('.')+'"]')[0];
-			if (x !== undefined)
-				if (isStart)
-					if (pos > x.firstChild.length) {
-						range.setStartAfter(x.firstChild);
-					}
-					else {
-						range.setStart(x.firstChild, pos);
-					}
-				else
-					if (pos > x.firstChild.length) {
-						range.setEndAfter(x.firstChild);
-					}
-					else {
-						range.setEnd(x.firstChild, pos);
-					}
-		}
-		setEnd(ast, start, true);
-		if (start === end)
-			range.setEnd(range.startContainer, range.startOffset);
-		else
-			setEnd(ast, end, false);
-		return range;
-	},
-	handleTouchMove: function(e) {
-		touchDrag = true;
-	},
-	handleTouchStart: function(e) {
-		touchDrag = false;
-	},
-	handleTouchEnd: function(e) {
-		if (touchDrag) {
-			touchDrag = false;
-			return;
-		}
-		//TODO: selection doesn't get set so we will need to calculate it ourselves
-		// if it is not set
-		// note a drag might work on the phone
-		var x = this.props.selectionChanged;
-		if (x) {
-			//TODO check we didn't drag
-			var touch = e.changedTouches[0];
-			var rects = e.target.getClientRects();
-			var inr;
-			var totalWidth = 0;
-			var xoff = 0;
-			for (var i = rects.length - 1; i >= 0; i--) {
-				var r = rects[i];
-				if (r.top <= touch.clientY && r.bottom >= touch.clientY
-					&& r.left <= touch.clientX && r.right >= touch.clientX) {
-					inr = r;
-					xoff += (touch.clientX - r.left);
-				}
-				totalWidth += r.width;
-				if (r.bottom < touch.clientY) xoff += r.width; //can probably change this to assum order of client rects
-			};
-			var tc = e.target.textContent;
-			var tcl = tc.length;
-			if (tcl == 0) return; //set offset to 0
-			var approx = Math.round((xoff * tcl) / totalWidth);
-			console.log(approx);
-
-			var startE = e.target;
-			if (startE.nodeType === 3) startE = startE.parnetNode;
-			var endE = startE;
-			var startPath = startE.getAttribute('data-reactid');
-			var endPath = startPath;
-			var rootId = this._rootNodeID + '.';
-			if (startPath !== undefined && startPath !== null
-				&& endPath !== undefined && endPath !== null
-				&& startPath.startsWith(rootId)
-				&& endPath.startsWith(rootId)) {
-				var model = this.props.model, name = this.props.name;
-				startPath = startPath.slice(rootId.length).replace(/\$?/g,'').split('.');
-				endPath = endPath.slice(rootId.length).replace(/\$?/g,'').split('.');
-				var start = model.charOffset(name,startPath, approx);
-				var end = model.charOffset(name,endPath, approx);
-				x(start, end);
-				e.preventDefault();
-				e.stopPropagation();
-			}
-
-		}
-	},
-	handleMouseUp: function(e) {
-		var x = this.props.selectionChanged;
-		if (x) {
-			//calculate the selection from the data-ids
-			var selected = window.getSelection();
-			if (selected.rangeCount < 1)
-				return;
-			//console.log(selected.focusOffset);
-			var range = selected.getRangeAt(0),
-				startE = range.startContainer.parentNode,
-				endE = range.endContainer.parentNode,
-				startPath = startE.getAttribute('data-reactid'),
-				endPath = endE.getAttribute('data-reactid'),
-				rootId = this._rootNodeID + '.';
-			if (startPath !== undefined && startPath !== null
-				&& endPath !== undefined && endPath !== null
-				&& startPath.startsWith(rootId)
-				&& endPath.startsWith(rootId)) {
-				var model = this.props.model, name = this.props.name;
-				startPath = startPath.slice(rootId.length).replace(/\$?/g,'').split('.');
-				endPath = endPath.slice(rootId.length).replace(/\$?/g,'').split('.');
-				var start = model.charOffset(name,startPath, range.startOffset);
-				var end = model.charOffset(name,endPath, range.endOffset);
-				x(start, end);
-			}
-		}
-	},
-	renderHeading: function(item, idx) {
-		var id = this.props.name + '-' + item.id,
-			content = item.children.map(this.renderTree),
-			attr = {id: id, key: idx};
-		switch(item.depth) {
-			case 1: return h1(attr, content);
-			case 2: return h2(attr, content);
-			case 3: return DOM.h3(attr, content);
-			case 4: return DOM.h4(attr, content);
-			case 5: return DOM.h5(attr, content);
-			case 6: return DOM.h6(attr, content);
-		}
-		return h1(attr, content);
-	},
-	renderCode: function(item, idx) {
-		return DOM.pre({key: idx}, DOM.code({key: '_'}, item.children.map(this.renderTree)));
-	},
-	renderTable: function(item, idx) {
-		var align = item.align, rtree = this.renderTree;
-		function renderCell(f) {
-			return function(c, idx) {
-				var a = align[idx], ctx = {key:idx};
-				if (a !== null) {
-					ctx['style'] = {'text-align': a};
-				}
-				return f(ctx, c.map(rtree)); 
-			}
-		}
-		function renderTR(r, idx) {
-			return DOM.tr({key: idx}, r.map(renderCell(DOM.td)));
-		}
-		function renderAlign(c, idx) {
-			var a = align[idx], ctx = {key:idx};
-				if (a !== null) {
-					ctx['style'] = {'text-align': a};
-			}
-			return DOM.td(ctx, c);
-		}
-		return DOM.table({key: idx, className: 'pure-table pure-table-horizontal'},
-			DOM.thead({key:'head'},
-				DOM.tr({key: 0}, item.header.map(renderCell(DOM.th))),
-				DOM.tr({key: 'align', className: 'align'}, item.alignText.map(renderAlign))),
-			DOM.tbody({key:'body'},item.cells.map(renderTR))//,
-			//DOM.tfoot({key:'foot'})
-			);
-	},
-	renderResult: function(item, idx) {
-		var inline = false,
-			expressions = item.code.sexpr,
-			models = this.props.model,
-			model = models.model(this.props.name),
-			p = model.package;
-
-			if (item.code.type === 'codespan') {
-				inline = true;
-				//expressions = [expressions];
-			}
-			
-			var results = expressions;
-			var rresults = clay.code.expressions(expressions)
-				.map(function(e,i) { return models.evaluate(p, e); })
-				.filter(function(r) { return r !== null; });
-
-			return rresults.map(function(r, i) { return Result({key: idx + '_' + i, value: r, inline: inline}); });
-
-	},
-	renderTree: function(item, idx) {
-		switch(item.type) {
-			case 'text': return span({key: idx},item.text);
-			case 'escape': return span({key: idx, dangerouslySetInnerHTML:{__html: item.text}});
-			case 'span': return span({key: idx}, item.children.map(this.renderTree));
-			case 'meta': return span({key: idx, className: 'meta'}, item.text);
-			case 'before': return span({className: 'before', key:idx}, 
-				item.text.replace(/ /g,'\u2423').replace(/\t/,'\u2192')); // + (item.newline ? '\n' : '')
-			case 'after': 
-				var text = item.text.replace(/ /g,'\u2423').replace(/\n/g,'\u00AC');
-				if (text.length === 0)
-					text = ' '
-				return span({className: 'after', key:idx},  text);
-			case 'p': return p({key: idx}, item.children.map(this.renderTree));
-			case 'em': return DOM.em({key: idx}, item.children.map(this.renderTree));
-			case 'strong': return DOM.strong({key: idx}, item.children.map(this.renderTree));
-			case 'del': return DOM.del({key: idx}, item.children.map(this.renderTree));
-			case 'a': return DOM.a({key: idx, href: item.href, title: item.title}, item.children.map(this.renderTree));
-			case 'section': return DOM.section({key: idx}, item.children.map(this.renderTree));
-			case 'heading': return this.renderHeading(item, idx);
-			case 'table': return this.renderTable(item, idx);
-			case 'blockquote': return DOM.blockquote({key: idx}, item.children.map(this.renderTree));
-			case 'ul': return ul({key: idx}, item.children.map(this.renderTree));
-			case 'ol': return DOM.ol({key: idx}, item.children.map(this.renderTree));
-			case 'li': return li({key: idx}, item.children.map(this.renderTree));
-			case 'hr': return DOM.hr({key: idx}); //TODO
-			case 'br': return DOM.br({key: idx}); //TODO
-			case 'code': return this.renderCode(item, idx);
-			case 'codespan': return DOM.code({key: idx}, item.text);
-			case 'error': 
-				var children = item.children.map(this.renderTree);
-				children.push(span({className: 'error'}, item.text));
-				return div({key: idx}, children);
-			case 'html': return div({key: idx,
-				dangerouslySetInnerHTML:{__html: item.raw}
-				});
-			case 'result': return this.renderResult(item, idx);
-			default: return p({key: idx},'unsupported: ' + item.type);
+var Editor = createClass({
+	getInitialState: function() {
+		var text = this.props.model.toRaw();
+		return {
+			text: text,
+			selection: { focus: 0, anchor: 0 },
+			//model: new Model(parseRaw(text)),
 		};
 	},
-	render: function() {
-		var model = this.props.model.model(this.props.name);
-		if (model === undefined)
-			ast = {type:'root', children: []};
-		else
-			ast = model.ast;
-		return div({id: 'preview', 
-			ref: 'preview',
-			onMouseUp: this.handleMouseUp,
-			onTouchStart: this.handleTouchStart,
-			onTouchMove: this.handleTouchMove,
-			onTouchEnd: this.handleTouchEnd,
-			className: 'editor', 
-      		}, ast.children.map(this.renderTree)
-      		); 
-	},
-});
+	updateText: function() {
+		if (this.dontUpdate) return;
+		
+		var ta = this.textarea.node;
+		console.log('updateText at ' + ta.selectionStart + ':' + ta.selectionEnd);
+		
+		var ta = this.textarea.node;
+		var cur = this.state.selection;
+		var text = ta.value;
+		var hasTextChanged = (text != this.state.text);
+		var hasSelectionChanged = !(ta.selectionStart == cur.anchor &&
+			ta.selectionEnd == cur.focus)
 
-var Editor = React.createClass({
-	getInitialState: function() {
-		return {
-			//TODO this should be an empty model
-			currentSource: 'Test of this',
-			selected: 'Blank',
-			modal: null,
+		if (hasTextChanged && hasSelectionChanged) {
+			this.props.update(this.props.name, text);
+			this.setState({
+				text: text, 
+				selection: {anchor: ta.selectionStart, focus: ta.selectionEnd},
+			});
+		} else if (hasSelectionChanged) {
+			this.setState({
+				selection: {anchor: ta.selectionStart, focus: ta.selectionEnd},
+			});
+		} else if (hasTextChanged) {
+			this.props.update(this.props.name, text);
+			this.setState({
+				text: text
+			});
 		}
+	},
+	handleMouseDown: function(e) {
+		this.props.cursor.setState({selection: null});
+	},
+	handleMouseUp: function(e) {
+		var selected = window.getSelection();
+		if (selected.rangeCount !== 1)
+			return;
+		if (!childOfId(selected.anchorNode, 'preview') ||
+			!childOfId(selected.focusNode, 'preview')) return;
+		var range = selected.getRangeAt(0);
+		var focus = pathFor(selected.focusNode, selected.focusOffset, this.props.model);
+		var anchor = focus;
+		if (!selected.isCollapsed) {
+			anchor = pathFor(selected.anchorNode, selected.anchorOffset, this.props.model);
+		}
+		//check roundTrip
+		var x = nodeAtOffset(focus, this.props.model);
+		if (x && (x.node !== selected.focusNode || x.offset !== selected.focusOffset)) {
+			console.log('WARNING: selection not round tripping');
+			console.log(x);
+			console.log({node: selected.focusNode, offset: selected.focusOffset});
+		}
+		
+		//var ta = this.textarea.node;
+		//We don't support inverted selections
+		if (anchor > focus) {
+			var temp = focus;
+			focus = anchor;
+			anchor = temp;
+		}
+
+		var cur = this.state.selection;
+		if (anchor !== cur.anchor || focus !== cur.focus) {
+			var sel = {anchor: anchor, focus: focus};
+			this.updateCursor(sel)
+			this.setState({selection: sel});
+		}
+		//if (anchor === focus) {
+		
+			this.dontUpdate = true;
+			var ta = this.textarea.node;
+			ta.focus();
+			//this.dontUpdate = false;
+			if (ta.setSelectionRange) ta.setSelectionRange(anchor, focus);
+			this.dontUpdate = false;
+		//}
+		console.log('up ' + anchor + ' to ' + focus);
+		
 	},
 	handleChange: function(e) {
-		var source = this.refs.textarea.getDOMNode().value;
-		this.setState({currentSource: source});
-		this.props.model.update(this.state.selected, source);
-	},
-	save: function() { console.log('save'); },
-	saveAll: function() { console.log('saveAll'); },
-	open: function() {
-		this.setState({modal: this.openModal});
-	},
-	close: function() { 
-		this.props.model.close(this.state.selected);
-		this.switchFile(this.props.model.names[0].name);
-	},
-	revert: function() {
-		this.props.model.revert(this.state.selected, this.switchFile);
-	},
-	openFile: function(path) {
-		this.props.model.openModel(path, this.switchFile);
-	},
-	newFile: function() {
-		this.setState({modal: this.newModal});
-	},
-	preview: function() {
-		return 
-	},
-	openModal: function() {
-		return FileList({clicked: this.openFile});
-	},
-	newModal: function() {
-		return div(null, p(null, 'TODO: put form here with a box for model name'));
-	},
-	switchFile: function(name) { 
-		console.log('switchFile: ' + name);
-		var source = this.props.model.model(name).source,
-		    ta = this.refs.textarea.getDOMNode();
-		this.setState({ selected: name,
-			currentSource: source,
-			modal: null});
-		ta.value = source; //React doesn't set the value of the text area
-		ta.setSelectionRange(0,0);
-	},
-	componentDidMount: function() {
-		this.openFile('Example'); //TODO pass in as initial model
-	},
-	componentDidUpdate: function(prevProps, prevState) {
-		this.updateCursor();
-	},
-	menu: function() {
-		// must be wrapped in a function to see the other functions
-		// i.e. this.openFile
-		// could be done on ComponentWillMount to save a call every time
-		return [
-			{name: "Open", func: this.open},
-			{name: "Close", func: this.close},
-			{name: "Revert", func: this.revert},
-			{name: "Save", func: this.save, separator: true},
-			{name: "Save All", func: this.saveAll},
-			{name: "New", func: this.newFile, separator: true},
-			];
-	},
-	updateCursor: function() {
-		//TODO might want this to ignore the 
-		var ta = this.refs.textarea.getDOMNode(),
-		    range = this.refs.preview.rangeFor(ta.selectionStart, ta.selectionEnd);
-		this.refs.selection.setState({selection: range});
+		console.log('change');
+		//if (!this.props.active) this.props.focus(this.props.name);
+		this.updateText();
 	},
 	handleKeyDown: function(e) {
-		console.log(e);
-		if (e.keyCode === 9 && !e.altKey && !e.ctrlKey && !e.shiftKey) { //tab
-			var ta = this.refs.textarea.getDOMNode(),
-				val = ta.value,
-				start = ta.selectionStart,
-				end = ta.selectionEnd;
-			ta.value = val.substring(0,start) + '    ' + val.substring(end);
-			ta.selectionStart = ta.selectionEnd = start + 4;
-			this.setState({currentSource: ta.value});
-			//manually trigger update
-			this.props.model.update(this.state.selected, ta.value);
-			return false;
-		} else if (e.keyCode === 13 && !e.altKey && !e.ctrlKey && !e.shiftKey) { //return
-			var ta = this.refs.textarea.getDOMNode(),
-				val = ta.value,
-				start = ta.selectionStart,
-				end = ta.selectionEnd,
-				lineStart = val.lastIndexOf('\n',start-1) + 1;
-			if (start === end && /^\n    (\n|$)/.test(val.slice(start-2,start+1))) {
-				ta.value = val.substring(0,start-1) + '\n' + val.substring(end);
-				ta.selectionStart = ta.selectionEnd = start;
-				this.setState({currentSource: ta.value});
-				//manually trigger update
-				this.props.model.update(this.state.selected, ta.value);
-				return false;
-			} else if (val.slice(lineStart,lineStart+1) === '\t' || val.slice(lineStart,lineStart + 4) === '    ') {
-				ta.value = val.substring(0,start) + '\n    ' + val.substring(end);
-				ta.selectionStart = ta.selectionEnd = start + 1 + 4;
-				this.setState({currentSource: ta.value});
-				//manually trigger update
-				this.props.model.update(this.state.selected, ta.value);
-				return false;
-			}
-		}
-		return true;
+		console.log('keydown');
+		this.updateText();
 	},
-	//Note: these are getting called every click...
-	handleBlur: function() {
-		this.refs.selection.setState({selection: null});
+	handleKeyUp: function(e) {
+		console.log('keyup');
+		this.updateText();
 	},
-	handleFocus: function() {
-		//textarea gained focus (draw selection)
-		this.updateCursor();
+	handleFocus: function(e) {
+		console.log('focus');
+		//if (!this.props.active) this.props.focus(this.props.name);
+		this.updateText();
 	},
-	handleKeyUp: function() {
-		this.updateCursor();
+	handleBlur: function(e) {
+		console.log('blur');
+		this.updateText();
 	},
 	handleInput: function(e) {
-		//console.log(e);
-		//this.updateCursor();
+		console.log('input');
+		//if (!this.props.active) this.props.focus(this.props.name);
+		this.updateText();
 	},
-	handleSelect: function(start, end) {
-		var ta = this.refs.textarea.getDOMNode();
-		ta.setSelectionRange(start, end); //do this before and after focus so update cursor works
-		ta.focus();
-		ta.setSelectionRange(start, end); //TODO: remove (just here to scroll the text area)
-		this.updateCursor();
+	didMount: function() {
+		console.log('mounted');
+		//TODO: this stuff should be on the actual textarea node itself
+		//document.body.addEventListener('keydown', this.handleContentKeyDown);
+		//document.body.addEventListener('keyup', this.handleContentKeyUp);
+		this.textarea.node.value = this.state.text;
+		this.textarea.node.selectionStart = this.textarea.selectionEnd = 0;
+	},
+	updateCursor: function(sel) {
+		var sel = sel || this.state.selection;
+		var anchor, focus;
+		var range = document.createRange();
+		anchor = focus = nodeAtOffset(sel.focus, this.props.model);
+		if (sel.focus !== sel.anchor) {
+			anchor = nodeAtOffset(sel.anchor, this.props.model);
+		}
+
+		try {
+			if (anchor.offset < 0) {
+				range.setStartBefore(anchor.node);
+			} else {
+				range.setStart(anchor.node, anchor.offset);
+			}
+
+			if (focus.offset < 0) {
+				range.setEndBefore(focus.node);
+			} else {
+				range.setEnd(focus.node, focus.offset);
+			}
+		} catch(e) {
+			console.log('Invalid range');
+		}
+
+		var rects = range.getClientRects(),
+			scrollTop = document.documentElement.scrollTop || document.body.scrollTop,
+        	scrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+        if (rects.length > 0) {
+        	var rect = rects[0];
+        	this.textarea.node.style.top = (rect.top + 5 + scrollTop) + 'px';
+        }
+
+		this.props.cursor.setState({selection: range});
+
+
+	},
+	didUpdate: function() {
+		//console.log('updated');
+		//console.log(this.selection);
+		//TODO: set the selection and cursor positions.
+		if (this.props.active) {
+			this.dontUpdate = true;
+			this.textarea.node.focus()
+			this.dontUpdate = false;
+			this.updateCursor(); 
+		}
+		
+	},
+	willUnmount: function() {
+		console.log('unmounting');
 	},
 	render: function() {
-		return div({className: (this.state.modal !== null ? "modal" : "view")},
-			DOM.textarea({id: 'model', 
-						onChange: this.handleChange,
-						onKeyDown: this.handleKeyDown,
-						onKeyUp: this.handleKeyUp,
-						onFocus: this.handleFocus,
-						onBlur: this.handleBlur,
-						onInput: this.handleInput,
-						ref: "textarea", 
-						style: {opacity: '0', position: 'fixed', width: '100%', 'max-width': '800px'},
-						value: this.state.value}),
-			div({id:'layout'},
-				MenuToggle(null),
-				Menu({items: this.menu(), files:this.props.model.models, 
-					selected:this.state.selected, fileClick: this.switchFile}),
-				div({id:'main'},
-					div({className:'content'},
-						Selection({ref: 'selection'}),
-						(this.state.modal === null ? null : this.state.modal()), //Dialog box
-						Renderer({model:this.props.model, 
-							ref: 'preview',
-							name:this.state.selected,
-							selectionChanged: this.handleSelect,
-							})
-						))));
+		//console.log('render');
+		//?? does this work when we are going with previous Child and updating
+		this.textarea = DOM.textarea({
+			//id: 'model', 
+			className: 'hiddenTextArea', 
+			//value: this.state.text,
+			onKeyDown: this.handleKeyDown,
+			onKeyUp: this.handleKeyUp,
+			onFocus: this.handleFocus,
+			onBlur: this.handleBlur,
+			onChange: this.handleChange,
+			onInput: this.handleInput,
+		});
+		//this.selection = Selection();
+		var children = [this.textarea];
+
+		if (this.props.active) {
+			//children.push(this.selection);
+			children.push(Preview({model: this.props.model}));
+		}
+		return DOM.div({
+				className: 'content',
+				onMouseUp: this.handleMouseUp,
+				onMouseDown: this.handleMouseDown,
+			},children);
+	}
+});
+
+var text = "#Cube\n"
+		 + "This is a paragraph\n"
+		 + " Weight\n Test\n Graph.Line(Unit Sales[Month][Growth])\n"
+		 + "|this|is|a|table\n"
+		 + "|more|table|stuff|here\n"
+		 +"Paragraph to separate tables\n"
+		 + "|State[Row]|Gender[Row]|City[Row]|Pop[Row]\n"
+		 + "|WA|M|Seattle|2\n"
+		 + "|WA|F|Seattle|23\n"
+		 + "|KS|M|Lawrence|4\n"
+		 + "|KS|F|Lawrence|345\n"
+		 + "|FL|M|Miami|546\n"
+		 + "|FL|F|Miami|2\n"
+		 + "|FL|M|Orlando|1000\n"
+		 + "|FL|F|Orlando|2000\n"
+		 + "|OK|M|Ohio|2\n"
+		 + "|OK|F|Ohio|23\n"
+		 + "|MI|M|Indiana|4\n"
+		 + "|MI|F|Indiana|345\n"
+		 + "|KS|M|Kansas City|546\n"
+		 + "|KS|F|Kansas City|2\n"
+		 + "|FL|M|Tampa|1000\n"
+		 + "|FL|F|Tampa|2000\n"
+		 + "Alternative table format with a key\n"
+		 + "|Portfolio=|Description[]|Weight[]\n"
+		 + "|Equity|Equities|= 60%\n"
+		 + "|UK|  UK Equities|= 70% * Weight[Portfolio=Equity]\n"
+		 + "|EU|  European Equities|= 30% * Weight[Portfolio=Equity]\n"
+		 + "|Bond|Global Bonds|= 20%\n"
+		 + "Split the above table into two(2) or more parts and it should still work\n"
+		 + "|Portfolio=|Description[]|Weight[]\n"
+		 + "|ALTS|Alternatives|= 4%\n"
+		 + "|PROP|Porperty|= 6%\n"
+		 + "|INFRA|Infrastructure|= 10%\n"
+		 + "But, don't try to split a Row keyed table as that will not work\n"
+		 + " Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec}\n"
+		 + "|Test=|Start Value[]|Comment\n|A|1000|One Grand\n|B|2000|Two Grand\n|C|3000|Three Grand\n"
+		 + "Now we define Unit Sales\n"
+		 + " Unit Sales[Month=Jan] = 5000\n Unit Sales = Unit Sales[Prev(Month)] * (1 + Growth)\n"
+		 + "Some description here\n"
+		 + " Assum[] = {\n"
+		 + "  5000, 6000, 7000, 8000}\n"
+		 + " function something() {\n"
+		 + "   //this is some javascript that gets automatically detected.\n"
+		 + " }\n"
+		 + " Growth[] = {1%,2%}\n Graph.Line(Unit Sales[Month][Growth])\n"
+		 + "This is a paragraph\n"
+		 + "*This is a list item\n"
+		 + "*this is another list item\n"
+		 + ".This is a numbered list item\n"
+		 + ".This is another numbered list item\n"
+		 + "This is another paragraph\n"
+		 + "##This is a sub header\n"
+		 + "This is a paragraph with *bold* text and _italic_ text in it\n"
+		 + "This is a paragraph with a link [this is link text][1].\n"
+		 + ">This is a blockquote\n"
+		 + "-"
+		 + "The dash before a paragraph is a section break (that might be rendered as an hr - note.. change so it doesn't need to be on its own line but can live before a paragraph or other element)\n"
+		 + "![alt text](css/fonts/glyphicons-halflings.png)figure text here\n"
+		 + "Idea ... use non printing characters to stand in for bold and italics and links in the code so that you don't have extra characters to delete or insert in those cases. This might not help much. It might be easier to just store the list and manage it based on keypresses.\n"
+		 + "There is an empty paragraph at the end after this one. ⊕\n"
+		 + "\n"
+		 + "[1](http://google.co.uk \"Google\")\n"
+		 + " import(\"Test1\")\n import(\"Test2\")\n import(\"TestMe\")";
+
+
+var MultiEditor = createClass({
+	getInitialState: function() {
+		return {
+			active: this.props.active,
+			debug: false,
+		};
 	},
+	handleMenuClick: function(e) {
+		console.log('clicked');
+		//e.preventDefault();
+		//e.stopPropagation();
+		if (e.target.hash) {
+			this.setState({active: e.target.hash.slice(1)});
+		}
+	},
+	updateModel: function(name, text) {
+		this.props.cube.mergeModel(name, parseRaw(text));
+		//trigger redraw?
+		this.setState({active: name});
+	},
+	toggleDebug: function() {
+		this.setState({debug: !this.state.debug});
+	},
+	save: function() {
+		console.log('save clicked')
+	},
+	revert: function() {
+		console.log('revert clicked')
+	},
+	render: function() {
+		var me = this;
+		var active = this.state.active || 0;
+		var cursor = this.props.cursor;
+		var cube = this.props.cube;
+		return DOM.div({id: 'layout'},
+			DOM.a({href: '#menu', id: 'menuLink', 
+				className: 'menu-link'}, 
+				[DOM.span()]),
+			DOM.div({id: 'menu'}, 
+				[DOM.div({className:"pure-menu pure-menu-open"},
+					DOM.a({className:"pure-menu-heading", href:"#"},
+						DOM.text('Clay'), DOM.sup({},'3')),
+					DOM.ul({}, cube.names.map(function(n,i) {
+						return DOM.li({onClick: me.handleMenuClick, 
+							className: (n === active ? 'pure-menu-selected ' : '') + (cube.models[n].modified ? 'menu-modified' : '') },
+							[DOM.a({href:"#" + n}, n)])
+					})),
+					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick, 
+						className: ('#Scratch' === active ? 'pure-menu-selected' : '') },
+							[DOM.a({href:"##Scratch"}, 'Scratch')])]),
+					DOM.ul({}, [DOM.li({onClick: this.toggleDebug},
+							[DOM.a({href:"#"}, 'Debug')]),
+							DOM.li({onClick: this.save},
+							[DOM.a({href:"#"}, 'Save')]),
+							//revert localstorage to server
+							// DOM.li({onClick: this.revert}, 
+							// [DOM.a({href:"#"}, 'Revert')]),
+					])
+					)]),
+			DOM.div({id: 'main', className: (this.state.debug ? 'show-debug' : '') }, 
+				mapObjToArr(cube.models, function(name, value) {
+				return Editor({
+					model: value,
+					active: name === active,
+					name: name,
+					cursor: cursor,
+					update: me.updateModel,
+				}); 
+			}))
+		);
+	}
 });
 
 
-var models = new Clay();
-var ed = Editor({model: models});
-React.renderComponent(ed, document.body);
-//ed.openFile('Example');
+function mapObjToArr(obj, func) {
+	var ret = [];
+	for (var k in obj) {
+		if (obj.hasOwnProperty(k)) ret.push(func(k, obj[k]));
+	}
+	return ret;
+}
 
-var preview = ed.refs.preview.getDOMNode();
-preview.onclick = function(e) {
-	ed.refs.textarea.getDOMNode().focus();
+var cube = new Cube();
+
+var dummy = {
+	Test1: parseRaw("#Test1\nThis is some test text\n import(\"TestFred\")\n 1 + 2 + 3\n Portfolio[] = {ALTS, PROP, INFRA, Equity, UK, EU, Bond, Other}\n Main.Portfolio = Portfolio\n"),
+	Test2: parseRaw("#Test2\nMore text here\n And some code\n"),
+	Main: parseRaw(text),
 };
+Cube.Import = function(path) {
+	return dummy[path];
+};
+
+cube.import('Main');
+cube.recalculate();
+var cursor = new Selection();
+Friar.renderComponent(cursor, document.getElementById('cursor'));
+var x;
+Friar.renderComponent(x = new MultiEditor({cursor: cursor, cube: cube, active: cube.names[0] || '#Scratch'}), document.getElementById('view'))
+//Friar.renderComponent(x = new Editor({text: text, active: true}), document.getElementById('main'));
+
+/*
+var O = {}
+var A = O.A = function() { return 10; }
+var B = O.B = function() { return 11; }
+var C = O.C = function() { return 12; }
+
+function Plus(a, b) { 
+	return function() {	return a() + b(); };
+}
+
+O.Clo = Plus(Plus(O.A,O.B),O.C);
+O.Fun = (new Function(['a','b','c'],
+ 'return function() { return (a() + b()) + c(); };'))(O.A,O.B,O.C); //if we do the full 
+O.FunI = new Function('var me = this; return (me.A() + me.B()) + me.C()');
+O.FunII = (new Function(['Ob'],
+	'var A = Ob.A, B = Ob.B, C = Ob.C; return function () { return (A() + B()) + C(); };'))(O);
+O.Eval = eval('(function() { return A() + B() + D(); })');
+
+
+function D() { return 12; }
+
+console.log(O.Clo());
+console.log(O.Fun());
+console.log(O.FunI());
+console.log(O.FunII());
+console.log(O.Eval());
+
+function test(n) {
+	console.time('Clo');
+	for (var i = 0; i < n; i++) O.Clo();
+	console.timeEnd('Clo');
+	
+	console.time('Fun');
+	for (var i = 0; i < n; i++) O.Fun();
+	console.timeEnd('Fun');
+
+	console.time('FunI');
+	for (var i = 0; i < n; i++) O.FunI();
+	console.timeEnd('FunI');
+
+	console.time('FunII');
+	for (var i = 0; i < n; i++) O.FunII();
+	console.timeEnd('FunII');
+
+	console.time('Eval');
+	for (var i = 0; i < n; i++) O.Eval();
+	console.timeEnd('Eval');
+}
+*/
 
 </script>
 <script src="js/ui.js"></script>
+<script src="//localhost:35729/livereload.js"></script>
 </body>
 </html>
