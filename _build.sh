@@ -1,1 +1,0 @@
-python _make_listing.py models > models.json
