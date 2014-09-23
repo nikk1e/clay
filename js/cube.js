@@ -1577,7 +1577,7 @@ Cube.prototype._compileFunc = function(code, expr) {
 
     try {
         /*jshint evil:true */
-        func = new 2(dims, code);
+        func = new Function(dims, code);
     } catch (er) {
         console.log('Could not compile: ' + code);
         console.log(er.message);
