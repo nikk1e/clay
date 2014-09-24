@@ -9,14 +9,14 @@ module.exports = function (grunt) {
 				livereload: true,
 			},
 			html: {
-				files: [ '*.html' ],
+				files: [ 'public/*.html', 'views/**/*.jade', 'public/**/*' ],
 			},
 			jshint: {
-				files: [ 'js/*.js', 'server.js', '!js/*.min.js' ],
+				files: [ 'public/js/*.js', 'app.js', '!public/js/*.min.js' ],
 				tasks:  [ 'jshint' ]
 			},
 			express: {
-				files:  [ './server.js' ],
+				files:  [ './app.js', 'routes/**/*.js' ],
 				tasks:  [ 'express:dev' ],
 				options: {
 					spawn: false
@@ -27,14 +27,14 @@ module.exports = function (grunt) {
 			//options: { 
 			//	jshintrc: '.jshintrc' 
 			//}, 
-			all: [ 'js/*.js', 'server.js', '!js/*.min.js', '!js/clay.js', '!js/parser.js' ] 
+			all: [ 'js/*.js', 'app.js', '!js/*.min.js', '!js/clay.js', '!js/parser.js' ] 
 		},
 		express: {
 			options: {
 			},
 			dev: {
 				options: {
-					script: './server.js'
+					script: './app.js'
 				}
 			}
 		}

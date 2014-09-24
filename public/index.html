@@ -450,6 +450,7 @@ function nodeAtOffset(fullOffset, model) {
 	var offset = cello.offset;
 	var baseKey = keyToId(cell.key);
 	var baseElem = document.getElementById(baseKey);
+	if (!baseElem) return;
 	switch (cell.type) {
 		case 'table':
 			var rowNum = 0;
