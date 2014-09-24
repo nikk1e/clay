@@ -1122,7 +1122,8 @@ var _constructors = {
 //an array of cells.
 function parseRaw(text) {
 	var match;
-	var textN = text + '\n';
+	var textN = text;
+	if (textN[textN.length-1] !== '\n') textN = textN + '\n';
 	var paras = [];
 	//       break|code                                |table                   |other
 	var block = /-|(?: [^\n]*(?:\n }[^\n]*|\n  [^\n]*)*|\|(?:[^\n]|\n\||\n\n\|)*|[^\n]*)(?:\n)/g;
