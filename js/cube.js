@@ -1487,7 +1487,8 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 		case 'LetG':
 			return '('+ me.compileExpr(expr[1], basepack) +' == '+ me.compileExpr(expr[2], basepack)+') ? (' + me.compileExpr(expr[3], basepack) + ') : undefined';
 		case 'LetS':
-			return '(function(' + me.compileExpr(expr[1], basepack) + ') { \nreturn ('+ me.compileExpr(expr[3], basepack) +'); \n}('+me.compileExpr(expr[2], basepack)+'))';
+			//TODO: add range check as current code only checks start not end.
+			return '(function(' + me.compileExpr(expr[1], basepack) + ') { \nreturn ('+ me.compileExpr(expr[1], basepack) +' >= 0) ? ('+ me.compileExpr(expr[3], basepack) +') : undefined; \n}('+me.compileExpr(expr[2], basepack)+'))';
 		case 'Restrict':
 			return '('+ me.compileExpr(expr[1], basepack) +') ? (' + me.compileExpr(expr[2], basepack) + ') : undefined';
 		case 'Call':
