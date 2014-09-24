@@ -1502,6 +1502,8 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' + ') + ')';
 		case 'Subtract':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' - ') + ')';
+		case 'Power':
+			return 'Math.pow(' + me.compileExpr(expr[1], basepack) + ', ' + me.compileExpr(expr[2], basepack) + ')';
 		case 'Bracket':
 			return '(' + me.compileExpr(expr[1], basepack) + ')';
 		case 'Divide':
@@ -2151,6 +2153,7 @@ function showMr(s, skip) {
 		case 'Times': return '(' + s.slice(1).map(showMr).join(' * ') + ')';
 		case 'Subtract': return '(' + s.slice(1).map(showMr).join(' - ') + ')';
 		case 'Divide': return '(' + s.slice(1).map(showMr).join(' / ') + ')';
+		case 'Power': return '(' + s.slice(1).map(showMr).join('^') + ')';
 		case 'Bracket': return '(' + showMr(s[1], true) + ')';
 		//TODO: make the infix check 
 		default: return showS(s);
