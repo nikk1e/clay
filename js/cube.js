@@ -1564,6 +1564,8 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			return '"' + expr[1] + '"';
 		case 'Number':
 			return expr[1].toString();
+		case 'Error':
+			throw new Error(expr[1]);
 		default:
 			throw new Error('Compile Error: Not implemented for ' + showS(expr));
 	}
@@ -1676,8 +1678,12 @@ Cube.prototype.recalculate = function() {
 		});
 
 		//expand slices
-		sexpr = sexpr.map(function(expr) { 
-			return transform.call(me, expr, expandSlice); 
+		sexpr = sexpr.map(function(expr) {
+			try {
+				return transform.call(me, expr, expandSlice);
+			} catch(er) {
+				return ['Error', 'Invalid slice content'];
+			}
 		});
 
 		sexpr.forEach(function(sexpr, index) {
