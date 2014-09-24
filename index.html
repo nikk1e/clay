@@ -361,17 +361,33 @@ function insertText(ta, str) {
 
 function pathFor(node, offset, model) {
 	var path = [];
+	var i = 0;
 	while(!node.id && node.parentNode) {
-		var i = 0;
+		i = 0;
 		var no = node;
-		while(no = no.previousSibling) { ++i; }
+		while(no = no.previousSibling) {
+			if (no.id ||
+				(no.nodeName === 'PRE' && no.className === 'lang-cube')) {
+				if (!no.id) {
+					node = no.lastChild;
+				} else {
+					node = no;
+				}
+				i = -1;
+				break;
+			}
+			++i; 
+		}
+		if (i === -1) {
+			break;
+		}
 		path.push(i);
 		node = node.parentNode;
 	}
 	var id = node.id;
 	if (id === 'preview') {
 		//selection.node offset
-		console.log(focusPath + ' from preview');
+		console.log(path + ' from preview');
 	} else if (reKey.test(id)) {
 		var key = id
 			.slice(KEY_PREFIX.length)
@@ -384,7 +400,10 @@ function pathFor(node, offset, model) {
 		}
 			
 		var cell = model.cells[ind];
-		return model.offsetOfIndex(ind) + offsetInCell(cell, path, key, offset);
+		return model.offsetOfIndex(ind) + 
+			(i === -1 ?
+				cell.raw.length - 1 :
+				offsetInCell(cell, path, key, offset));
 	}
 	return 0;
 }
