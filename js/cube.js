@@ -1498,6 +1498,8 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
 		case 'Times':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' * ') + ')';
+		case 'Neg':
+			return '(-(' + me.compileExpr(expr[1], basepack) + '))';
 		case 'Plus':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' + ') + ')';
 		case 'Subtract':
@@ -2153,6 +2155,7 @@ function showMr(s, skip) {
 		case 'Set':
 		case 'Set*':
 		case 'Let': return showMr(s[1], true) +'=' + showMr(s[2]);
+		case 'Neg': return '(-' + showMr(s[1]) + ')';
 		case 'Plus': return '(' + s.slice(1).map(showMr).join(' + ') + ')';
 		case 'Times': return '(' + s.slice(1).map(showMr).join(' * ') + ')';
 		case 'Subtract': return '(' + s.slice(1).map(showMr).join(' - ') + ')';
