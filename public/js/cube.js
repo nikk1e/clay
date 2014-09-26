@@ -861,34 +861,31 @@ Cell.prototype.toJSON = function() {
 };
 Cell.prototype.initialise = function(old, model) {}; //override to do setup
 
-function Header(raw) {
-	this.raw = raw;
-	this.level = /^#+/.exec(raw)[0].length;
-	this.text = raw.slice(this.level);
-}
+function Header() {}
 Header.prototype = new Cell();
 Header.prototype.type = 'header';
-
-function P(raw) {
-	this.raw = raw;
-	this.spans = (raw.length > 0 && raw !== '\n' ? [{type: 'text', text: raw}] : []);
-}
+Header.prototype.initialise = function(old, model) {
+	var raw = this.raw;
+	this.level = /^#+/.exec(raw)[0].length;
+	this.text = raw.slice(this.level);
+};
+function P() {}
 P.prototype = new Cell();
 P.prototype.type = 'p';
-
-function Figure(raw) {
-	this.raw = raw;
-	var sub = /^!\[([^\]]*)\]\(([^\)]*)\)(.*)/.exec(raw);
+P.prototype.initialise = function(old, model) {
+	var raw = this.raw;
+	this.spans = (raw.length > 0 && raw !== '\n' ? [{type: 'text', text: raw}] : []);
+};
+function Figure() {}
+Figure.prototype = new Cell();
+Figure.prototype.type = 'figure';
+Figure.prototype.initialise = function(old, model) {
+	var sub = /^!\[([^\]]*)\]\(([^\)]*)\)(.*)/.exec(this.raw);
 	this.alt = sub[1];
 	this.src = sub[2];
 	this.caption = sub[3];
-}
-Figure.prototype = new Cell();
-Figure.prototype.type = 'figure';
-
-function Code(raw) {
-	this.raw = raw;
-}
+};
+function Code() {}
 Code.prototype = new Cell();
 Code.prototype.type = 'code';
 Code.prototype.initialise = function(old, model) {
@@ -911,24 +908,21 @@ Code.prototype.initialise = function(old, model) {
 	}
 };
 
-function Ulli(raw) {
-	this.raw = raw;
-	this.spans = [{type: 'text', text: raw.slice(1)}];
-}
+function Ulli() {}
 Ulli.prototype = new Cell();
 Ulli.prototype.type = 'ulli';
+Ulli.prototype.initialise = function(old, model) {
+	this.spans = [{type: 'text', text: this.raw.slice(1)}];
+};
 
-function Olli(raw) {
-	this.raw = raw;
-	this.spans = [{type: 'text', text: raw.slice(1)}];
-}
+function Olli() {}
 Olli.prototype = new Cell();
 Olli.prototype.type = 'olli';
+Olli.prototype.initialise = function(old, model) {
+	this.spans = [{type: 'text', text: this.raw.slice(1)}];
+};
 
-
-function Quote(raw) {
-	this.raw = raw;
-}
+function Quote() {}
 Quote.prototype = new Cell();
 Quote.prototype.type = 'quote';
 Quote.prototype.initialise = function(old, model) {
@@ -936,15 +930,11 @@ Quote.prototype.initialise = function(old, model) {
 	this.spans = (r.length > 0 && r !== '\n' ? [{type: 'text', text: r}] : []);
 };
 
-function Break(raw) {
-	this.raw = raw;
-}
+function Break() {}
 Break.prototype = new Cell();
 Break.prototype.type = 'break';
 
-function Table(raw) {
-	this.raw = raw;
-}
+function Table() {}
 Table.prototype = new Cell();
 Table.prototype.type = 'table';
 Table.prototype.initialise = function(old, model) {
@@ -1122,6 +1112,7 @@ var _constructors = {
 //an array of cells.
 function parseRaw(text) {
 	var match;
+	var obj;
 	var textN = text;
 	if (textN[textN.length-1] !== '\n') textN = textN + '\n';
 	var paras = [];
@@ -1135,7 +1126,9 @@ function parseRaw(text) {
 		if (cap === '!' && !(/^!\[([^\]]*)\]\(([^\)]*)\)(.*)/.test(l))) cap = 'p';
 		else if (cap === '-' && l.length > 1) cap = 'p';
 		var type = _constructors[cap];
-		paras.push(new type(l));
+		var obj = new type();
+		obj.raw = l;
+		paras.push(obj);
 	}
 	return paras;
 }
@@ -1201,7 +1194,11 @@ Cube.prototype.import = function(path, opt_as_namespace) {
 	var model = this.models[path];
 	if (!model) {
 		//load model using import helper
-		var cells = Cube.Import(path) || [new Header('#' + path)];
+		var cells = Cube.Import(path);
+		if (!cells) {
+			cells = [new Header()];
+			cells[0].raw = '#' + path;
+		}
 		model = new Model(path, cells, opt_as_namespace || path); //path fallback should be end of path
 		this.models[path] = model; 
 	}
