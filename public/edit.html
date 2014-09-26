@@ -831,6 +831,17 @@ var MultiEditor = createClass({
 	},
 	save: function() {
 		console.log('save clicked')
+		var json = JSON.stringify(cube);
+		//mark models clean
+		saveFiles(basepath, json, function(err, resp) {
+			if (err) {
+				console.log(err);
+				//mark models modified again
+			} else {
+				console.log(resp);
+			}
+		})
+
 	},
 	revert: function() {
 		console.log('revert clicked')

@@ -1203,6 +1203,17 @@ function Cube() {
 	this._genSymCount = {};
 }
 
+Cube.prototype.toJSON = function() {
+	var ret = [];
+	for (var i=0; i < this.names.length; i++) {
+		var model = this.models[this.names[i]];
+		if (model.modified) {
+			ret.push(model);
+		}
+	}
+	return ret;
+};
+
 Cube.prototype.Symbol = function(val) {
 	if (this._genSyms[val] !== undefined)
 		return this._genSyms[val];
@@ -1264,7 +1275,7 @@ Cube.prototype.import = function(path, opt_as_namespace) {
 				model = new Model(path, cells, opt_as_namespace || path);
 			}
 			me.models[path] = model;
-			me.names.push(path);
+			if (me.names.indexOf(path) == -1) me.names.push(path);
 			me.recalculate();
 			if (me.onupdate) me.onupdate(path);
 		});

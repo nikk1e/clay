@@ -15,6 +15,24 @@ function fetchFile(path, callback) {
     httpRequest.send();
 }
 
+function saveFiles(path, data, callback) {
+    var httpRequest = new XMLHttpRequest();
+    httpRequest.onreadystatechange = function() {
+        if (httpRequest.readyState === 4) {
+            if (httpRequest.status === 200) {
+                var data = httpRequest.responseText;
+                return callback(null, data);
+            } else {
+                return callback('Could not save files');
+            }
+        }
+    };
+    httpRequest.open('POST', path);
+    httpRequest.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+    httpRequest.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    httpRequest.send(data);
+}
+
 function fetchJSONFile(path, callback) {
 	fetchFile(path, function(err, raw) {
         if (err) {
