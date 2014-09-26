@@ -90,6 +90,10 @@ pre[class*='lang-sexpr'] {
 pre[class*='lang-sexpr'] > code {
 	color: #E9E9EB;
 }
+.result pre {
+	background-color: rgb(134, 192, 241);
+	color: #fff;
+}
 .show-debug pre[class*='lang-sexpr'] {
 	display: block;
 	background-color: #283593;
@@ -122,6 +126,7 @@ textarea.hiddenTextArea {
 <script type="text/javascript" src="/js/functions.js"></script>
 <script src="http://d3js.org/d3.v3.js"></script>
 <script type="text/javascript" src="/js/functions/graph.js"></script>
+<script type="text/javascript" src="/js/utils.js"></script>
 <script type="text/javascript">
 
 var DOM = Friar.DOM, 
@@ -238,6 +243,8 @@ function renderToFriar(model) {
 						var result = token.result();
 						if (isElement(result)) {
 							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
+						} else if (typeof(result) === 'string') {
+							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result)]));
 						} else {
 							ret.push(DOM.div({className: 'result'}, result.toString()));
 						}
