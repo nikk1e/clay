@@ -9,6 +9,8 @@ function fetchFile(path, callback) {
         }
     };
     httpRequest.open('GET', path);
+    //httpRequest.setRequestHeader('Content-Type', 'application/json');
+    httpRequest.setRequestHeader("X-Requested-With", "XMLHttpRequest");
     httpRequest.send();
 }
 
