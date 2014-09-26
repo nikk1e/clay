@@ -1,0 +1,13 @@
+extends layout
+
+block content
+  h1= title
+  .pure-u-1
+    each val in tree
+      .pure-g
+        .pure-u
+          div(style='width: 20px;')
+            span(class=val.isDir ? 'icon-folder-open' : 'icon-file')
+        .pure-u-3-4
+          a(href=val.url)=val.name
+

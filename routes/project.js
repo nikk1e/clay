@@ -37,7 +37,7 @@ function tree(req, res, next) {
 			}
 		});
 
-		res.render('tree', {title: rawPath, tree: tree, commit: last_commit});
+		res.render('tree', {title: area + '/' + project + rawPath, tree: tree, commit: last_commit});
 		//res.send({tree: tree, commit: last_commit}); 
 
 	}
@@ -113,7 +113,7 @@ router.get('/edit/:commit*', function(req, res) { //* is req.params[0]
   }
   //TODO: edit model file.
   //unless we are asking for js in which case send the raw
-  return res.sendfile('index.html', { root: 'public'});
+  return res.sendfile('edit.html', { root: 'public'});
 });
 
 router.post('/edit/:commit*', function(req, res, next) {
