@@ -732,12 +732,33 @@ function num(numb) {
 	return ['Number', numb];
 }
 
+var _typeToConstructor = {
+	header: Header,
+	table: Table,
+	p: P,
+	figure: Figure,
+	code: Code,
+	ulli: Ulli,
+	olli: Olli,
+	quote: Quote,
+	'break': Break,
+};
+
 //Usage: Model.fromObj(JSON.parse(str));
-//TODO: convert children
-Model.fromObj = function(raw) {
+Model.fromObj = function(raw, namespace) {
 	var obj = new Model();
 	for(var i in raw)
 		obj[i] = raw[i];
+	obj.namespace = namespace || obj.name;
+	//fixup cells
+	obj.cells = obj.cells.map(function(cell) {
+		var ncell = new (_typeToConstructor[cell.type])();
+		for (var k in cell) {
+			if (k !== 'type') ncell[k] = cell[k];
+		}
+		ncell.initFromObj(obj); //fixup object
+		return ncell;
+	});
 	return obj;
 };
 
@@ -860,7 +881,7 @@ Cell.prototype.toJSON = function() {
 	return ret;
 };
 Cell.prototype.initialise = function(old, model) {}; //override to do setup
-
+Cell.prototype.initFromObj = function(model) {};
 function Header() {}
 Header.prototype = new Cell();
 Header.prototype.type = 'header';
@@ -869,6 +890,22 @@ Header.prototype.initialise = function(old, model) {
 	this.level = /^#+/.exec(raw)[0].length;
 	this.text = raw.slice(this.level);
 };
+Header.prototype.initFromObj = function(model) {
+	this.raw = '########'.slice(0,this.level) + this.text;
+};
+
+function initFromObjSpan(starter) {
+	return function(model) {
+		if (this.spans.length > 0) {
+			this.raw = starter + this.spans.map(function(span) {
+				return span.text;
+			}).join('');
+		} else {
+			this.raw = starter + '\n';
+		}
+	};
+}
+
 function P() {}
 P.prototype = new Cell();
 P.prototype.type = 'p';
@@ -876,6 +913,7 @@ P.prototype.initialise = function(old, model) {
 	var raw = this.raw;
 	this.spans = (raw.length > 0 && raw !== '\n' ? [{type: 'text', text: raw}] : []);
 };
+P.prototype.initFromObj = initFromObjSpan('');
 function Figure() {}
 Figure.prototype = new Cell();
 Figure.prototype.type = 'figure';
@@ -885,6 +923,9 @@ Figure.prototype.initialise = function(old, model) {
 	this.src = sub[2];
 	this.caption = sub[3];
 };
+Figure.prototype.initFromObj = function(model) {
+	this.raw = '![' + this.alt + '](' + this.src + ')' + this.caption + '\n';
+};
 function Code() {}
 Code.prototype = new Cell();
 Code.prototype.type = 'code';
@@ -893,7 +934,9 @@ Code.prototype.initialise = function(old, model) {
 	var raw = this.raw;
 	this.lang = (/^ function +[$A-Za-z_][0-9A-Za-z_$]* *\(/.test(raw)) ? 'javascript' : 'cube';
 	this.text = raw.slice(1).replace(/\n /g,'\n');
-
+	this.parse(model);
+};
+Code.prototype.parse = function(model) {
 	if (this.lang === 'cube') {
 		try {
 			this.tokens = lex(this.text);
@@ -907,6 +950,10 @@ Code.prototype.initialise = function(old, model) {
 		}
 	}
 };
+Code.prototype.initFromObj = function(model) {
+	this.raw = ' ' + this.text.slice(0,-1).replace(/\n/g,'\n ') + '\n';
+	this.parse(model);
+};
 
 function Ulli() {}
 Ulli.prototype = new Cell();
@@ -914,6 +961,7 @@ Ulli.prototype.type = 'ulli';
 Ulli.prototype.initialise = function(old, model) {
 	this.spans = [{type: 'text', text: this.raw.slice(1)}];
 };
+Ulli.prototype.initFromObj = initFromObjSpan('*');
 
 function Olli() {}
 Olli.prototype = new Cell();
@@ -921,6 +969,7 @@ Olli.prototype.type = 'olli';
 Olli.prototype.initialise = function(old, model) {
 	this.spans = [{type: 'text', text: this.raw.slice(1)}];
 };
+Olli.prototype.initFromObj = initFromObjSpan('.');
 
 function Quote() {}
 Quote.prototype = new Cell();
@@ -929,10 +978,14 @@ Quote.prototype.initialise = function(old, model) {
 	var r = this.raw.slice(1);
 	this.spans = (r.length > 0 && r !== '\n' ? [{type: 'text', text: r}] : []);
 };
+Quote.prototype.initFromObj = initFromObjSpan('>');
 
 function Break() {}
 Break.prototype = new Cell();
 Break.prototype.type = 'break';
+Break.prototype.initFromObj = function(model) {
+	this.raw = '-';
+};
 
 function Table() {}
 Table.prototype = new Cell();
@@ -940,11 +993,11 @@ Table.prototype.type = 'table';
 Table.prototype.initialise = function(old, model) {
 	var me = this;
 	var raw = this.raw;
-	var text = raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
+	var text = raw.slice(0,-1); //raw[raw.length-1] = '\n' ? raw.slice(0,-1) : raw;
 
 	this.rows = text.split('\n').map(function(row,i) { 
-		if (row.length === 0) return {key: i, cells:[], raw: row};
-		return {key: i, cells:row.slice(1).split('|'), raw: row};
+		if (row.length === 0) return {key: i, cells:[]};
+		return {key: i, cells:row.slice(1).split('|')};
 	});
 
 	this.alignments = this.rows[0].cells.map(function(cell) {
@@ -957,7 +1010,10 @@ Table.prototype.initialise = function(old, model) {
 	});
 
 	model._dirty = true; //TODO: only do this if we or old have code
-
+	this.parse(model);
+};
+Table.prototype.parse = function(model) {
+	var me = this;
 	//check type (i.e row based, key based, with formulas)
 	var modelColumns = [];
 	var keys = {};
@@ -1074,6 +1130,12 @@ Table.prototype.initialise = function(old, model) {
 			});
 		}
 	}
+}
+Table.prototype.initFromObj = function(model) {
+	this.raw = this.rows.map(function(row) {
+		return '|' + row.cells.join('|');
+	}).join('\n') + '\n';
+	this.parse(model);
 };
 
 function _tableColumn(name, key, col) {
@@ -1192,21 +1254,27 @@ Cube.prototype.mergeModel = function(name, model) {
 
 Cube.prototype.import = function(path, opt_as_namespace) {
 	var model = this.models[path];
+	var me = this;
 	if (!model) {
 		//load model using import helper
-		var cells = Cube.Import(path);
-		if (!cells) {
-			cells = [new Header()];
-			cells[0].raw = '#' + path;
+		Cube.Import(path, function(err, model) {
+			if (!model) {
+				var cells = [new Header()];
+				cells[0].raw = '#' + path;
+				model = new Model(path, cells, opt_as_namespace || path);
+			}
+			me.models[path] = model;
+			me.names.push(path);
+			me.recalculate();
+			if (me.onupdate) me.onupdate(path);
+		});
+	} else {
+		if (opt_as_namespace && model.namespace !== opt_as_namespace) {
+			model.namespace = opt_as_namespace;
 		}
-		model = new Model(path, cells, opt_as_namespace || path); //path fallback should be end of path
-		this.models[path] = model; 
+		//if not in names then add it.
+		if (this.names.indexOf(path) == -1) this.names.push(path);
 	}
-	if (opt_as_namespace && model.namespace !== opt_as_namespace) {
-		model.namespace = opt_as_namespace;
-	}
-	//if not in names then add it.
-	if (this.names.indexOf(path) == -1) this.names.push(path);
 };
 
 
@@ -2224,7 +2292,7 @@ Cube.showMr = showMr;
 Cube.showS = showS;
 
 //Cube.Import should return a cells array
-Cube.Import = function(path) { return; }; //should be replace by editor with a real function
+Cube.Import = function(path, cube, opt_as_namespace) { return; }; //should be replace by editor with a real function
 
 base.Cube = Cube;
 

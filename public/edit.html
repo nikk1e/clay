@@ -806,72 +806,6 @@ var Editor = createClass({
 	}
 });
 
-var text = "#Cube\n"
-		 + "This is a paragraph\n"
-		 + " Weight\n Test\n Graph.Line(Unit Sales[Month][Growth])\n"
-		 + "|this|is|a|table\n"
-		 + "|more|table|stuff|here\n"
-		 +"Paragraph to separate tables\n"
-		 + "|State[Row]|Gender[Row]|City[Row]|Pop[Row]\n"
-		 + "|WA|M|Seattle|2\n"
-		 + "|WA|F|Seattle|23\n"
-		 + "|KS|M|Lawrence|4\n"
-		 + "|KS|F|Lawrence|345\n"
-		 + "|FL|M|Miami|546\n"
-		 + "|FL|F|Miami|2\n"
-		 + "|FL|M|Orlando|1000\n"
-		 + "|FL|F|Orlando|2000\n"
-		 + "|OK|M|Ohio|2\n"
-		 + "|OK|F|Ohio|23\n"
-		 + "|MI|M|Indiana|4\n"
-		 + "|MI|F|Indiana|345\n"
-		 + "|KS|M|Kansas City|546\n"
-		 + "|KS|F|Kansas City|2\n"
-		 + "|FL|M|Tampa|1000\n"
-		 + "|FL|F|Tampa|2000\n"
-		 + "Alternative table format with a key\n"
-		 + "|Portfolio=|Description[]|Weight[]\n"
-		 + "|Equity|Equities|= 60%\n"
-		 + "|UK|  UK Equities|= 70% * Weight[Portfolio=Equity]\n"
-		 + "|EU|  European Equities|= 30% * Weight[Portfolio=Equity]\n"
-		 + "|Bond|Global Bonds|= 20%\n"
-		 + "Split the above table into two(2) or more parts and it should still work\n"
-		 + "|Portfolio=|Description[]|Weight[]\n"
-		 + "|ALTS|Alternatives|= 4%\n"
-		 + "|PROP|Porperty|= 6%\n"
-		 + "|INFRA|Infrastructure|= 10%\n"
-		 + "But, don't try to split a Row keyed table as that will not work\n"
-		 + " Month[] = {Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec}\n"
-		 + "|Test=|Start Value[]|Comment\n|A|1000|One Grand\n|B|2000|Two Grand\n|C|3000|Three Grand\n"
-		 + "Now we define Unit Sales\n"
-		 + " Unit Sales[Month=Jan] = 5000\n Unit Sales = Unit Sales[Prev(Month)] * (1 + Growth)\n"
-		 + "Some description here\n"
-		 + " Assum[] = {\n"
-		 + "  5000, 6000, 7000, 8000}\n"
-		 + " function something() {\n"
-		 + "   //this is some javascript that gets automatically detected.\n"
-		 + " }\n"
-		 + " Growth[] = {1%,2%}\n Graph.Line(Unit Sales[Month][Growth])\n"
-		 + "This is a paragraph\n"
-		 + "*This is a list item\n"
-		 + "*this is another list item\n"
-		 + ".This is a numbered list item\n"
-		 + ".This is another numbered list item\n"
-		 + "This is another paragraph\n"
-		 + "##This is a sub header\n"
-		 + "This is a paragraph with *bold* text and _italic_ text in it\n"
-		 + "This is a paragraph with a link [this is link text][1].\n"
-		 + ">This is a blockquote\n"
-		 + "-"
-		 + "The dash before a paragraph is a section break (that might be rendered as an hr - note.. change so it doesn't need to be on its own line but can live before a paragraph or other element)\n"
-		 + "![alt text](/css/fonts/glyphicons-halflings.png)figure text here\n"
-		 + "Idea ... use non printing characters to stand in for bold and italics and links in the code so that you don't have extra characters to delete or insert in those cases. This might not help much. It might be easier to just store the list and manage it based on keypresses.\n"
-		 + "There is an empty paragraph at the end after this one. ⊕\n"
-		 + "\n"
-		 + "[1](http://google.co.uk \"Google\")\n"
-		 + " import(\"Test1\")\n import(\"Test2\")\n import(\"TestMe\")";
-
-
 var MultiEditor = createClass({
 	getInitialState: function() {
 		return {
@@ -945,7 +879,6 @@ var MultiEditor = createClass({
 	}
 });
 
-
 function mapObjToArr(obj, func) {
 	var ret = [];
 	for (var k in obj) {
@@ -956,21 +889,32 @@ function mapObjToArr(obj, func) {
 
 var cube = new Cube();
 
-var dummy = {
-	Test1: parseRaw("#Test1\nThis is some test text\n import(\"TestFred\")\n 1 + 2 + 3\n Portfolio[] = {ALTS, PROP, INFRA, Equity, UK, EU, Bond, Other}\n Main.Portfolio = Portfolio\n"),
-	Test2: parseRaw("#Test2\nMore text here\n And some code\n"),
-	Main: parseRaw(text),
-};
-Cube.Import = function(path) {
-	return dummy[path];
+var EXT = '.cube';
+
+var paths = /(.*\/)(.+)(\.[cC][Uu][Bb][Ee])$/.exec(window.location.pathname);
+
+var basepath = paths[1];
+var mainfile = paths[2];
+
+Cube.Import = function(path, callback, opt_as_namespace) {
+	fetchJSONFile(basepath + path + EXT, function(err, o) {
+		if (err) return callback(err); 
+		var model = Model.fromObj(o, opt_as_namespace);
+		callback(null, model);
+	});
 };
 
-cube.import('Main');
-cube.recalculate();
 var cursor = new Selection();
 Friar.renderComponent(cursor, document.getElementById('cursor'));
-var x;
-Friar.renderComponent(x = new MultiEditor({cursor: cursor, cube: cube, active: cube.names[0] || '#Scratch'}), document.getElementById('view'))
+var x = new MultiEditor({cursor: cursor, cube: cube, active: mainfile || '#Scratch'});
+var first = true;
+Friar.renderComponent(x, document.getElementById('view'))
+cube.onupdate = function(name) {
+	x.forceUpdate(); 
+};
+cube.import(mainfile);
+
+
 //Friar.renderComponent(x = new Editor({text: text, active: true}), document.getElementById('main'));
 
 /*
