@@ -1,9 +1,19 @@
 extends layout
 
 block content
+  for err in errors
+    div(class=err.level)= err.text
   h1= title
   .pure-u-1
     each val in files
       .pure-g
         .pure-u-1
           a(href='/' + val)=val
+  form.pure-form.pure-form-stacked(method='post')
+    fieldset
+      legend Create Area
+      label(for='area') Name
+      input(name='area', type='text', placeholder='Name')
+      button.pure-button.pure-button-primary(type='submit') Create
+
+

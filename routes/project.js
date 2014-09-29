@@ -223,7 +223,7 @@ router.post('/edit/:branch*', function(req, res, next) {
 					console.log(tree);
 					repo.saveAs("commit", {
         				tree: tree,
-        				parent: head, //we loose history if we don't set this
+        				parent: head, //we lose history if we don't set this
         				author: { name: "Unknown Author", 
         						  email: "ims@uss.co.uk" },
         				message: "Auto commit"
