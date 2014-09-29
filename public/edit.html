@@ -243,8 +243,8 @@ function renderToFriar(model) {
 						var result = token.result();
 						if (isElement(result)) {
 							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
-						} else if (typeof(result) === 'string') {
-							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result)]));
+						} else if (typeof(result) === 'string' || typeof(result) === 'number') {
+							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result.toString())]));
 						} else {
 							ret.push(DOM.div({className: 'result'}, result.toString()));
 						}

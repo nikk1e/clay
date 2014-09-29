@@ -121,7 +121,7 @@ function Help(functionName){
 	for (var i = 0; i < path.length; i++) {			
 		ret.push(Cube.Functions[path[i]].Description);	
 	};	
-	return ret;
+	return ret.join('\n');
 }
 
 Stdev.Description = "Estimates standard deviation based on a sample\nSyntax: Stdev(x)\nParameters: x (A list of numbers)";
