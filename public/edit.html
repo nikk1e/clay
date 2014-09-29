@@ -420,7 +420,9 @@ function offsetInCell(cell, path, key, offset) {
 		case 'table': 
 			var rowNum = key[1] || 0;
 			for (var i = 0; i < rowNum; i++) {
-				offset += cell.rows[i].raw.length + 1; //+1 for newline that gets removed from raw by split
+				offset += cell.rows[i].cells.reduce(function(a,c) {
+					return a + c.length + 1;
+				},0) + 1; //+1 for newline that gets removed from raw by split
 			}
 			var cellNum = path.pop(); //path is now span path
 			for (var i = 0; i< cellNum; i++) {
@@ -462,7 +464,9 @@ function nodeAtOffset(fullOffset, model) {
 		case 'table':
 			var rowNum = 0;
 			for (var rowNum = 0; rowNum < cell.rows.length - 1; rowNum++) {
-				var l = cell.rows[rowNum].raw.length + 1;
+				var l = cell.rows[rowNum].cells.reduce(function(a,c) {
+					return a + c.length + 1;
+				},0) + 1;
 				if (offset < l) break;
 				offset -= l;
 			}

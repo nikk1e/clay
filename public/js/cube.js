@@ -257,6 +257,7 @@ infix(':','Type', 7450, right);
 infix('_', 'Subscript', 7400, right);
 //\_ \% Power[Subscript]
 
+prefix('?', 'Help', 7300)
 infix('?', 'PatternTest', 7300, flat);
 
 var applyPrec = 7200;
@@ -988,6 +989,7 @@ Break.prototype.initFromObj = function(model) {
 };
 
 function Table() {}
+//TODO: this needs a 
 Table.prototype = new Cell();
 Table.prototype.type = 'table';
 Table.prototype.initialise = function(old, model) {
@@ -997,7 +999,7 @@ Table.prototype.initialise = function(old, model) {
 
 	this.rows = text.split('\n').map(function(row,i) { 
 		if (row.length === 0) return {key: i, cells:[]};
-		return {key: i, cells:row.slice(1).split('|')};
+		return {key: i, cells:row.slice(1).split('|')}; //TODO: cache raw length
 	});
 
 	this.alignments = this.rows[0].cells.map(function(cell) {
