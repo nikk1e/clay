@@ -1,9 +1,17 @@
 extends layout
 
 block content
+  for err in errors
+    div(class=err.level)= err.text
   h1= title
   .pure-u-1
     each val in files
       .pure-g
         .pure-u-1
           a(href=val.url)=val.name
+  form.pure-form.pure-form-stacked(method='post')
+    fieldset
+      legend Create Project
+      label(for='name') Name
+      input(name='name', type='text', placeholder='Name')
+      button.pure-button.pure-button-primary(type='submit') Create

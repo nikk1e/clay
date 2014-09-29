@@ -172,6 +172,7 @@ router.get('/edit/:commit*', function(req, res, next) { //* is req.params[0]
   			return next(err);
   		}
   		res.set('Content-Type', 'application/json');
+  		console.log(blob.toString());
   		return res.send(blob);
   	});
   	return;
