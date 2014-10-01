@@ -147,22 +147,22 @@ function Stdevp(list) {
     return Math.sqrt(variance);    
 }
 
-function listSquaredReduced(list){
-	return list.reduce(function(a,b){
+function listSquaredReduced(list) {
+	return list.reduce(function(a,b) {
 		return a + Math.pow(b,2);
 	},0);
 }   
 
-function filterListToNumbers(list){
-	return list.filter(function(a){
+function filterListToNumbers(list) {
+	return list.filter(function(a) {
 		return (!isNaN(a)); 
 	});
 }    
 
-function correlation(list){
+function correlation(list) {
     var avg = Average(list);  
-    function listLessAverage(l,b){
-    	return l.map(function(a){
+    function listLessAverage(l,b) {
+    	return l.map(function(a) {
         	return a-b;
         });
 	}       
@@ -174,7 +174,7 @@ function correlation(list){
 }
 
 Correl.Description = "Returns the correlation coefficient of two lists of the same length\nSyntax: Correl(x,y)\nParameters:\n x (A list of numbers)\n y (A list of numbers)";
-function Correl(listA, listB){
+function Correl(listA, listB) {
     var a = correlation(listA);
     var b = correlation(listB);
     
@@ -184,6 +184,36 @@ function Correl(listA, listB){
     }; 
     
     return sumTotal / Math.sqrt(a.SumSquared * b.SumSquared);
+}
+
+function Covariance(listA, listB, sample) {
+	var aBar = 0;
+	var bBar = 0;
+	var q = 0;
+	var n = 0;
+	listA.forEach(function(a, i) {
+		var b = listB[i];
+		if (b === undefined || a === undefined) return;
+		n += 1;
+		aBar += a;
+		bBar += b;
+	});
+	aBar = aBar / n;
+	bBar = bBar / n;
+	listA.forEach(function(a, i) {
+		var b = listB[i];
+		if (b === undefined || a === undefined) return;
+		q += (a - aBar)*(b - bBar);
+	});
+	return q / (n - sample);
+}
+
+function CovarianceS(listA, listB) {
+	return Covariance(listA, listB, 1);
+}
+
+function CovarianceP(listA, listB) {
+	return Covariance(listA, listB, 0);
 }
 
 function Unique(list) {
@@ -264,6 +294,8 @@ mixin(Cube.Functions, {
 	CountNumbers:CountNumbers,
 	Help:Help,
 	Correl:Correl,
+	CovarianceS: CovarianceS,
+	CovarianceP: CovarianceP,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
