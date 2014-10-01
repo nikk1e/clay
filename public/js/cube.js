@@ -1570,7 +1570,7 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 		case 'Restrict':
 			return '('+ me.compileExpr(expr[1], basepack) +') ? (' + me.compileExpr(expr[2], basepack) + ') : undefined';
 		case 'Call':
-			return 'env.' + expr[1].slice(1).join('.') + '(' +
+			return 'env._Func.' + expr[1].slice(1).join('.') + '(' +
 				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
 		case 'List':
 			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
@@ -2275,7 +2275,7 @@ var Functions = {
 };
 
 function Environment() {}
-Environment.prototype = Functions;
+Environment.prototype._Func = Functions;
 
 function table(expr, opt_dims) {
 	if (expr[0] !== 'List') {
