@@ -2228,11 +2228,16 @@ function showMr(s, skip) {
 		case 'String': return s[1];
 		case 'Symbol': return s.slice(1).join('.');
 		case 'List':   return '{' + s.slice(1).map(showMr).join(', ') + '}';
+		case 'Over':
 		case 'Slice':  return showMr(s[1], true) + '[' + s.slice(2).map(showMr).join(', ') + ']';
 		case 'Call':   return showMr(s[1], true) + '(' + s.slice(2).map(showMr).join(', ') + ')';
 		case 'Set':
 		case 'Set*':
 		case 'Let': return showMr(s[1], true) +'=' + showMr(s[2]);
+		case 'LetS':
+			if (s[1][0] === 'Index' && s[2][0] === 'IndexOf') {
+				return showMr(s[3], true) + '[' + showMr(s[1][1], true) + '=' + showMr(s[2][2], true) + ']';
+			}
 		case 'Neg': return '(-' + showMr(s[1]) + ')';
 		case 'Plus': return '(' + s.slice(1).map(showMr).join(' + ') + ')';
 		case 'Times': return '(' + s.slice(1).map(showMr).join(' * ') + ')';
@@ -2266,12 +2271,90 @@ function showS(sexp) {
 	return sexp.toString();
 }
 
+
+function _Pivot(title, page_titles, page_values, page_selected, col_headers, row_titles, row_headers, data) {
+	var d = document.createElement('div');
+
+	page_values = page_values || [];
+	page_selected = page_selected || [];
+	page_titles = page_titles || [];
+	row_titles = row_titles || [];
+	row_headers = row_headers || [];
+
+	var nColH = col_headers[0].length - 1;
+	var rows = data.length;
+	var cols = data[0].length;
+	var rowHs = row_titles.length;
+
+	function page(title, values, selected) {
+		return "<label for='"+ title +"'>"+title+" = </label> \
+        <select name='"+title+"'>" + values.map(function(value, index) {
+        	return "<option" + (selected == value ? " selected" : "") + 
+        			">" + value + "</option>"
+        }).join('') + "</select>";
+	}
+
+	//draw header
+	var thead = '';
+	for (var i = 0; i <= nColH; i++) {
+		var prev = '';
+		thead += '<tr>';
+		for (var j = 0; j < rowHs; j++) {
+			if (i === nColH) {
+				thead += "<th class='highlight'>" + row_titles[j] + "</th>";
+			} else {
+				thead += "<th class='empty highlight'></th>";
+			}
+		}
+		for (var j = 0; j < cols; j++) {
+			var head = col_headers[j][i];
+			if (head === prev) {
+				thead += '<th></th>';
+			} else {
+				prev = head;
+				thead += "<th>" + head.toString() + "</th>";
+			}
+		}
+		thead += '</tr>';
+	}
+
+	//draw body
+	var tbody = '';
+	for (var i = 0; i < rows; i++) {
+		tbody += '<tr>';
+		for (var j = 0; j < rowHs; j++) {
+			tbody += "<td class='highlight'>" + row_headers[i][j] + "</td>";
+		}
+		for (var j = 0; j < cols; j++) {
+			tbody += "<td>" + data[i][j] + "</td>";
+		}
+		tbody += '</tr>';
+	}
+
+	d.innerHTML = "<div class='result'> \
+<div class='pure-g'> \
+<h3 class='pure-u-2-5' style='margin-top: 20px;'>" + title + "</h3> \
+<form class='pure-form pure-u-3-5' style='text-align: right;'> \
+    <fieldset> "+ page_titles.map(function(title, i) {
+    	return page(title, page_values[i], page_selected[i])
+    }).join('') +"</fieldset> \
+</form> \
+</div> \
+<table class='pure-table pure-table-horizontal'> \
+<thead>"+thead+"</thead> \
+<tbody>"+tbody+"</tbody> \
+</table> \
+</div>";
+	return d;
+}
+
 var Functions = {
 	Math: Math,
 	sin: Math.sin,
 	cos: Math.cos,
 	tan: Math.tan, //etc (see js/functions.js and js/functions/*)
 	_tableColumn: _tableColumn, //internal - for table compile
+	_Pivot: _Pivot,
 };
 
 function Environment() {}
