@@ -94,118 +94,91 @@ function pivot(expr, pages, rows, cols, descriptions) {
 }
 
 function postPivot(expr, quoted, pages, rows, cols, descriptions) {
-	//TODO: .. implement this
+	pages = pages || ['List'];
+	descriptions = descriptions || ['List'];
+	rows = rows || ['List'];
+	cols = cols || ['List'];
+	var descrips = {};
 
-/*
-(Call (Symbol pivot) (Symbol Dummy) 
-(List (Set (Symbol People) (String Nick))) 
-(List (Symbol House) (Symbol Month)) 
-(List (Symbol State) (Symbol Gender)) 
-(List (Symbol LongMonth)))
-
-page_titles,
-page_values, 
-page_selected, 
-col_headers, 
-row_titles, 
-row_headers, 
-data
-
-(Call (Symbol _Pivot) 
-(String `Net Income`) 
-(List (String People)) 
-(List (Over (Symbol People) (Symbol People))) 
-(List (String Nick)) 
-(Over (List (Symbol House) (Symbol Month) (Symbol LongMonth)) 
-(Symbol Month) (Symbol House)) 
-(List (String State) (String Gender)) 
-(Over (List (Symbol State) (Symbol Gender)) (Symbol Gender) (Symbol State))
-(Over 
-  (Over (LetS (Index (Symbol People)) (IndexOf (Symbol People) (String Nick)) 
-  (Symbol Dummy)) (Symbol Month) (Symbol House)) (Symbol Gender) (Symbol State)))
-*/
-
-var descrips = {};
-
-descriptions.slice(1).forEach(function(desc, i) {
-	//assume symbol with single dimension
-	var dim = desc.dimensions[0];
-	if (!descrips.hasOwnProperty(dim)) descrips[dim] = {syms:[], names:[]};
-	descrips[dim].syms.push(desc);
-	descrips[dim].names.push(showM(desc));
-});
-
-var page_titles = pages.map(function(s, i) {
-	return (i === 0 ? 'List' : showM(s[1]));
-});
-var page_values = pages.map(function(s, i) {
-	if (i === 0)
-	  return 'List'
-	var ret = ['Over', s[1], s[1]];
-	ret.dimensions = [];
-	return ret;
-});
-
-var page_selected = pages.map(function(s, i) {
-	return (i === 0 ? 'List' : s[2]);
-});
-
-var data = expr;
-pages.slice(1).forEach(function(s) {
-	data = ['LetS', ['Index', s[1]], ['IndexOf', s[1], s[2]], data];
-});
-
-
-var col_headers = ['List'];
-var col_dims = [];
-cols.slice(1).forEach(function(col, i) {
-	var dim = col.dimensions[0];
-	col_dims.push(dim);
-	col_headers.push(col);
-	if (descrips[dim]) {
-		Array.prototype.push.apply(col_headers, descrips[dim].syms);
-	}
-});
-
-var row_titles = ['List'];
-var row_headers = ['List'];
-var row_dims = [];
-rows.slice(1).forEach(function(row, i) {
-	var dim = row.dimensions[0];
-	row_dims.push(dim);
-	row_headers.push(row);
-	row_titles.push(showM(row));
-	if (descrips[dim]) {
-		Array.prototype.push.apply(row_titles, descrips[dim].names);
-		Array.prototype.push.apply(row_headers, descrips[dim].syms);
-	}
-});
-
-col_headers.dimensions = col_dims;
-var cx = cols.slice(1);
-cx.reverse();
-col_headers = ['Over', col_headers].concat(cx);
-col_headers.dimensions = [];
-
-
-row_headers.dimensions = row_dims;
-var rx = rows.slice(1);
-rx.reverse()
-row_headers = ['Over', row_headers].concat(rx);
-row_headers.dimensions = [];
-row_titles.dimensions = [];
-
-data.dimensions = row_dims.concat(col_dims);
-data = ['Over', data].concat(cols.slice(1));
-data.dimensions = row_dims;
-data = ['Over', data].concat(rows.slice(1));
-data.dimensions = [];
-
-	return ['Call', ['Symbol', '_Pivot'], quoted, 
-		page_titles, page_values, page_selected,
-		col_headers, 
-		row_titles, row_headers, 
-		data]; 
+	descriptions.slice(1).forEach(function(desc, i) {
+		//assume symbol with single dimension
+		var dim = desc.dimensions[0];
+		if (!descrips.hasOwnProperty(dim)) descrips[dim] = {syms:[], names:[]};
+		descrips[dim].syms.push(desc);
+		descrips[dim].names.push(showM(desc));
+	});
+	
+	var page_titles = pages.map(function(s, i) {
+		return (i === 0 ? 'List' : showM(s[1]));
+	});
+	var page_values = pages.map(function(s, i) {
+		if (i === 0)
+		  return 'List'
+		var ret = ['Over', s[1], s[1]];
+		ret.dimensions = [];
+		return ret;
+	});
+	
+	var page_selected = pages.map(function(s, i) {
+		return (i === 0 ? 'List' : s[2]);
+	});
+	
+	var data = expr;
+	pages.slice(1).forEach(function(s) {
+		data = ['LetS', ['Index', s[1]], ['IndexOf', s[1], s[2]], data];
+	});
+	
+	
+	var col_headers = ['List'];
+	var col_dims = [];
+	cols.slice(1).forEach(function(col, i) {
+		var dim = col.dimensions[0];
+		col_dims.push(dim);
+		col_headers.push(col);
+		if (descrips[dim]) {
+			Array.prototype.push.apply(col_headers, descrips[dim].syms);
+		}
+	});
+	
+	var row_titles = ['List'];
+	var row_headers = ['List'];
+	var row_dims = [];
+	rows.slice(1).forEach(function(row, i) {
+		var dim = row.dimensions[0];
+		row_dims.push(dim);
+		row_headers.push(row);
+		row_titles.push(showM(row));
+		if (descrips[dim]) {
+			Array.prototype.push.apply(row_titles, descrips[dim].names);
+			Array.prototype.push.apply(row_headers, descrips[dim].syms);
+		}
+	});
+	
+	col_headers.dimensions = col_dims;
+	var cx = cols.slice(1);
+	cx.reverse();
+	col_headers = ['Over', col_headers].concat(cx);
+	col_headers.dimensions = [];
+	
+	
+	row_headers.dimensions = row_dims;
+	var rx = rows.slice(1);
+	rx.reverse()
+	row_headers = ['Over', row_headers].concat(rx);
+	row_headers.dimensions = [];
+	row_titles.dimensions = [];
+	
+	data.dimensions = row_dims.concat(col_dims);
+	data = ['Over', data].concat(cols.slice(1));
+	data.dimensions = row_dims;
+	data = ['Over', data].concat(rows.slice(1));
+	data.dimensions = [];
+	
+		return ['Call', ['Symbol', '_Pivot'], quoted, 
+			page_titles, page_values, page_selected,
+			col_headers, 
+			row_titles, row_headers, 
+			data]; 
 }
 
 function quoteM(expr) {
