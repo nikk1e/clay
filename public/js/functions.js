@@ -260,6 +260,11 @@ function BasicTable(headers, rows, highlight) {
 				th.appendChild(e);
 			} else {
 				th.appendChild(document.createTextNode(e === undefined ? 'NULL' : e.toString()));
+				if (e === true) {
+					th.className = 'success';
+				} else if (e === false) {
+					th.className = 'error';
+				}
 			}
 		});
 	});

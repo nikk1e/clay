@@ -245,6 +245,10 @@ function renderToFriar(model) {
 							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
 						} else if (typeof(result) === 'string' || typeof(result) === 'number') {
 							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result.toString())]));
+						} else if (result === false) {
+							ret.push(DOM.div({className: 'result'}, [DOM.pre({className: 'error'},result.toString())]));
+						} else if (result === true) {
+							ret.push(DOM.div({className: 'result'}, [DOM.pre({className: 'success'},result.toString())]));
 						} else {
 							ret.push(DOM.div({className: 'result'}, result.toString()));
 						}
