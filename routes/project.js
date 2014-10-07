@@ -1,6 +1,6 @@
 var express = require('express');
 var join = require('path').join;
-var git = require('git-node');
+//var git = require('git-node');
 var modes = require('js-git/lib/modes');
 var fsdb = require('git-node-fs/mixins/fs-db');
 var createMixin = require('js-git/mixins/create-tree');
@@ -10,34 +10,38 @@ var router = express.Router({ mergeParams: true });
 
 var base;
 
-function file(area, project, hash, path, done) {
-	var repo = git.repo(join(base, area, project + '.git'));
+function file(area, project, branch, path, done) {
+	var base_path;
+	if (/^\~/.test(area)) {
+		area = area.slice(1);
+		base_path = join(base, 'users');
+	} else {
+		base_path = join(base, 'areas');
+	}
+	var rootPath = join(base_path, area, project + '.git');
+	console.log(rootPath)
+	var repo = {};
 	var rawPath = path.join('/');
+
+	fsdb(repo, rootPath);
 	
 	function loadBlob(hash) {
 		repo.loadAs('blob', hash, function(err, blob) {
-			if (err) {
-				return done(err);
-			}
+			if (err) return done(err);
 			done(null, blob);
 		});
 	}
 
 	function loadTree(hash) {
+		console.log('loading commit: '  + hash);
 		repo.loadAs('tree', hash, function(err, tree) {
 			var dir;
-			if (err) {
-				return done(err);
-			}
-			if ((dir = path.pop())) {
-				for (var i = tree.length - 1; i >= 0; i--) {
-					if (tree[i].name === dir) {
-						if (tree[i].mode === modes.tree) {
-							return loadTree(tree[i].hash);
-						} else if (path.length === 0) {
-							return loadBlob(tree[i].hash);
-						}
-					}
+			if (err) return done(err);
+			if ((dir = path.pop()) && tree[dir]) {
+				if (tree[dir].mode === modes.tree) {
+					return loadTree(tree[dir].hash);
+				} else if (path.length === 0) {
+					return loadBlob(tree[dir].hash);
 				}
 				return done(new Error('File not found ' + rawPath));
 			} else {
@@ -46,60 +50,84 @@ function file(area, project, hash, path, done) {
 		});
 	}
 
-	repo.loadAs('commit', hash, function(err, commit) {
-		if (err) {
-			return done(err);
-		}
-		loadTree(commit.tree);
-	});
+	function loadCommit(hash) {
+		console.log('loading commit: '  + hash);
+		repo.loadAs('commit', hash, function(err, commit) {
+			if (err) {
+				return next(err);
+			}
+			last_commit = commit;
+			loadTree(commit.tree);
+		});
+	}
+
+	function loadTag(tag) {
+		var ref = 'refs/tags/' + tag;
+		repo.readRef(ref, function(err, hash) {
+			if (err || hash === undefined) return loadCommit(tag);
+			loadCommit(hash);
+		});
+	}
+
+	function loadBranch(branch) {
+		var ref = 'refs/heads/' + branch;
+		console.log('loading branch ref: '  + ref);
+		repo.readRef(ref, function(err, hash) {
+			if (err || hash === undefined) return loadTag(branch);
+			loadCommit(hash);
+		});
+	}
+
+	loadBranch(branch);
 }
 
 function tree(req, res, next) {
 	var area = req.params.area;
+	var base_path;
+	if (/^\~/.test(area)) {
+		area = area.slice(1);
+		base_path = join(base, 'users');
+	} else {
+		base_path = join(base, 'areas');
+	}
 	var project = req.params.project;
-	var repo = git.repo(join(base, area, project + '.git'));
+	var rootPath = join(base_path, area, project + '.git');
+	var repo = {};
 	var rawPath = req.params[0];
-	var commit = req.params.commit || 'master';
+	var branch = req.params.commit || 'master';
 	var path = rawPath
 		.slice(1)
 		.split('/')
 		.filter(function(p) { return p.length > 0; });
 	var last_commit;
-	//var files = [];
-	//var outstanding = 0;
-	//var broken = false;
-
+	
+	fsdb(repo, rootPath);
 	path.reverse();
 
-	//function done() { if (!broken) res.send({files:files, path:path}); }
-	var baseUrl = '/' + area + '/' + project;
+	var baseUrl = '/' + req.params.area + '/' + project;
 
 	function done(tree) { 
-		tree = tree.map(function(p) {
-			var isDir = p.mode === modes.tree;
-			return {
-				name: p.name,
+		var treeM = [];
+		for (var name in tree) {
+			if (/^\./.test(name)) continue;
+			if (!tree.hasOwnProperty(name)) continue;
+			var stats = tree[name];
+			var isDir = stats.mode === modes.tree;
+			treeM.push({
+				name: name,
 				isDir: isDir,
-				url: baseUrl + (isDir ? '/tree/' : '/edit/') + commit + rawPath + '/' + p.name 
-			}
-		});
-
-		res.render('tree', {title: area + '/' + project + rawPath, tree: tree, commit: last_commit});
-		//res.send({tree: tree, commit: last_commit}); 
-
+				url: baseUrl + (isDir ? '/tree/' : '/edit/') + branch + rawPath + '/' + name 
+			});
+		}
+		res.render('tree', {title: area + '/' + project + rawPath, tree: treeM, commit: last_commit});
 	}
 
 	function loadTree(hash) {
-		//if (broken) return;
-		//outstanding++;
 		repo.loadAs('tree', hash, function(err, tree) {
 			var dir;
 			if (err) {
-				//broken = true;
 				return next(err);
 			}
-			//Array.prototype.push.apply(files, tree)
-			//files = tree;
 			if ((dir = path.pop())) {
 				for (var i = tree.length - 1; i >= 0; i--) {
 					if (tree[i].name === dir) {
@@ -112,31 +140,37 @@ function tree(req, res, next) {
 			} else {
 				done(tree);
 			}
-			//
-			//outstanding--;
-			//if (outstanding <= 0) done();
 		});
 	}
 
 	function loadCommit(hash) {
-		//if (broken) return;
-		//outstanding++;
 		repo.loadAs('commit', hash, function(err, commit) {
 			if (err) {
-				//broken = true;
 				return next(err);
 			}
 			last_commit = commit;
 			loadTree(commit.tree);
-			//if (commit.parents) {
-			//	commit.parents.forEach(loadCommit);
-			//}
-			//outstanding--;
-			//if (outstanding <= 0) done();
 		});
 	}
 
-	loadCommit(commit);
+	function loadTag(tag) {
+		var ref = 'refs/tags/' + tag;
+		repo.readRef(ref, function(err, hash) {
+			if (err || hash === undefined) return loadCommit(tag);
+			loadCommit(hash);
+		});
+	}
+
+	function loadBranch(branch) {
+		var ref = 'refs/heads/' + branch;
+		console.log('loading branch ref: '  + ref);
+		repo.readRef(ref, function(err, hash) {
+			if (err || hash === undefined) return loadTag(branch);
+			loadCommit(hash);
+		});
+	}
+
+	loadBranch(branch);
 }
 
 router.get('/', function(req, res, next) {
@@ -188,9 +222,16 @@ router.post('/edit/:branch*', function(req, res, next) {
 	var body = req.body;
 	if (body.length && body.length > 0) {
 		var area = req.params.area;
+		var base_path;
+		if (/^\~/.test(area)) {
+			area = area.slice(1);
+			base_path = join(base, 'users');
+		} else {
+			base_path = join(base, 'areas');
+		}
 		var project = req.params.project;
 		var repo = {};
-		var rootPath = join(base, area, project + '.git');
+		var rootPath = join(base_path, area, project + '.git');
 		//console.log(repo.rootPath);
 		var rawPath = req.params[0];
 		var branch = req.params.branch || 'master';
@@ -203,7 +244,7 @@ router.post('/edit/:branch*', function(req, res, next) {
 		fsdb(repo, rootPath);
 		createMixin(repo);
 		formatsMixin(repo);
-
+		console.log(ref)
 		repo.readRef(ref, function(err, head) {
 			if (err) return next(err);
 			console.log('head:' + head);

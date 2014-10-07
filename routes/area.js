@@ -11,7 +11,7 @@ var router = express.Router();
 var base;
 
 function index(res, next, errors) {
-  fs.readdir(base, function(err, files) {
+  fs.readdir(path.join(base, 'areas'), function(err, files) {
     if (err) {
       return next(err);
     }
@@ -59,8 +59,15 @@ function mkdirp(path, callback) {
 router.route('/:area')
 .get(function(req, res, next) {
   var area = req.params.area;
-  var baseUrl = '/'+ area + '/';
-  var dir = path.join(base, area);
+  var base_path;
+  if (/^\~/.test(area)) {
+    area = area.slice(1);
+    base_path = path.join(base, 'users');
+  } else {
+    base_path = path.join(base, 'areas');
+  }
+  var baseUrl = '/'+ req.params.area + '/';
+  var dir = path.join(base_path, area);
   fs.readdir(dir, function(err, files) {
     if (err) {
       return next(err);
@@ -75,8 +82,15 @@ router.route('/:area')
 })
 .post(function(req, res, next) {
   var area = req.params.area;
+  var base_path;
+  if (/^\~/.test(area)) {
+    area = area.slice(1);
+    base_path = path.join(base, 'users');
+  } else {
+    base_path = path.join(base, 'areas');
+  }
   var baseUrl = '/'+ area + '/';
-  var dir = path.join(base, area);
+  var dir = path.join(base_path, area);
   var name = req.body.name;
   var gitpath = path.join(dir, name + '.git');
   var repo = {};
