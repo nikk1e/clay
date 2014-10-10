@@ -148,6 +148,20 @@ app.get('/profile', passport.authenticate('WindowsAuthentication'),
     res.json(req.user);
 });
 
+app.get('/login', function(req, res, next) {
+  passport.authenticate('WindowsAuthentication', function(err, user, info) {
+    if (err) { return next(err); }
+    if (!user) { return res.render('login',{}); } //show login form if not windows authenticated
+    req.login(user, function(err) {
+      if (err) { return next(err); }
+      return res.redirect('/~' + user.name);
+    });
+  })(req, res, next);
+});
+
+//TODO: app.post('/login', function()) //authenticate locally
+//TODO: authenticate/register with Google/Twitter/Facebook
+
 app.use('/:area/:project', project);
 app.use('/', area);
 
