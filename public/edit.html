@@ -841,14 +841,17 @@ var MultiEditor = createClass({
 		console.log('save clicked')
 		var json = JSON.stringify(cube);
 		//mark models clean
+		var cleaned = cube.unmodify();
 		saveFiles(basepath, json, function(err, resp) {
 			if (err) {
 				console.log(err);
 				//mark models modified again
+				cube.remodify(cleaned);
 			} else {
 				console.log(resp);
 			}
-		})
+		});
+		this.forceUpdate();
 
 	},
 	revert: function() {

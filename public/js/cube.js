@@ -763,6 +763,15 @@ Model.fromObj = function(raw, namespace) {
 	return obj;
 };
 
+Model.prototype.toJSON = function() {
+	return {
+		cells: this.cells,
+		namespace: this.namespace,
+		name: this.name,
+		seed: this.seed,
+	};
+};
+
 Model.prototype.cellByKey = function(key) {
 	var ind = this.indexOfKey(key);
 	if (ind >= 0) return this.cells[ind];
@@ -1255,6 +1264,23 @@ Cube.prototype.clean = function() {
 			this.models[n]._dirty = false;
 		}
 	}
+};
+
+Cube.prototype.unmodify = function() {
+	var ret = [];
+	for (var n in this.models) {
+		if (this.models.hasOwnProperty(n) && this.models[n].modified) {
+			ret.push(n);
+			this.models[n].modified = false;
+		}
+	}
+	return ret;
+};
+
+Cube.prototype.remodify = function(names) {
+	names.forEach(function(n) {
+		this.models[n].modified = true;
+	});
 };
 
 Cube.prototype.mergeModel = function(name, model) {
