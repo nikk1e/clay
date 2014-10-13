@@ -1082,7 +1082,7 @@ Table.prototype.parse = function(model) {
 			cubeColumns.forEach(function(col) {
 				var cubeName = cubeNames[col];
 				var expr = ['Set', sym(model.namespace, cubeName), //TODO (check if we have a namespace on the column)
-					['Indexed', ['Call', sym('_tableColumn'), str(model.name), num(me.key), num(col)], 
+					['Indexed', ['Call', sym('_tableColumn'), ['Cube'], str(model.name), num(me.key), num(col)], 
 					            ['Index', sym(catName)]]
 				];
 				me.sexpr.push(expr);
@@ -1149,9 +1149,9 @@ Table.prototype.initFromObj = function(model) {
 	this.parse(model);
 };
 
-function _tableColumn(name, key, col) {
+function _tableColumn(cube, name, key, col) {
 	//this should be
-	var cube = this._Cube;
+	//var cube = this._Cube;
 	var model = cube.models[name];
 	var cell = model.cellByKey(key);
 	//assume table cell
@@ -1586,6 +1586,8 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 		case 'RemDims':
 		case 'NoDim':
 			return me.compileExpr(expr[1], basepack);
+		case 'Cube':
+			return 'env._Cube';
 		case 'Quote':
 			return quote(expr[1]);
 		case 'LetG':
@@ -1596,7 +1598,7 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 		case 'Restrict':
 			return '('+ me.compileExpr(expr[1], basepack) +') ? (' + me.compileExpr(expr[2], basepack) + ') : undefined';
 		case 'Call':
-			return 'env.' + expr[1].slice(1).join('.') + '(' +
+			return 'env._Functions.' + expr[1].slice(1).join('.') + '(' +
 				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
 		case 'List':
 			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
@@ -1757,7 +1759,8 @@ Cube.prototype.recalculate = function() {
 	var environment = new Environment(), packages = {}, pack;
 
 	environment._Cube = me; //allow access to the Cube for variant functions and tables
-
+	environment._Functions = Functions;
+	
 	//Namespace is the compiled equivalent of Package
 	function Namespace() {}
 	Namespace.prototype = environment;
@@ -2388,7 +2391,7 @@ var Functions = {
 };
 
 function Environment() {}
-Environment.prototype = Functions;
+//Environment.prototype = Functions;
 
 function table(expr, opt_dims) {
 	if (expr[0] !== 'List') {
