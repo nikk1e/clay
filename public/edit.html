@@ -913,7 +913,7 @@ var cube = new Cube();
 
 var EXT = '.cube';
 
-var paths = /(.*\/)(.+)(\.[cC][Uu][Bb][Ee])$/.exec(window.location.pathname);
+var paths = /(.*\/)(.+)(\.[cC][Uu][Bb][Ee])?$/.exec(window.location.pathname);
 
 var basepath = paths[1];
 var mainfile = paths[2];

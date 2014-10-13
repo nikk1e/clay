@@ -10,6 +10,20 @@ var router = express.Router({ mergeParams: true });
 
 var base;
 
+router.param(function(name, fn){
+  if (fn instanceof RegExp) {
+    return function(req, res, next, val){
+      var captures;
+      if (captures = fn.exec(String(val))) {
+        req.params[name] = captures;
+        next();
+      } else {
+        next('route');
+      }
+    }
+  }
+})
+
 function file(area, project, branch, path, done) {
 	var base_path;
 	if (/^\~/.test(area)) {
@@ -37,7 +51,7 @@ function file(area, project, branch, path, done) {
 		repo.loadAs('tree', hash, function(err, tree) {
 			var dir;
 			if (err) return done(err);
-			if ((dir = path.pop()) && tree[dir]) {
+			if ((dir = path.shift()) && tree[dir]) {
 				if (tree[dir].mode === modes.tree) {
 					return loadTree(tree[dir].hash);
 				} else if (path.length === 0) {
@@ -93,18 +107,18 @@ function tree(req, res, next) {
 	var project = req.params.project;
 	var rootPath = join(base_path, area, project + '.git');
 	var repo = {};
-	var rawPath = req.params[0];
-	var branch = req.params.commit || 'master';
+	var rawPath = req.params.path || req.params[0] || '/';
+	var branch = req.params.branch || req.params.commit || 'master';
 	var path = rawPath
 		.slice(1)
 		.split('/')
 		.filter(function(p) { return p.length > 0; });
 	var last_commit;
-	
-	fsdb(repo, rootPath);
-	path.reverse();
+	var urlPath = path.join('/');
 
-	var baseUrl = '/' + req.params.area + '/' + project;
+	fsdb(repo, rootPath);
+
+	var baseUrl = '/' + req.params.area + '/' + project + '/';
 
 	function done(tree) { 
 		var treeM = [];
@@ -116,10 +130,10 @@ function tree(req, res, next) {
 			treeM.push({
 				name: name,
 				isDir: isDir,
-				url: baseUrl + (isDir ? '/tree/' : '/edit/') + branch + rawPath + '/' + name 
+				url: baseUrl + branch + urlPath + '/' + (isDir ? name + '/' : name.replace(/.cube$/,''))
 			});
 		}
-		res.render('tree', {title: area + '/' + project + rawPath, tree: treeM, commit: last_commit});
+		res.render('tree', {title: area + '/' + project + (urlPath ? '/' + urlPath : ''), tree: treeM, commit: last_commit});
 	}
 
 	function loadTree(hash) {
@@ -128,7 +142,7 @@ function tree(req, res, next) {
 			if (err) {
 				return next(err);
 			}
-			if ((dir = path.pop())) {
+			if ((dir = path.shift())) {
 				for (var i = tree.length - 1; i >= 0; i--) {
 					if (tree[i].name === dir) {
 						if (tree[i].mode === modes.tree) {
@@ -173,50 +187,75 @@ function tree(req, res, next) {
 	loadBranch(branch);
 }
 
-router.get('/', function(req, res, next) {
-  req.params.commit = 'master';
-  req.params[0] = '';
-  return tree(req, res, next);
-});
+router.param('branch', /^\w+$/);
 
-router.get('/tree/:commit*', function(req, res, next) { //* is req.params[0]
-  return tree(req, res, next);
-});
-
-
-router.get('/log/:branch*', function(req, res, next) {
+router.get('/history/:branch*', function(req, res, next) {
 	//history of commits
+	res.send('I am history for ' + JSON.stringify(req.params));
 });
 
-router.get('/edit/:commit*', function(req, res, next) { //* is req.params[0]
-  if (req.xhr) {
+router.param('range', /^(\w+)\.\.(\w+)$/);
+
+router.get('/compare/:range', function(req, res, next) {
+	//compare
+	res.send('I am compare for ' + JSON.stringify(req.params));
+});
+
+router.get('/blame/:branch/*', function(req, res, next) {
+	//blame
+	res.send('I am blame for ' + JSON.stringify(req.params));
+});
+
+router.get('/:branch/*.csv', function(req, res, next) {
+	res.send('I am csv for ' + req.params[0]);
+});
+
+router.get('/:branch/*.pdf', function(req, res, next) {
+	res.send('I am pdf for ' + req.params[0]);
+});
+
+router.get('/:branch/*.json', function(req, res, next) {
+	res.send('I am json for ' + req.params[0]);
+});
+
+router.get('/:branch/*.cube', function(req, res, next) {
   	//return raw file
   	var area = req.params.area;
 	var project = req.params.project;
-	var commit = req.params.commit || 'master';
-	var rawPath = req.params[0];
+	var commit = req.params.branch || 'master';
+	var rawPath = req.params[0] + '.cube';
 	var path = rawPath
-		.slice(1)
 		.split('/')
 		.filter(function(p) { return p.length > 0; });
 
-	path.reverse();
   	file(area, project, commit, path, function(err, blob) {
   		if (err) {
   			return next(err);
   		}
   		res.set('Content-Type', 'application/json');
-  		console.log(blob.toString());
   		return res.send(blob);
   	});
-  	return;
-  }
-  //TODO: edit model file.
-  //unless we are asking for js in which case send the raw
-  return res.sendfile('edit.html', { root: 'public'});
 });
 
-router.post('/edit/:branch*', function(req, res, next) {
+router.get('/:branch/*.xslx', function(req, res, next) {
+	res.send('I am xslx for ' + req.params[0]);
+});
+
+router.get('/:branch*',function(req, res, next) {
+	var ps = req.params;
+	req.params.path = req.params[0] || '';
+	if (/^$|\/$/.test(ps.path)) {
+
+		//res.send('I am a direcory listing for ' + JSON.stringify(ps));
+		tree(req, res, next);
+	} else {
+		//TODO: make this render a file with the JSON already loaded
+		//and the HTML rendered (for SEO and old browsers)
+		res.sendfile('edit.html', { root: 'public'});
+	}
+});
+
+router.post('/:branch*', function(req, res, next) {
 	//expect json encoded commit tree
 	console.log('save files');
 	var body = req.body;
@@ -232,7 +271,6 @@ router.post('/edit/:branch*', function(req, res, next) {
 		var project = req.params.project;
 		var repo = {};
 		var rootPath = join(base_path, area, project + '.git');
-		//console.log(repo.rootPath);
 		var rawPath = req.params[0];
 		var branch = req.params.branch || 'master';
 		var ref = 'refs/heads/' + branch;
@@ -290,6 +328,12 @@ router.post('/edit/:branch*', function(req, res, next) {
 	
 });
 
+router.get('/',function(req, res, next) {
+	req.params.branch = 'master';
+	req.params.path = ''; //trailing slash needed for directory listing
+	tree(req, res, next);
+});
+
 function parallelEach(list, fn, callback) {
   var left = list.length + 1;
   var done = false;
@@ -308,8 +352,6 @@ function parallelEach(list, fn, callback) {
     callback();
   }
 }
-
-
 
 module.exports = function(path) {
   base = path;
