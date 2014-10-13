@@ -88,7 +88,9 @@ function createRepo(gitpath, username, email, entries, next) {
 }
 
 var WindowsAuthentication = require('passport-windowsauth');
-passport.use(new WindowsAuthentication(function(profile, done) {
+passport.use(new WindowsAuthentication(
+    {integrated: true},
+    function(profile, done) {
     var user = users[profile.id];
     if (!user) {
         profile.email = userEmail(profile);
