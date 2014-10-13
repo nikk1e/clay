@@ -1614,10 +1614,14 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			return '(' + me.compileExpr(expr[1], basepack) + ')';
 		case 'Divide':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
+		case 'Not':
+			return '!(' + me.compileExpr(expr[1], basepack) + ')';
 		case 'GreaterEqual':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' >= ') + ')';
 		case 'Greater':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' > ') + ')';
+		case 'Unequal':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' != ') + ')';
 		case 'Equal':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
 		case 'LessEqual':
