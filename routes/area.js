@@ -29,7 +29,7 @@ router.route('/')
   if (!(/^[A-Za-z]{1,25}$/.test(area))) {
     return index(res, next, [{level: 'error', text: 'Area name must be letters only an upto 25 characters long not: ' + area}]);
   }
-  mkdirp(path.join(base, area), function(err) {
+  mkdirp(path.join(base, 'areas', area), function(err) {
     if (err) {
       return index(res, next, [{level: 'error', text: 'Could not create area because: ' + err.toString()}]);
     }
