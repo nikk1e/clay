@@ -1110,7 +1110,13 @@ Table.prototype.parse = function(model) {
 			this.keyValues = {};
 			for (var kcol in keys) {
 				if (formulaColumns.indexOf(kcol) === -1) {
-					this.keyValues[keys[kcol]] = {};
+					var key = keys[kcol];
+					var keyValues = this.keyValues[key] = {};
+					body.forEach(function(row) {
+						if (!keyValues[row.cells[kcol]]) {
+							keyValues[row.cells[kcol]] = str(row.cells[kcol]); //TODO: String or number
+						}
+					});
 				}
 			}
 
@@ -1127,10 +1133,6 @@ Table.prototype.parse = function(model) {
 						//TODO: wrap expr with keys 'LetG'
 						for (var kcol in keys) {
 							var key = keys[kcol];
-							var keyValues = me.keyValues[key];
-							if (keyValues !== undefined && !keyValues[row.cells[kcol]]) {
-								keyValues[row.cells[kcol]] = str(row.cells[kcol]); //TODO: String or number
-							}
 							expr = ['LetG', sym(key), str(row.cells[kcol]), expr];
 						}
 						sexpr.push(['Set', cubeSym, expr]);
@@ -1760,7 +1762,7 @@ Cube.prototype.recalculate = function() {
 
 	environment._Cube = me; //allow access to the Cube for variant functions and tables
 	environment._Functions = Functions;
-	
+
 	//Namespace is the compiled equivalent of Package
 	function Namespace() {}
 	Namespace.prototype = environment;
@@ -1770,7 +1772,7 @@ Cube.prototype.recalculate = function() {
 	var keyValueDefs = {}; //store any keys that might be defined by tables
 
 	function _collectCell(node) { //closeure over name,model,etc //TODO: refactor
-		if (!node.sexpr) return; //find all cells with sexprs
+		if (node.sexpr === undefined) return; //find all cells with sexprs
 
 		if (node.keyValues) {
 			for (var keyName in node.keyValues) {
@@ -1910,6 +1912,26 @@ Cube.prototype.recalculate = function() {
 			if (!pack.functions.hasOwnProperty(fname)) continue;
 			func = pack.functions[fname];
 			findDimensions(func, func._baseNamespace);
+		}
+	}
+
+	for (k in keyValueDefs) {
+		var pack, name;
+		var pn = k.split('.');
+		pack = pn[0];
+		name = pn[1];
+		if (!packages[pack].functions.hasOwnProperty(name)) {
+			var list = ['List'];
+			var kvds = keyValueDefs[k];
+			var hash = {};
+			for (var i = 0; i < kvds.length; i++) {
+				for (var kvalue in kvds[i])
+						hash[kvalue] = kvds[i][kvalue];
+			}
+			for (var kvalue in hash) list.push(hash[kvalue]);
+			packages[pack].functions[name] = ['Category', sym(pack, name), list];
+			packages[pack].functions[name].dimensions = [k];
+			packages[pack].dimensions[name] = packages[pack].functions[name];
 		}
 	}
 
