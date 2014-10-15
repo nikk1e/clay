@@ -278,6 +278,10 @@ function Values(list) {
 	return list.filter(function() { return true; });
 }
 
+function TypeOf(x) {
+	return typeof(x);
+}
+
 //
 mixin(Cube.Functions, {
 	Sum: Sum,
@@ -301,6 +305,7 @@ mixin(Cube.Functions, {
 	Correl:Correl,
 	CovarianceS: CovarianceS,
 	CovarianceP: CovarianceP,
+	"typeof": TypeOf,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));

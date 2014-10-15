@@ -733,6 +733,15 @@ function num(numb) {
 	return ['Number', numb];
 }
 
+
+function numOrStr(nos) {
+	var numb = +nos;
+	if (isNaN(numb)) {
+		return ['String', nos];
+	}
+	return ['Number', numb];
+}
+
 var _typeToConstructor = {
 	header: Header,
 	table: Table,
@@ -1114,7 +1123,7 @@ Table.prototype.parse = function(model) {
 					var keyValues = this.keyValues[key] = {};
 					body.forEach(function(row) {
 						if (!keyValues[row.cells[kcol]]) {
-							keyValues[row.cells[kcol]] = str(row.cells[kcol]); //TODO: String or number
+							keyValues[row.cells[kcol]] = numOrStr(row.cells[kcol]);
 						}
 					});
 				}
@@ -1128,12 +1137,17 @@ Table.prototype.parse = function(model) {
 				body.forEach(function(row) {
 					//TODO: need to check if the column has predicates
 					try {
-						var mexpr = (row.cells[col] || '').replace(/ *= */,'');
-						var expr = parse(lex(mexpr))[0];
-						//TODO: wrap expr with keys 'LetG'
+						var mexpr = (row.cells[col] || '');
+						var expr;
+						if (/ *=/.test(mexpr)) {
+							mexpr = mexpr.replace(/ *= */, '');
+							expr = parse(lex(mexpr))[0];
+						} else {
+							expr = numOrStr(mexpr);
+						}
 						for (var kcol in keys) {
 							var key = keys[kcol];
-							expr = ['LetG', sym(key), str(row.cells[kcol]), expr];
+							expr = ['LetG', sym(key), numOrStr(row.cells[kcol]), expr];
 						}
 						sexpr.push(['Set', cubeSym, expr]);
 					} catch (e) {
@@ -1682,7 +1696,7 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			}
 			return '"' + expr.slice(1).join('.') + '"';
 		case 'String':
-			return '"' + expr[1] + '"';
+			return '"' + expr[1].replace(/"/g, '\\"') + '"';
 		case 'Number':
 			return expr[1].toString();
 		case 'Error':
