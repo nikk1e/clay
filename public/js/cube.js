@@ -1472,6 +1472,30 @@ function expandSlice(expr) {
 	return expr;
 }
 
+function expandDict(expr) {
+	var ret;
+	if(expr[0] === 'List' && expr[1] &&
+		(expr[1][0] === 'Set' || expr[1][0] === 'Rule')) {
+		ret = ['Dict'];
+		for (var i = 1; i < expr.length; i++) {
+			var pair = expr[i];
+			switch(pair[0]) {
+				case 'Set':
+				case 'Rule':
+					ret.push(['Pair'].concat(pair.slice(1)));
+					break;
+				default:
+					ret = ['Error', 'Dictionary entries must all be of the form a -> b or a = b'];
+					ret.originalSexpr = expr.originalSexpr || expr;
+					return ret;
+			}
+		}
+		ret.originalSexpr = expr.originalSexpr || expr;
+		expr = ret;
+	}
+	return expr;
+}
+
 var camelCase = function(name) {
 	return (name
 		.toLowerCase()
@@ -1616,6 +1640,10 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 		case 'Call':
 			return 'env._Functions.' + expr[1].slice(1).join('.') + '(' +
 				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
+		case 'Pair':
+			return me.compileExpr(expr[1], basepack) + ':' + me.compileExpr(expr[2], basepack);
+		case 'Dict':
+			return '{' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + '}';
 		case 'List':
 			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
 		case 'Times':
@@ -1810,6 +1838,15 @@ Cube.prototype.recalculate = function() {
 				}));
 			} else {
 				sexpr.push(nodes);
+			}
+		});
+
+		//map dictionary/associative array
+		sexpr = sexpr.map(function(expr) {
+			try {
+				return transform.call(me, expr, expandDict);
+			} catch(er) {
+				return ['Error', 'Invalid dictionary content'];
 			}
 		});
 
