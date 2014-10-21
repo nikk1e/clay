@@ -10,7 +10,7 @@ var router = express.Router({ mergeParams: true });
 
 var base;
 
-router.param(function(name, fn){
+/*router.param(function(name, fn){
   if (fn instanceof RegExp) {
     return function(req, res, next, val){
       var captures;
@@ -23,7 +23,7 @@ router.param(function(name, fn){
     }
   }
 })
-
+*/
 function file(area, project, branch, path, done) {
 	var base_path;
 	if (/^\~/.test(area)) {
@@ -109,6 +109,7 @@ function tree(req, res, next) {
 	var repo = {};
 	var rawPath = req.params.path || req.params[0] || '/';
 	var branch = req.params.branch || req.params.commit || 'master';
+	branch = branch.replace(/^~/, ''); //remove leading ~ when we match with branch with command
 	var path = rawPath
 		.slice(1)
 		.split('/')
@@ -187,24 +188,7 @@ function tree(req, res, next) {
 	loadBranch(branch);
 }
 
-router.param('branch', /^\w+$/);
-
-router.get('/history/:branch*', function(req, res, next) {
-	//history of commits
-	res.send('I am history for ' + JSON.stringify(req.params));
-});
-
-router.param('range', /^(\w+)\.\.(\w+)$/);
-
-router.get('/compare/:range', function(req, res, next) {
-	//compare
-	res.send('I am compare for ' + JSON.stringify(req.params));
-});
-
-router.get('/blame/:branch/*', function(req, res, next) {
-	//blame
-	res.send('I am blame for ' + JSON.stringify(req.params));
-});
+//router.param('branch', /^\w+$/);
 
 router.get('/:branch/*.csv', function(req, res, next) {
 	res.send('I am csv for ' + req.params[0]);
@@ -227,7 +211,7 @@ router.get('/:branch/*.cube', function(req, res, next) {
 	var path = rawPath
 		.split('/')
 		.filter(function(p) { return p.length > 0; });
-
+	commit = commit.replace(/^~/, ''); //remove leading ~ when we match with branch with command
   	file(area, project, commit, path, function(err, blob) {
   		if (err) {
   			return next(err);
