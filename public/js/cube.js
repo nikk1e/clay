@@ -1954,8 +1954,6 @@ Cube.prototype.recalculate = function() {
 		}
 	}
 
-	//TODO: INSERT CODE TO MAKE TABLE CATEGORIES HERE
-
 	for (p in packages) {
 		if (!packages.hasOwnProperty(p)) continue;
 		pack = packages[p];

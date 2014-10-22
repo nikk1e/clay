@@ -220,6 +220,10 @@ function graphLine(expr, over, series) {
 	return ['Call', ['Symbol', 'Graph', 'Line'], showM(expr), expr]; 
 }
 
+function data(url, args) {
+	return ['Call', ['Symbol', '_data'], ['Cube'], url, args];
+}
+
 //most macros are applied before 
 var Macros = {
 	PREV: makeRecursion(function(symb) { return ['Subtract', ['Index', symb], ['Number', 1]];}),
@@ -234,6 +238,7 @@ var Macros = {
 	NODIM: nodim,
 	FLIP: flip,
 	'GRAPH.LINE': graphLine,
+	DATA: data,
 };
 
 //macros applied after analyse dimensions

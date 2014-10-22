@@ -282,6 +282,29 @@ function TypeOf(x) {
 	return typeof(x);
 }
 
+//gets data from jsonp call with caching in Cube
+//note: refetch is cube.clearData() then recalc.
+//  cube.data() -> cube._models[0].data
+//  cube.clearData() { cube._models[0].data = {}; }
+function _data(cube, url, args) {
+	//generate fullurl from url and args
+	//check cube.data()[fullurl]
+	//if undefined make async call for data and set to sentinal
+	//    callback on async call sets cube.data[fullurl] to return value and causes recalc
+	//if sentinal throw "Data pending..." or "Data not available if callback was error"
+	//return cube.data()[fullurl]
+}
+
+function dot(key, obj) {
+	if (arguments.length === 1)
+		return dot.bind(null, key);
+	return obj[key];
+}
+
+function map(func, list) {
+	return list.map(func);
+}
+
 //
 mixin(Cube.Functions, {
 	Sum: Sum,
@@ -306,6 +329,9 @@ mixin(Cube.Functions, {
 	CovarianceS: CovarianceS,
 	CovarianceP: CovarianceP,
 	"typeof": TypeOf,
+	dot: dot,
+	map: map,
+	_data: _data,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
