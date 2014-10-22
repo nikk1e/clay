@@ -282,17 +282,42 @@ function TypeOf(x) {
 	return typeof(x);
 }
 
+
+function queryString(data) {
+	var query = [];
+    for (var key in data) {
+        query.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
+    }
+    return query.join('&');
+}
+
+FETCHING = {}; //sentinal
 //gets data from jsonp call with caching in Cube
-//note: refetch is cube.clearData() then recalc.
-//  cube.data() -> cube._models[0].data
-//  cube.clearData() { cube._models[0].data = {}; }
+//note: refetch is cube.clearDataCache() then recalc.
 function _data(cube, url, args) {
-	//generate fullurl from url and args
-	//check cube.data()[fullurl]
-	//if undefined make async call for data and set to sentinal
-	//    callback on async call sets cube.data[fullurl] to return value and causes recalc
-	//if sentinal throw "Data pending..." or "Data not available if callback was error"
-	//return cube.data()[fullurl]
+	var fullurl = url + '?' + queryString(args);
+	var cache = cube.dataCache;
+	var data = cache[fullurl];
+	if (data === undefined) {
+		cache[fullurl] = FETCHING;
+		//make async call here for data
+		JSONp.get(url, args, {
+			onSuccess: function(data) {
+				try {
+					cache[fullurl] = JSON.parse(data);
+				} catch (e) {
+					cache[fullurl] = new Error(e.message);
+				}
+
+			},
+			onTimeout: function() {
+				cache[fullurl] = new Error("Timeout while fetching data");
+			}
+		})
+	}
+	if (data === FETCHING) throw "Data pending...";
+	if (data instanceof Error) throw data;
+	return data;
 }
 
 function dot(key, obj) {

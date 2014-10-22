@@ -709,6 +709,7 @@ function Model(name, cells, namespace, seed, modified, dirty) {
 	this.seed = seed || 0;
 	this.modified = !!modified;
 	this._dirty = !!dirty;
+	this.data = {}; //used to store linked data
 
 	if (cells && !seed) {
 		var me = this;
@@ -1229,6 +1230,20 @@ function Cube() {
 	this._genSyms = {};
 	this._genSymCount = {};
 }
+
+Cube.prototype.baseModel = function() {
+	if (this.names.length >= 1)
+		return this.models[this.names[0]];
+	return this.models['#Scratch'];
+};
+
+Cube.prototype.dataCache = function() {
+	return this.baseModel().data;
+};
+
+Cube.prototype.clearDataCache = function() {
+	this.baseModel().data = {};
+};
 
 Cube.prototype.toJSON = function() {
 	var ret = [];
