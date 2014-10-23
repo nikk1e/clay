@@ -241,7 +241,9 @@ function renderToFriar(model) {
 				if (token.result) {
 					try {
 						var result = token.result();
-						if (isElement(result)) {
+						if (result === undefined) {
+							console.log('undefined result');
+						} else if (isElement(result)) {
 							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
 						} else if (typeof(result) === 'string' || typeof(result) === 'number') {
 							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result.toString())]));
@@ -854,6 +856,12 @@ var MultiEditor = createClass({
 		this.forceUpdate();
 
 	},
+	refresh: function() {
+		console.log('refresh clicked')
+		cube.clearDataCache();
+		cube.recalculate();
+
+	},
 	revert: function() {
 		console.log('revert clicked')
 	},
@@ -882,6 +890,8 @@ var MultiEditor = createClass({
 							[DOM.a({href:"#"}, 'Debug')]),
 							DOM.li({onClick: this.save},
 							[DOM.a({href:"#"}, 'Save')]),
+							DOM.li({onClick: this.refresh},
+							[DOM.a({href:"#"}, 'Refresh')]),
 							//revert localstorage to server
 							// DOM.li({onClick: this.revert}, 
 							// [DOM.a({href:"#"}, 'Revert')]),
