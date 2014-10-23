@@ -710,6 +710,8 @@ function Model(name, cells, namespace, seed, modified, dirty) {
 	this.modified = !!modified;
 	this._dirty = !!dirty;
 	this.data = {}; //used to store linked data
+	//Note: if you add properties you need to update clone();
+	//     and probably toJSON;
 
 	if (cells && !seed) {
 		var me = this;
@@ -779,6 +781,7 @@ Model.prototype.toJSON = function() {
 		namespace: this.namespace,
 		name: this.name,
 		seed: this.seed,
+		data: this.data,
 	};
 };
 
@@ -824,8 +827,10 @@ Model.prototype.toRaw = function() {
 };
 
 Model.prototype.clone = function() {
-	return new Model(this.name, this.cells.slice(0),
+	var model = new Model(this.name, this.cells.slice(0),
 		this.namespace, this.seed,  this.modified, this._dirty);
+	model.data = this.data;
+	return model;
 };
 
 Model.prototype.insertCell = function(cell, index, mutate) {
