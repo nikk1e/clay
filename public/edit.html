@@ -854,6 +854,12 @@ var MultiEditor = createClass({
 		this.forceUpdate();
 
 	},
+	refresh: function() {
+		console.log('refresh clicked')
+		cube.clearDataCache();
+		cube.recalculate();
+
+	},
 	revert: function() {
 		console.log('revert clicked')
 	},
@@ -882,6 +888,8 @@ var MultiEditor = createClass({
 							[DOM.a({href:"#"}, 'Debug')]),
 							DOM.li({onClick: this.save},
 							[DOM.a({href:"#"}, 'Save')]),
+							DOM.li({onClick: this.refresh},
+							[DOM.a({href:"#"}, 'Refresh')]),
 							//revert localstorage to server
 							// DOM.li({onClick: this.revert}, 
 							// [DOM.a({href:"#"}, 'Revert')]),
@@ -931,7 +939,7 @@ Friar.renderComponent(cursor, document.getElementById('cursor'));
 var x = new MultiEditor({cursor: cursor, cube: cube, active: mainfile || '#Scratch'});
 var first = true;
 Friar.renderComponent(x, document.getElementById('view'))
-cube.onupdate = function(name) {
+cube.onupdate = function() {
 	x.forceUpdate(); 
 };
 cube.import(mainfile);

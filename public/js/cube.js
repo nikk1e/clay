@@ -1336,7 +1336,7 @@ Cube.prototype.import = function(path, opt_as_namespace) {
 			me.models[path] = model;
 			if (me.names.indexOf(path) == -1) me.names.push(path);
 			me.recalculate();
-			if (me.onupdate) me.onupdate(path);
+			//if (me.onupdate) me.onupdate(path);
 		});
 	} else {
 		if (opt_as_namespace && model.namespace !== opt_as_namespace) {
@@ -2330,7 +2330,7 @@ Cube.prototype.recalculate = function() {
 
 	//TODO: add custom functions to namespace they were defined in
 
-
+	if (me.onupdate) me.onupdate();
 };
 
 
@@ -2480,11 +2480,19 @@ function Environment() {}
 //Environment.prototype = Functions;
 
 function table(expr, opt_dims) {
+	return expandDims(['Symbol', 'BasicTable'], expr, opt_dims)
+}
+
+function csv(expr, opt_dims) {
+	return expandDims(['Symbol', '_csv'], expr, opt_dims)
+}
+
+function expandDims(symb, expr, opt_dims) {
 	if (expr[0] !== 'List') {
 		expr = ['List', expr];
 	}
 	var quoteds = expr.map(function(e, i) { return (i > 0) ? showM(e) : e; });
-	var pm = ['PostMacro', ['Symbol', 'Table'], expr, quoteds];
+	var pm = ['PostMacro', ['Symbol', 'expandDims'], symb, expr, quoteds];
 	if (opt_dims !== undefined) {
 		pm.push(opt_dims);
 		return ['RemDims', pm, opt_dims];
@@ -2497,7 +2505,7 @@ function imp(path, opt_as_namespace) {
 	return ['Do']; //replace with call to assert namespace of is the same as....
 }
 
-Cube.Macros = {TABLE: table, IMPORT: imp}; //see js/macros.js
+Cube.Macros = {TABLE: table, IMPORT: imp, CSV: csv}; //see js/macros.js
 Cube.PostMacros = {}; //see js/macros.js
 Cube.Functions = Functions; // we add functions to this to make them available
 Cube.Model = Model;

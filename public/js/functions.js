@@ -232,6 +232,18 @@ function _Table(list, ast) {
 	return clay.code.show(ast);
 }
 
+function _csv(headers, rows) {
+	function cell(h) {
+		var c = h.toString();
+		if (/,/.test(c)) c = '"' + c + '"';
+		return c;
+	}
+	return headers.map(cell).join(',') + '\n' +
+		   rows.map(function(row) { 
+		   	  return row.map(cell).join(',') 
+		   }).join('\n') + '\n';
+}
+
 function BasicTable(headers, rows, highlight) {
 	var c = document.createElement.bind(document);
 	var table = c('table'), head = table.createTHead(), body = table.createTBody();
@@ -308,10 +320,12 @@ function _data(cube, url, args) {
 				} catch (e) {
 					cache[fullurl] = new Error(e.message);
 				}
+				cube.recalculate();
 
 			},
 			onTimeout: function() {
 				cache[fullurl] = new Error("Timeout while fetching data");
+				cube.recalculate();
 			}
 		})
 	}
@@ -357,6 +371,7 @@ mixin(Cube.Functions, {
 	dot: dot,
 	map: map,
 	_data: _data,
+	_csv: _csv,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));

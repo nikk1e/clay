@@ -49,13 +49,16 @@ function flip(symb, catSymb, expr) {
 	return ['Do', cat, func]; //Do A B is same as A\nB
 }
 
-
 //Table({Table({Graph.Line(Net Income[Month])},{Assum})})
 //Table({Graph.Line(Net Income[Month][Growth]*Year)})
 //Table({Graph.Line(Net Income[Month][Growth])})
 //Table({Graph.Line(Net Income[Month][Growth])},{Year})
 //Y = Table({Graph.Line(Net Income[Month][Growth])})
 function postTable(exprs, quoteds, dims) {
+	return expandDims(['Symbol', 'BasicTable'], exprs, quoteds, dims);
+}
+
+function expandDims(symb, exprs, quoteds, dims) {
 	//exprs and quoteds are both expected to be list literals
 
 	// ***** TODO : don't bother with all this dimension stuff
@@ -84,7 +87,7 @@ function postTable(exprs, quoteds, dims) {
 	});
 	exprs.slice(1).forEach(function(d) { fexpr.push(d); });
 	quoteds.slice(1).forEach(function(d) { heads.push(d); });
-	return ['Call', ['Symbol', 'BasicTable'], heads, over, len]; 
+	return ['Call', symb, heads, over, len]; 
 }
 
 //pages should be of form {symb=value,...}
@@ -245,8 +248,9 @@ var Macros = {
 // cannot be used in definitions as they 
 // change the dimensions
 var PostMacros = {
-	TABLE: postTable,
+	//TABLE: postTable,
 	PIVOT: postPivot,
+	EXPANDDIMS: expandDims,
 };
 
 mixin(Cube.Macros, Macros);
