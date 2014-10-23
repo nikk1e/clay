@@ -308,7 +308,7 @@ FETCHING = {}; //sentinal
 //note: refetch is cube.clearDataCache() then recalc.
 function _data(cube, url, args) {
 	var fullurl = url + '?' + queryString(args);
-	var cache = cube.dataCache;
+	var cache = cube.dataCache();
 	var data = cache[fullurl];
 	if (data === undefined) {
 		cache[fullurl] = FETCHING;
