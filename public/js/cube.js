@@ -1620,19 +1620,20 @@ function quote(expr) {
 	}
 }
 
-Cube.prototype.compileExpr = function(expr, basepack) {
+Cube.prototype.compileExpr = function(expr, basepack, context) {
 	var me = this;
 	var ex, pack, name;
+	context = context || {};
 	if (expr === undefined) return 0; //treat null as 0 (as per Spreadsheets)
 	switch(expr[0]) {
 		case 'PostMacro':
 			return me.compileExpr(expandPostMacros(expr), basepack);
 		case 'Category':
-			return 'return (' + me.compileExpr(expr[2], basepack) + ');';
+			return 'return (' + me.compileExpr(expr[2], basepack, context) + ');';
 		case 'Func*':
 		case 'Func':
 			var exprs = expr.slice(2).map(function(e) {
-				return '_ret = (' + me.compileExpr(e, basepack) + ');';
+				return '_ret = (' + me.compileExpr(e, basepack, context) + ');';
 			});
 			var ov = 'var _ret;\n' + 
 				exprs.join('\nif(_ret !== undefined) return _ret;\n') +
@@ -1640,70 +1641,77 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			return ov;
 		case 'RemDims':
 		case 'NoDim':
-			return me.compileExpr(expr[1], basepack);
+			return me.compileExpr(expr[1], basepack, context);
 		case 'Cube':
 			return 'env._Cube';
 		case 'Quote':
 			return quote(expr[1]);
 		case 'LetG':
-			return '('+ me.compileExpr(expr[1], basepack) +' == '+ me.compileExpr(expr[2], basepack)+') ? (' + me.compileExpr(expr[3], basepack) + ') : undefined';
+			return '('+ me.compileExpr(expr[1], basepack, context) +' == '+ me.compileExpr(expr[2], basepack, context)+') ? (' + me.compileExpr(expr[3], basepack, context) + ') : undefined';
 		case 'LetS':
 			//TODO: add range check as current code only checks start not end.
-			return '(function(' + me.compileExpr(expr[1], basepack) + ') { \nreturn ('+ me.compileExpr(expr[1], basepack) +' >= 0) ? ('+ me.compileExpr(expr[3], basepack) +') : undefined; \n}('+me.compileExpr(expr[2], basepack)+'))';
+			return '(function(' + me.compileExpr(expr[1], basepack, context) + ') { \nreturn ('+ me.compileExpr(expr[1], basepack, context) +' >= 0) ? ('+ me.compileExpr(expr[3], basepack, context) +') : undefined; \n}('+me.compileExpr(expr[2], basepack, context)+'))';
 		case 'Restrict':
-			return '('+ me.compileExpr(expr[1], basepack) +') ? (' + me.compileExpr(expr[2], basepack) + ') : undefined';
+			return '('+ me.compileExpr(expr[1], basepack, context) +') ? (' + me.compileExpr(expr[2], basepack, context) + ') : undefined';
 		case 'Call':
-			return 'env._Functions.' + expr[1].slice(1).join('.') + '(' +
-				expr.slice(2).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ')';
+			if (expr[1] && expr[1][0] === 'Symbol') {
+				return 'env._Functions.' + expr[1].slice(1).join('.') + '(' +
+					expr.slice(2).map(function(e) { return me.compileExpr(e, basepack, context); }).join(', ') + ')';
+			} else {
+				//TODO: probably want to make Symbol more sensible and have it 
+				// just run this bit of code.
+				return me.compileExpr(expr[1], basepack, context) + '(' +
+					expr.slice(2).map(function(e) { return me.compileExpr(e, basepack, context); }).join(', ') + ')';
+			}
 		case 'Pair':
-			return me.compileExpr(expr[1], basepack) + ':' + me.compileExpr(expr[2], basepack);
+			return me.compileExpr(expr[1], basepack, context) + ':' + me.compileExpr(expr[2], basepack, context);
 		case 'Dict':
-			return '{' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + '}';
+			return '{' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(', ') + '}';
 		case 'List':
-			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(', ') + ']';
+			return '[' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(', ') + ']';
 		case 'Times':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' * ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' * ') + ')';
 		case 'Neg':
-			return '(-(' + me.compileExpr(expr[1], basepack) + '))';
+			return '(-(' + me.compileExpr(expr[1], basepack, context) + '))';
 		case 'Plus':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' + ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' + ') + ')';
 		case 'Subtract':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' - ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' - ') + ')';
 		case 'Power':
-			return 'Math.pow(' + me.compileExpr(expr[1], basepack) + ', ' + me.compileExpr(expr[2], basepack) + ')';
+			return 'Math.pow(' + me.compileExpr(expr[1], basepack, context) + ', ' + me.compileExpr(expr[2], basepack, context) + ')';
 		case 'Bracket':
-			return '(' + me.compileExpr(expr[1], basepack) + ')';
+			return '(' + me.compileExpr(expr[1], basepack, context) + ')';
 		case 'Divide':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' / ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' / ') + ')';
 		case 'Not':
-			return '!(' + me.compileExpr(expr[1], basepack) + ')';
+			return '!(' + me.compileExpr(expr[1], basepack, context) + ')';
 		case 'GreaterEqual':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' >= ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' >= ') + ')';
 		case 'Greater':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' > ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' > ') + ')';
 		case 'Unequal':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' != ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' != ') + ')';
 		case 'Equal':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' == ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' == ') + ')';
 		case 'LessEqual':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' <= ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' <= ') + ')';
 		case 'Less':
-			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack); }).join(' < ') + ')';
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' < ') + ')';
 		case 'Indexed*':
 			if (expr[1][0] !== 'List') throw new Error('Indexed* requires literal list');
 			if (expr.length > 3) throw new Error('Indexed* does not yet support multiple args');
 			return '(function() {\nswitch (' + 
-				me.compileExpr(expr[2], basepack) + 
+				me.compileExpr(expr[2], basepack, context) + 
 				') {\n' +
 				expr[1].slice(1).map(function(e,i) { 
 					return '  case ' + i +
-					 ': return ' + me.compileExpr(e, basepack) + ';\n';
+					 ': return ' + me.compileExpr(e, basepack, context) + ';\n';
 					}).join('') + '}; })()';
 		case 'Indexed':
 			//TODO: this needs optimizing
 			if (expr.length > 3) throw new Error('Indexed does not yet support multiple args');
-			ex = me.compileExpr(expr[1], basepack);
-			return '(' + ex + ')[' + me.compileExpr(expr[2], basepack) + ']';
+			ex = me.compileExpr(expr[1], basepack, context);
+			return '(' + ex + ')[' + me.compileExpr(expr[2], basepack, context) + ']';
 		case 'Index':
 			if (!expr[1] || 
 				!expr[1].dimensions || 
@@ -1711,7 +1719,7 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 				throw new Error('Invalid index parameter ' + showS(expr));
 			return me.Symbol(expr[1].dimensions[0]);
 		case 'IndexOf':
-			ex = me.compileExpr(expr[2], basepack);
+			ex = me.compileExpr(expr[2], basepack, context);
 			expr = expr[1];
 			if (!expr.dimensions || expr.dimensions.length !== 1)
 				throw new Error('Invalid indexOf parameter ' + showS(expr));
@@ -1727,6 +1735,7 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 				name = expr[2];
 			} else {
 				name = expr[1];
+				if (context[name]) return context[name];
 				if (me._packages.hasOwnProperty(name))
 					pack = name; //for Data tables
 				else
@@ -1744,10 +1753,36 @@ Cube.prototype.compileExpr = function(expr, basepack) {
 			return expr[1].toString();
 		case 'Error':
 			throw new Error(expr[1]);
+		case 'Rule':
+			if (expr[1] && expr[1][0] === 'Bracket') {
+				var parameters = Object.create(context);
+				makeParameters(expr[1].slice(1), parameters);
+				var lambda = '(function('+ objValues(parameters).join(', ') +') { return (' + me.compileExpr(expr[2], basepack, parameters) + '); })'
+				return lambda;
+			}
+			
 		default:
 			throw new Error('Compile Error: Not implemented for ' + showS(expr));
 	}
 };
+
+//TODO: this might make conflicting symbols
+// could just define that symbols are the same except for the characters
+function makeParameters(list, ret) {
+	list.forEach(function(s) {
+		if (s === undefined) return;
+		if (s[0] !== 'Symbol' || s.length > 2) throw new Error('Function parameters must be simple symbols');
+		ret[s[1]] = '$' + s[1].replace(/[^a-zA-Z_\-]/g, '$'); 
+	})
+}
+
+function objValues(obj) {
+	var ret = [];
+	for (var k in obj) {
+		if (obj.hasOwnProperty(k)) ret.push(obj[k]);
+	}
+	return ret;
+}
 
 Cube.prototype._compileFunc = function(code, expr) {
 
@@ -1783,6 +1818,10 @@ Cube.prototype.compileFunc = function(expr, basepack) {
     	this.compileExpr(expr, basepack), expr);
 };
 
+Cube.prototype.compileRule = function(expr, basepack) {
+	throw "Unimplemented compileRule";
+};
+
 
 //Package is the ast representation of a Namespace
 function Package(name) {
@@ -1814,6 +1853,7 @@ Cube.prototype.recalculate = function() {
 	var model; //model instance
 	var expressions; //per model
 	var functions; //per model
+	var rules; //per model
 	var p;
 	var environment = new Environment(), packages = {}, pack;
 
@@ -1842,18 +1882,29 @@ Cube.prototype.recalculate = function() {
 				keyValueDefs[keyName].push(keyValues);
 			}
 		}
+
+		//TODO: rules would need to be collected here.
+		//      probably need a rule that doesn't allow
+		//      rules to be created by macros
+		//apply rules.
+
 		//expand macros
 		var sexpr = [];
 		node.sexpr.forEach(function(expr) {
-			var nodes = transform.call(me, expr, expandMacros);
-			if (nodes[0] === 'Do') {
-				nodes = nodes.slice(1);
-				Array.prototype.push.apply(sexpr, nodes.map(function(node) {
-					return normaliseHeadToPackage(node, model.namespace);
-				}));
-			} else {
-				sexpr.push(nodes);
+			try {
+				var nodes = transform.call(me, expr, expandMacros);
+				if (nodes[0] === 'Do') {
+					nodes = nodes.slice(1);
+					Array.prototype.push.apply(sexpr, nodes.map(function(node) {
+						return normaliseHeadToPackage(node, model.namespace);
+					}));
+				} else {
+					sexpr.push(nodes);
+				}
+			} catch (e) {
+				sexpr.push(['Error', e.message]);
 			}
+			
 		});
 
 		//map dictionary/associative array
@@ -2286,6 +2337,7 @@ Cube.prototype.recalculate = function() {
 			if (packg.expressions.hasOwnProperty(fname)) {
 				var expr = packg.expressions[fname];
 				annotateDimensions(expr, 0, pack);
+				if (expr.dimensions === undefined) expr.dimensions = [];
 				if (expr.dimensions.length > 0) {
 					//Wrap expressions with table
 					//TODO: use original expression
@@ -2513,6 +2565,7 @@ Cube.parseRaw = parseRaw;
 Cube.showM = showM;
 Cube.showMr = showMr;
 Cube.showS = showS;
+Cube._expandMacros = expandMacros;
 
 //Cube.Import should return a cells array
 Cube.Import = function(path, cube, opt_as_namespace) { return; }; //should be replace by editor with a real function

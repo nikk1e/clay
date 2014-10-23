@@ -9,6 +9,8 @@
 var Cube = base.Cube;
 var showM = Cube.showM;
 var showMr = Cube.showMr;
+var showS = Cube.showS;
+var expandMacros = Cube._expandMacros;
 
 function mixin(obj, mix) {
 	for (var k in mix) {
@@ -193,7 +195,7 @@ function expand(expr) {
 }
 
 function quoteS(expr) {
-	return Cube.showS(expr);
+	return ['String', showS(expr)];
 }
 
 function nodim(expr) {

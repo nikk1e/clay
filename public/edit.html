@@ -241,7 +241,9 @@ function renderToFriar(model) {
 				if (token.result) {
 					try {
 						var result = token.result();
-						if (isElement(result)) {
+						if (result === undefined) {
+							console.log('undefined result');
+						} else if (isElement(result)) {
 							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
 						} else if (typeof(result) === 'string' || typeof(result) === 'number') {
 							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result.toString())]));
