@@ -931,7 +931,7 @@ Friar.renderComponent(cursor, document.getElementById('cursor'));
 var x = new MultiEditor({cursor: cursor, cube: cube, active: mainfile || '#Scratch'});
 var first = true;
 Friar.renderComponent(x, document.getElementById('view'))
-cube.onupdate = function(name) {
+cube.onupdate = function() {
 	x.forceUpdate(); 
 };
 cube.import(mainfile);

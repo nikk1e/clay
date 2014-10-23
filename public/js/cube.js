@@ -1336,7 +1336,7 @@ Cube.prototype.import = function(path, opt_as_namespace) {
 			me.models[path] = model;
 			if (me.names.indexOf(path) == -1) me.names.push(path);
 			me.recalculate();
-			if (me.onupdate) me.onupdate(path);
+			//if (me.onupdate) me.onupdate(path);
 		});
 	} else {
 		if (opt_as_namespace && model.namespace !== opt_as_namespace) {
@@ -2329,8 +2329,7 @@ Cube.prototype.recalculate = function() {
 	}
 
 	//TODO: add custom functions to namespace they were defined in
-
-
+	if (me.onupdate) me.onupdate();
 };
 
 
@@ -2469,6 +2468,7 @@ function _Pivot(title, page_titles, page_values, page_selected, col_headers, row
 
 var Functions = {
 	Math: Math,
+	JSON: JSON,
 	sin: Math.sin,
 	cos: Math.cos,
 	tan: Math.tan, //etc (see js/functions.js and js/functions/*)

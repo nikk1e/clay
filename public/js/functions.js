@@ -308,10 +308,11 @@ function _data(cube, url, args) {
 				} catch (e) {
 					cache[fullurl] = new Error(e.message);
 				}
-
+				cube.recalculate();
 			},
 			onTimeout: function() {
 				cache[fullurl] = new Error("Timeout while fetching data");
+				cube.recalculate();
 			}
 		})
 	}
