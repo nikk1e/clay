@@ -1620,6 +1620,16 @@ function quote(expr) {
 	}
 }
 
+function isFunction(symb) {
+	var base = Cube.Functions;
+	for (var i = 1; i < symb.length; i++) {
+		var name = symb[i]
+		if (base[name] === undefined) return false;
+		base = base[name];
+	}
+	return true;
+}
+
 Cube.prototype.compileExpr = function(expr, basepack, context) {
 	var me = this;
 	var ex, pack, name;
@@ -1654,7 +1664,7 @@ Cube.prototype.compileExpr = function(expr, basepack, context) {
 		case 'Restrict':
 			return '('+ me.compileExpr(expr[1], basepack, context) +') ? (' + me.compileExpr(expr[2], basepack, context) + ') : undefined';
 		case 'Call':
-			if (expr[1] && expr[1][0] === 'Symbol') {
+			if (expr[1] && expr[1][0] === 'Symbol' && isFunction(expr[1])) {
 				return 'env._Functions.' + expr[1].slice(1).join('.') + '(' +
 					expr.slice(2).map(function(e) { return me.compileExpr(e, basepack, context); }).join(', ') + ')';
 			} else {
