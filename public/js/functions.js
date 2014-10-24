@@ -269,6 +269,19 @@ function BasicTable(headers, rows, highlight) {
 		}
 	});
 
+	var maxrows = 1000;
+
+	if (rows.length > maxrows) {
+		var foot = document.createElement('tfoot');
+		table.appendChild(foot);
+		var tr = foot.insertRow();
+		var td = tr.insertCell(-1);
+		td.colSpan = headers.length;
+		td.className = 'info'
+		td.appendChild(document.createTextNode(".... " + (rows.length - maxrows).toString() + " more rows."));
+		rows = rows.slice(0,maxrows);
+	}
+
 	rows.forEach(function(r, j) {
 		var tr = body.insertRow();
 		r.forEach(function(e, i) {

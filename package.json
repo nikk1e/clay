@@ -42,6 +42,7 @@
     "passport-windowsauth": "~0.2.0",
     "express-session": "~1.8.2",
     "tungus": "0.0.2",
-    "mongoose": "~3.8.17"
+    "mongoose": "~3.8.17",
+    "temp": "~0.8.1"
   }
 }
