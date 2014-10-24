@@ -171,7 +171,8 @@ function tree(req, res, next) {
 	function loadTag(tag) {
 		var ref = 'refs/tags/' + tag;
 		repo.readRef(ref, function(err, hash) {
-			if (err || hash === undefined) return loadCommit(tag);
+			if (err) return next(err);
+			if (hash === undefined) return loadCommit(tag);
 			loadCommit(hash);
 		});
 	}
@@ -180,7 +181,8 @@ function tree(req, res, next) {
 		var ref = 'refs/heads/' + branch;
 		console.log('loading branch ref: '  + ref);
 		repo.readRef(ref, function(err, hash) {
-			if (err || hash === undefined) return loadTag(branch);
+			if (err) return next(err);
+			if (hash === undefined) return loadTag(branch);
 			loadCommit(hash);
 		});
 	}
