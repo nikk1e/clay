@@ -1236,6 +1236,26 @@ function Cube() {
 	this._genSymCount = {};
 }
 
+
+Cube.prototype.evaluate = function(code, namespace) {
+	var tokens = lex(code);
+	var sexpr = parse(tokens);
+	var me = this;
+	namespace = namespace || this.baseModel().namespace;
+	sexpr = this.preProcessSexprs([sexpr]);
+	//TODO: process postMacros
+	sexpr.forEach(function(expr) {
+		expr._baseNamespace = namespace;
+		expr.sourceNode = {};
+		annotateDimensions(expr, 0, namespace, [], me._packages);
+		expr = me.resolveExcessDimensions(expr, namespace);
+		console.log(expr)
+		me.compileExpression(expr, namespace);
+	});
+	
+	return showS(sexpr) + ' : ' + namespace;
+};
+
 Cube.prototype.baseModel = function() {
 	if (this.names.length >= 1)
 		return this.models[this.names[0]];
@@ -1821,10 +1841,20 @@ Cube.prototype._compileFunc = function(code, expr) {
     }
 };
 
+//Compile and bind expression
 Cube.prototype.compileExpression = function(expr, basepack) {
-    return this._compileFunc(
-    	'var env = this; return (' + 
+	var env = this._environment[basepack];
+	try {
+		expr.func = this._compileFunc('var env = this; return (' + 
     		this.compileExpr(expr, basepack) + ');', expr);
+		expr.compiled = expr.func.bind(env);
+		expr.sourceNode.result = expr.compiled;
+		expr.sourceNode.error = undefined;
+	} catch(e) {
+		console.log(e);
+		expr.sourceNode.error = e.toString();
+	}
+	return expr;
 };
 
 Cube.prototype.compileFunc = function(expr, basepack) {
@@ -1860,6 +1890,297 @@ function visit(ast, func, path, index) {
 	}
 	path.pop();
 }
+
+//takes and returns array of sexpr
+Cube.prototype.preProcessSexprs = function(sexprs) {
+	var me = this;
+
+	//expand macros
+	var sexpr = [];
+	sexprs.forEach(function(expr) {
+		try {
+			var nodes = transform.call(me, expr, expandMacros);
+			if (nodes[0] === 'Do') {
+				nodes = nodes.slice(1);
+				Array.prototype.push.apply(sexpr, nodes.map(function(node) {
+					return normaliseHeadToPackage(node, model.namespace);
+				}));
+			} else {
+				sexpr.push(nodes);
+			}
+		} catch (e) {
+			sexpr.push(['Error', e.message]);
+		}
+	});
+
+	//map dictionary/associative array
+	sexpr = sexpr.map(function(expr) {
+		try {
+			return transform.call(me, expr, expandDict);
+		} catch(er) {
+			return ['Error', 'Invalid dictionary content'];
+		}
+	});
+
+	//expand slices
+	sexpr = sexpr.map(function(expr) {
+		try {
+			return transform.call(me, expr, expandSlice);
+		} catch(er) {
+			return ['Error', 'Invalid slice content'];
+		}
+	});
+	return sexpr;
+};
+
+function clearDimensions(expr) {
+	if (expr === undefined) return;
+	delete expr.pass;
+	delete expr.dimensions;
+	if (expr instanceof Array) {
+		for(var i=expr.length - 1; i > 0; i--) clearDimensions(expr[i]);
+	}
+}
+
+//annotate dimensions of functions
+function annotateDimensions(expr, pass, basepack, hasChanged, packages) {
+	if (typeof(expr) === 'string' || expr === undefined || expr === null)
+		return [];
+	if (expr.dimensions !== undefined) { 
+		if (expr.pass === pass) {
+			return expr.dimensions;
+		}
+	} else {
+		expr.dimensions = [];
+	}
+	expr.pass = pass;
+
+	function union(l,r) {
+		var u = {};
+		var ret = [];
+		var i;
+		for (i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		}
+		for (i = r.length - 1; i >= 0; i--) {
+			u[r[i]] = true;
+		}
+		for (var k in u) {
+			if (u.hasOwnProperty(k))
+				ret.push(k);
+		}
+		return ret;
+	}
+
+	function equal(l, r) {
+		if (l.length !== r.length)
+			return false;
+		var u = {};
+		var ret = [];
+		var i;
+		for (i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		}
+		for (i = r.length - 1; i >= 0; i--) {
+			if (!u.hasOwnProperty(r[i]))
+				return false;
+		}
+		return true;
+	}
+
+	function subtract(l, r) {
+		var u = {};
+		var ret = [];
+		var i;
+		for (i = l.length - 1; i >= 0; i--) {
+			u[l[i]] = true;
+		}
+		for (i = r.length - 1; i >= 0; i--) {
+			if (u.hasOwnProperty(r[i]))
+				delete u[r[i]];
+		}
+		for (var k in u) {
+			if (u.hasOwnProperty(k))
+				ret.push(k);
+		}
+		return ret;
+	}
+
+	var ret = [];
+	var x, pack, name, i, temp;
+	switch(expr[0]) {
+		case 'LetS':
+			//(LetS symb value expr)
+			ret = annotateDimensions(expr[3], pass, basepack, hasChanged, packages);
+			var symb = annotateDimensions(expr[1], pass, basepack, hasChanged, packages);
+			var value = annotateDimensions(expr[2], pass, basepack, hasChanged, packages);
+			if (symb.length > 1)
+				throw new Error('Category Error ' + showS(expr[1]) + ' used as category but has dimensions ' + symb);
+			ret = subtract(ret, symb);
+			ret = union(ret, value);
+			break;
+		case 'IndexOf': // dim(IndexOf (Symb ..), value) is dim(value)
+			return annotateDimensions(expr[2], pass, basepack, hasChanged, packages);
+		case 'Category':
+			x = annotateDimensions(expr[2], pass, basepack, hasChanged, packages);
+			if (x.length > 0)
+				throw new Error('Categories cannot vary over another category: ' + showS(expr));
+			return expr.dimensions;
+		case 'Symbol':
+			if (expr.length > 2) {
+				pack = expr[1];
+				name = expr[2];
+			} else {
+				name = expr[1];
+				if (packages.hasOwnProperty(name))
+					pack = name; //for Data tables
+				else
+					pack = basepack;
+			}
+			//if symbol defined (then annotateDimensions of definition)
+			if (packages[pack] !== undefined && packages[pack].functions[name]) {
+				temp = packages[pack].functions[name];
+				ret = annotateDimensions(temp, pass, temp._baseNamespace, hasChanged, packages);
+			}
+			//else (nothing)
+			break;
+		case 'Number':
+			return expr.dimensions;
+		case 'String':
+			return expr.dimensions;
+		case 'Over':
+			temp = annotateDimensions(expr[1], pass, basepack, hasChanged, packages);
+			var u = {};
+			for(i=expr.length - 1; i > 1; i--) {
+				if (expr[i] instanceof Array)
+					x = annotateDimensions(expr[i],pass, basepack, hasChanged, packages);
+					if (x.length > 1) {
+						throw new Error('Category Error: ' + showS(expr[i]) + ' use as category but has multiple dimensions');
+					}
+					u[x[0]] = true;
+			}
+			for (i = temp.length - 1; i >= 0; i--) {
+				if (!u.hasOwnProperty(temp[i]))
+					ret.push(temp[i]);
+			}
+			break;
+		case 'RemDims':
+			temp = annotateDimensions(expr[1], pass, basepack, hasChanged, packages);
+			var rem = annotateDimensions(expr[2], pass, basepack, hasChanged, packages);
+			ret = [];
+			temp.forEach(function(d) {
+				if (rem.indexOf(d) === -1) ret.push(d);
+			});
+			break;
+		case 'NoDim': //NoDim has no dimensions
+			annotateDimensions(expr[1], pass, basepack, hasChanged, packages);
+			ret = [];
+			break;
+		case 'Func':
+			for(i=expr.length - 1; i > 1; i--) {
+				if (expr[i] instanceof Array)
+					ret = union(ret, annotateDimensions(expr[i],pass, basepack, hasChanged, packages));
+			}
+			break;
+		default:
+			for(i=expr.length - 1; i > 0; i--) {
+				if (expr[i] instanceof Array)
+					ret = union(ret, annotateDimensions(expr[i],pass, basepack, hasChanged, packages));
+			}
+	}
+	if (!equal(ret,expr.dimensions)) {
+		expr.dimensions = ret;
+		hasChanged[0] = true;
+	}
+	return expr.dimensions;
+}
+
+//find all dimensions (here not in the package as it needs to go over package)
+//TODO: This is really bad... it should not need keyValueDefs
+//FIX: factor out the unsatisfieds dummying
+function findDimensions(expr, basepack, packages, keyValueDefs) {
+	function addDimension(symb) {
+		var pack, name;
+		if (symb.length > 2) {
+			pack = symb[1];
+			name = symb[2];
+		} else {
+			pack = basepack;
+			name = symb[1];
+		}
+		//TODO: this next line looks like a bug...
+		if (packages.hasOwnProperty(name)) pack = name; //for Data tables
+		if (!packages[pack].functions.hasOwnProperty(name)) {
+			var fullDim = pack + '.' + name;
+			var list = ['List'];
+			if (keyValueDefs[fullDim]) {
+				var kvds = keyValueDefs[fullDim];
+				var hash = {};
+				for (var i = 0; i < kvds.length; i++) {
+					for (var kvalue in kvds[i])
+						hash[kvalue] = kvds[i][kvalue];
+				}
+				for (var kvalue in hash) list.push(hash[kvalue]);
+			} else {
+				packages[pack].unsatisfieds[name] = true;
+				//create dummy function for unsatisfied category
+			}
+			packages[pack].functions[name] = ['Category', sym(pack, name), list];
+			packages[pack].functions[name].dimensions = [fullDim];
+		}
+		packages[pack].dimensions[name] = packages[pack].functions[name];
+
+	}
+	//set dimensions on actual categories
+	if (expr[0] === 'Category') {
+		expr.dimensions = [expr[1][1] + '.' + expr[1][2]];
+		addDimension(expr[1]);
+	}
+
+	visit(expr, function(ast, path, index) {
+		var lhs;
+		switch (ast[0]) {
+			case 'LetS':
+			case 'LetG': {
+				lhs = ast[1];
+				if (lhs[0] === 'Symbol')
+					addDimension(lhs);
+				break;
+			}
+			case 'Over':
+			case 'Indexed': {
+				//all symbols are dimensions (Over expr symb..)
+				for (var i = ast.length - 1; i >= 2; i--) {
+					addDimension(ast[i]);	
+				}
+				break;
+			}
+			case 'Count': //param must be a dimension
+			case 'Index': //param must be a dimension
+			case 'IndexOf': //lhs must be a dimension
+			case 'Name': //param must be a dimension
+				lhs = ast[1];
+				if (lhs !== undefined && lhs[0] === 'Symbol')
+					addDimension(lhs, ast);
+				break;
+		}
+	});
+}
+
+//wrap expressions with excess dimensions in a table.
+Cube.prototype.resolveExcessDimensions = function(expr, namespace) {
+	var expr2;
+	//TODO: this next line is hiding a bug elsewhere
+	if (expr.dimensions === undefined) expr.dimensions = [];
+	else if (expr.dimensions.length > 0) {
+		expr2 = table(expr);
+		expr2.sourceNode = expr.sourceNode;
+		expr = expr2;
+		annotateDimensions(expr, 0, namespace, [], this._packages); 
+	}
+	return expr;
+};
+
 
 Cube.prototype.recalculate = function() {
 	console.log('Recalculating');
@@ -1901,45 +2222,11 @@ Cube.prototype.recalculate = function() {
 		//TODO: rules would need to be collected here.
 		//      probably need a rule that doesn't allow
 		//      rules to be created by macros
-		//apply rules.
+		
+		//TODO: apply rules.
 
-		//expand macros
-		var sexpr = [];
-		node.sexpr.forEach(function(expr) {
-			try {
-				var nodes = transform.call(me, expr, expandMacros);
-				if (nodes[0] === 'Do') {
-					nodes = nodes.slice(1);
-					Array.prototype.push.apply(sexpr, nodes.map(function(node) {
-						return normaliseHeadToPackage(node, model.namespace);
-					}));
-				} else {
-					sexpr.push(nodes);
-				}
-			} catch (e) {
-				sexpr.push(['Error', e.message]);
-			}
-			
-		});
-
-		//map dictionary/associative array
-		sexpr = sexpr.map(function(expr) {
-			try {
-				return transform.call(me, expr, expandDict);
-			} catch(er) {
-				return ['Error', 'Invalid dictionary content'];
-			}
-		});
-
-		//expand slices
-		sexpr = sexpr.map(function(expr) {
-			try {
-				return transform.call(me, expr, expandSlice);
-			} catch(er) {
-				return ['Error', 'Invalid slice content'];
-			}
-		});
-
+		var sexpr = me.preProcessSexprs(node.sexpr);
+		
 		sexpr.forEach(function(sexpr, index) {
 			var fkey;
 			//Collect packages
@@ -2041,7 +2328,7 @@ Cube.prototype.recalculate = function() {
 		for (fname in pack.functions) {
 			if (!pack.functions.hasOwnProperty(fname)) continue;
 			func = pack.functions[fname];
-			findDimensions(func, func._baseNamespace);
+			findDimensions(func, func._baseNamespace, packages, keyValueDefs);
 		}
 	}
 
@@ -2068,252 +2355,19 @@ Cube.prototype.recalculate = function() {
 	this._environment = environment;
 	this._packages = packages;
 
-	function clearDimensions(expr) {
-		if (expr === undefined) return;
-		delete expr.pass;
-		delete expr.dimensions;
-		if (expr instanceof Array) {
-			for(var i=expr.length - 1; i > 0; i--) clearDimensions(expr[i]);
-		}
-	}
-
-	//find all dimensions (here not in the package as it needs to go over package)
-	function findDimensions(expr, basepack) {
-		function addDimension(symb) {
-			var pack, name;
-			if (symb.length > 2) {
-				pack = symb[1];
-				name = symb[2];
-			} else {
-				pack = basepack;
-				name = symb[1];
-			}
-			if (packages.hasOwnProperty(name)) pack = name; //for Data tables
-			if (!packages[pack].functions.hasOwnProperty(name)) {
-				var fullDim = pack + '.' + name;
-				var list = ['List'];
-				if (keyValueDefs[fullDim]) {
-					var kvds = keyValueDefs[fullDim];
-					var hash = {};
-					for (var i = 0; i < kvds.length; i++) {
-						for (var kvalue in kvds[i])
-							hash[kvalue] = kvds[i][kvalue];
-					}
-					for (var kvalue in hash) list.push(hash[kvalue]);
-				} else {
-					packages[pack].unsatisfieds[name] = true;
-					//create dummy function for unsatisfied category
-				}
-				packages[pack].functions[name] = ['Category', sym(pack, name), list];
-				packages[pack].functions[name].dimensions = [fullDim];
-			}
-			packages[pack].dimensions[name] = packages[pack].functions[name];
-
-		}
-		//set dimensions on actual categories
-		if (expr[0] === 'Category') {
-			expr.dimensions = [expr[1][1] + '.' + expr[1][2]];
-			addDimension(expr[1]);
-		}
-
-		visit(expr, function(ast, path, index) {
-			var lhs;
-			switch (ast[0]) {
-				case 'LetS':
-				case 'LetG': {
-					lhs = ast[1];
-					if (lhs[0] === 'Symbol')
-						addDimension(lhs);
-					break;
-				}
-				case 'Over':
-				case 'Indexed': {
-					//all symbols are dimensions (Over expr symb..)
-					for (var i = ast.length - 1; i >= 2; i--) {
-						addDimension(ast[i]);	
-					}
-					break;
-				}
-				case 'Count': //param must be a dimension
-				case 'Index': //param must be a dimension
-				case 'IndexOf': //lhs must be a dimension
-				case 'Name': //param must be a dimension
-					lhs = ast[1];
-					if (lhs !== undefined && lhs[0] === 'Symbol')
-						addDimension(lhs, ast);
-					break;
-			}
-		});
-	}
-
-	function union(l,r) {
-		var u = {};
-		var ret = [];
-		var i;
-		for (i = l.length - 1; i >= 0; i--) {
-			u[l[i]] = true;
-		}
-		for (i = r.length - 1; i >= 0; i--) {
-			u[r[i]] = true;
-		}
-		for (var k in u) {
-			if (u.hasOwnProperty(k))
-				ret.push(k);
-		}
-		return ret;
-	}
-
-	function equal(l, r) {
-		if (l.length !== r.length)
-			return false;
-		var u = {};
-		var ret = [];
-		var i;
-		for (i = l.length - 1; i >= 0; i--) {
-			u[l[i]] = true;
-		}
-		for (i = r.length - 1; i >= 0; i--) {
-			if (!u.hasOwnProperty(r[i]))
-				return false;
-		}
-		return true;
-	}
-
-	function subtract(l, r) {
-		var u = {};
-		var ret = [];
-		var i;
-		for (i = l.length - 1; i >= 0; i--) {
-			u[l[i]] = true;
-		}
-		for (i = r.length - 1; i >= 0; i--) {
-			if (u.hasOwnProperty(r[i]))
-				delete u[r[i]];
-		}
-		for (var k in u) {
-			if (u.hasOwnProperty(k))
-				ret.push(k);
-		}
-		return ret;
-	}
-
-	var hasChanged = true;
+	var hasChanged = [];
+	hasChanged[0] = true;
 	var pass = 0;
 	var maxPasses = 10;
 
-	//annotate dimensions of functions
-	function annotateDimensions(expr, pass, basepack) {
-		if (typeof(expr) === 'string' || expr === undefined || expr === null)
-			return [];
-		if (expr.dimensions !== undefined) { 
-			if (expr.pass === pass) {
-				return expr.dimensions;
-			}
-		} else {
-			expr.dimensions = [];
-		}
-		expr.pass = pass;
-		var ret = [];
-		var x, pack, name, i, temp;
-		switch(expr[0]) {
-			case 'LetS':
-				//(LetS symb value expr)
-				ret = annotateDimensions(expr[3], pass, basepack);
-				var symb = annotateDimensions(expr[1], pass, basepack);
-				var value = annotateDimensions(expr[2], pass, basepack);
-				if (symb.length > 1)
-					throw new Error('Category Error ' + showS(expr[1]) + ' used as category but has dimensions ' + symb);
-				ret = subtract(ret, symb);
-				ret = union(ret, value);
-				break;
-			case 'IndexOf': // dim(IndexOf (Symb ..), value) is dim(value)
-				return annotateDimensions(expr[2], pass, basepack);
-			case 'Category':
-				x = annotateDimensions(expr[2], pass, basepack);
-				if (x.length > 0)
-					throw new Error('Categories cannot vary over another category: ' + showS(expr));
-				return expr.dimensions;
-			case 'Symbol':
-				if (expr.length > 2) {
-					pack = expr[1];
-					name = expr[2];
-				} else {
-					name = expr[1];
-					if (packages.hasOwnProperty(name))
-						pack = name; //for Data tables
-					else
-						pack = basepack;
-				}
-				//if symbol defined (then annotateDimensions of definition)
-				if (packages[pack] !== undefined && packages[pack].functions[name]) {
-					temp = packages[pack].functions[name];
-					ret = annotateDimensions(temp, pass, temp._baseNamespace);
-				}
-				//else (nothing)
-				break;
-			case 'Number':
-				return expr.dimensions;
-			case 'String':
-				return expr.dimensions;
-			case 'Over':
-				temp = annotateDimensions(expr[1], pass, basepack);
-				var u = {};
-				for(i=expr.length - 1; i > 1; i--) {
-					if (expr[i] instanceof Array)
-						x = annotateDimensions(expr[i],pass, basepack);
-						if (x.length > 1) {
-							throw new Error('Category Error: ' + showS(expr[i]) + ' use as category but has multiple dimensions');
-						}
-						u[x[0]] = true;
-				}
-				for (i = temp.length - 1; i >= 0; i--) {
-					if (!u.hasOwnProperty(temp[i]))
-						ret.push(temp[i]);
-				}
-				break;
-			case 'RemDims':
-				temp = annotateDimensions(expr[1], pass, basepack);
-				var rem = annotateDimensions(expr[2], pass, basepack);
-				ret = [];
-				temp.forEach(function(d) {
-					if (rem.indexOf(d) === -1) ret.push(d);
-				});
-				break;
-			case 'NoDim': //NoDim has no dimensions
-				annotateDimensions(expr[1], pass, basepack);
-				ret = [];
-				break;
-			case 'Func':
-				for(i=expr.length - 1; i > 1; i--) {
-					if (expr[i] instanceof Array)
-						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
-				}
-				break;
-			default:
-				for(i=expr.length - 1; i > 0; i--) {
-					if (expr[i] instanceof Array)
-						ret = union(ret, annotateDimensions(expr[i],pass, basepack));
-				}
-		}
-		if (!equal(ret,expr.dimensions)) {
-			expr.dimensions = ret;
-			hasChanged = true;
-		}
-		return expr.dimensions;
-	}
-
-	while (hasChanged && pass < maxPasses) {
-		hasChanged = false;
+	while (hasChanged[0] && pass < maxPasses) {
+		hasChanged[0] = false;
 		for (p in packages) {
 			if (!packages.hasOwnProperty(p)) continue;
 			pack = packages[p];
 			for (var fkey in pack.functions) 
 				if (pack.functions.hasOwnProperty(fkey))
-					annotateDimensions(pack.functions[fkey],pass, pack.functions[fkey]._baseNamespace);
-			//for (var k in pack.expressions) 
-			//	if (pack.expressions.hasOwnProperty(k))
-			//		annotateDimensions(pack.expressions[k],pass, pack.expressions[k]._baseNamespace);
-
+					annotateDimensions(pack.functions[fkey],pass, pack.functions[fkey]._baseNamespace, hasChanged, packages);
 		}
 		pass = pass + 1;
 	}
@@ -2347,41 +2401,19 @@ Cube.prototype.recalculate = function() {
 		}, new Namespace(), this);
 	}, environment, me);
 
-	function compileExpressions(packg, env, pack) {
-		for (var fname in packg.expressions) {
-			if (packg.expressions.hasOwnProperty(fname)) {
-				var expr = packg.expressions[fname];
-				annotateDimensions(expr, 0, pack);
-				if (expr.dimensions === undefined) expr.dimensions = [];
-				if (expr.dimensions.length > 0) {
-					//Wrap expressions with table
-					//TODO: use original expression
-					//Graph.Line(Net Income[Month])
-					console.log(showS(expr) + ' has ' + expr.dimensions.join(', '));
-					var expr2 = table(expr);
-					expr2.sourceNode = expr.sourceNode;
-					expr = expr2;
-					packg.expressions[fname] = expr;
-					annotateDimensions(expr, 0, pack); 
-				}
-				try {
-					expr.func = me.compileExpression(expr, pack);
-					expr.compiled = expr.func.bind(env);
-					expr.sourceNode.result = expr.compiled;
-					expr.sourceNode.error = undefined;
-				} catch(e) {
-					console.log(e);
-					expr.sourceNode.error = e.toString();
-				}
-				
-			}
-		}
-	}
 
-	//compile expressions (and bind to namespace)
+	//compile expressions
 	for (pack in packages) {
 		if (packages.hasOwnProperty(pack)) {
-			compileExpressions(packages[pack], environment[pack], pack);
+			for (var fname in packages[pack].expressions) {
+				if (packages[pack].expressions.hasOwnProperty(fname)) {
+					var expr = packages[pack].expressions[fname]
+					annotateDimensions(expr, 0, pack, [], packages);
+					expr = me.resolveExcessDimensions(expr, pack);
+					packages[pack].expressions[fname] = expr;
+					me.compileExpression(expr, pack);
+				}
+			}
 		}
 	}
 
@@ -2581,6 +2613,9 @@ Cube.showM = showM;
 Cube.showMr = showMr;
 Cube.showS = showS;
 Cube._expandMacros = expandMacros;
+
+Cube.lex = lex
+Cube.parse = parse;
 
 //Cube.Import should return a cells array
 Cube.Import = function(path, cube, opt_as_namespace) { return; }; //should be replace by editor with a real function
