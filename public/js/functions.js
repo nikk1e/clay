@@ -238,22 +238,28 @@ function _csv(headers, rows) {
 		if (/,/.test(c)) c = '"' + c + '"';
 		return c;
 	}
-	return headers.map(cell).join(',') + '\n' +
+	var str = new String(headers.map(cell).join(',') + '\n' +
 		   rows.map(function(row) { 
 		   	  return row.map(cell).join(',') 
-		   }).join('\n') + '\n';
+		   }).join('\n') + '\n');
+	str.contentType = 'text/csv'
+	return str;
 }
 
 function BasicTable(headers, rows, highlight) {
-	var c = document.createElement.bind(document);
-	var table = c('table'), head = table.createTHead(), body = table.createTBody();
+	//var c = document.createElement.bind(document);
+	var table = document.createElement('table')
+	var head = document.createElement('thead');//table.createTHead()
+	var body = document.createElement('tbody');
+	table.appendChild(head);
+	table.appendChild(body);//table.createTBody();
 	table.className = 'pure-table pure-table-horizontal';
 	if (highlight === undefined) highlight = 0;
 
 	var hr = head.insertRow();
 
 	headers.forEach(function(h, i) {
-		var th = c('th');
+		var th = document.createElement('th');
 		hr.appendChild(th);
 		if (i < highlight) th.className = 'highlight';
 		if (isElement(h)) {

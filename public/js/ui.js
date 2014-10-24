@@ -4,6 +4,11 @@
         menu     = document.getElementById('menu'),
         menuLink = document.getElementById('menuLink');
 
+    if (!layout || !menu || !menuLink) {
+        console.log('menu not present');
+        return;
+    }
+
     function toggleClass(element, className) {
         var classes = element.className.split(/\s+/),
             length = classes.length,

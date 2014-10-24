@@ -123,6 +123,7 @@ textarea.hiddenTextArea {
 <script type="text/javascript" src="/js/friar.js"></script>
 <script type="text/javascript" src="/js/cube.js"></script>
 <script type="text/javascript" src="/js/macros.js"></script>
+<script type="text/javascript" src="/js/FileSaver.js"></script>
 <script type="text/javascript" src="/js/functions.js"></script>
 <script src="http://d3js.org/d3.v3.js"></script>
 <script type="text/javascript" src="/js/functions/graph.js"></script>
@@ -245,7 +246,7 @@ function renderToFriar(model) {
 							console.log('undefined result');
 						} else if (isElement(result)) {
 							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
-						} else if (typeof(result) === 'string' || typeof(result) === 'number') {
+						} else if (typeof(result) === 'string' || typeof(result) === 'number' || result instanceof String) {
 							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result.toString())]));
 						} else if (result === false) {
 							ret.push(DOM.div({className: 'result'}, [DOM.pre({className: 'error'},result.toString())]));
