@@ -1239,21 +1239,20 @@ function Cube() {
 
 Cube.prototype.evaluate = function(code, namespace) {
 	var tokens = lex(code);
-	var sexpr = parse(tokens);
+	var sexpr = parse(tokens); //list of sexprs
 	var me = this;
 	namespace = namespace || this.baseModel().namespace;
-	sexpr = this.preProcessSexprs([sexpr]);
-	//TODO: process postMacros
-	sexpr.forEach(function(expr) {
+	sexpr = this.preProcessSexprs(sexpr);
+	var results = sexpr.map(function(expr) {
 		expr._baseNamespace = namespace;
 		expr.sourceNode = {};
 		annotateDimensions(expr, 0, namespace, [], me._packages);
 		expr = me.resolveExcessDimensions(expr, namespace);
-		console.log(expr)
 		me.compileExpression(expr, namespace);
+		return expr.compiled();
 	});
-	
-	return showS(sexpr) + ' : ' + namespace;
+	if (results.length === 1) return results[0];
+	return results;
 };
 
 Cube.prototype.baseModel = function() {
