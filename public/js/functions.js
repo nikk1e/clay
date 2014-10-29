@@ -383,32 +383,71 @@ function dot(key, obj) {
 	return obj[key];
 }
 
-function index(items, keys, parent){	
-	if (keys === null || keys === undefined) { return undefined; }
-	if (parent === null || parent === undefined) { parent = {}; }
- 
-	var myKeys = keys.slice();
-	var key = myKeys.pop();
+function index2(items, keys) {
+	if (keys === null || keys === undefined || !(keys.length > 0)) return items;
+	var cache = {};
+	var rest = keys.slice(0);
+	var key = rest.pop();
+	//collect as list the items by last key
+	items.forEach(function(item) {
+		var k = item[key];
+		if (cache.hasOwnProperty(k)) {
+			cache[k].push(item);
+		} else {
+			cache[k] = [item];
+		}
+		
+	});
 
-	if (!(key === null || key === undefined)){
-		items.forEach(function(elem){
-			if (parent.hasOwnProperty(elem[key])) {                                                      
-				parent[elem[key]].push(elem);
-			}
-			else {                                                    
-				parent[elem[key]] = [elem];
-			}
-		});
- 
-		for (var prop in parent) {
-			if (parent.hasOwnProperty(prop) && Array.isArray(parent[prop])) {
-				index(parent[prop], myKeys, parent[prop]);
-			}
-		}             
+	for (var k in cache) {
+		cache[k] = index2(cache[k], rest);
 	}
-	return parent;
+	return cache;
 }
 
+function index3(items, keys) {
+	var rkeys = {};
+	var values = {};
+	var ilen = items.length;
+	var klen = keys.length;
+	var elem;
+	var key;
+	var i, j;
+	var keyVal;
+	var current;
+	var ret = {values: values, keys: {}};
+
+	for (j = 0; j < klen; j++) {
+		key = keys[j];
+		rkeys[key] = {};	
+	};
+
+	for (i = 0; i < ilen; i++) {
+		elem = items[i];
+		current = values;
+		for (j = klen -1; j >=0 ; j--) {
+			key = keys[j];
+			keyVal = elem[key];
+			rkeys[key][keyVal] = true; //keep keys
+			if (current.hasOwnProperty(keyVal)) {
+				current = current[keyVal]
+			} else {
+				current = current[keyVal] = (j === 0 ? [] : {});
+			}
+		}
+		current.push(elem);
+	};
+
+	for (var k in rkeys) {
+		var kl = ret.keys[k] = [];
+		for (var kv in rkeys[k]) {
+			kl.push(kv);
+		}
+	}
+
+	return ret;
+
+}
 
 function map(func, list) {
 	if (list === null || list === undefined) return list;
@@ -451,7 +490,8 @@ mixin(Cube.Functions, {
 	RemoveLast: RemoveLast,
 	first: first,
 	concat: concat,
-	index: index,
+	index: index2,
+	indexb: index3,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));

@@ -2586,6 +2586,7 @@ function _Pivot(title, page_titles, page_values, page_selected, col_headers, row
 
 var Functions = {
 	Math: Math,
+	JSON: JSON,
 	sin: Math.sin,
 	cos: Math.cos,
 	tan: Math.tan, //etc (see js/functions.js and js/functions/*)
@@ -2603,7 +2604,6 @@ function table(expr, opt_dims) {
 function csv(expr, opt_dims) {
 	return expandDims(['Symbol', '_csv'], expr, opt_dims)
 }
-
 function expandDims(symb, expr, opt_dims) {
 	if (expr[0] !== 'List') {
 		expr = ['List', expr];
