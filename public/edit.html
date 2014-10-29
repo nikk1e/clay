@@ -833,7 +833,10 @@ var MultiEditor = createClass({
 		}
 	},
 	updateModel: function(name, text) {
-		this.props.cube.mergeModel(name, parseRaw(text));
+		console.time("parseRaw");
+		var raw = parseRaw(text);
+		console.timeEnd("parseRaw");
+		this.props.cube.mergeModel(name, raw);
 		//trigger redraw?
 		this.setState({active: name});
 	},
