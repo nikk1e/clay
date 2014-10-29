@@ -163,6 +163,7 @@ function tree(req, res, next) {
 			if (err) {
 				return next(err);
 			}
+			if (commit === undefined) return next("Commit not found");
 			last_commit = commit;
 			loadTree(commit.tree);
 		});
