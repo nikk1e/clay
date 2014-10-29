@@ -114,6 +114,75 @@ textarea.hiddenTextArea {
 #cursor {
 	pointer-events:none; /* so clicks get passed through - Tested: Chrome, firefox, IE11 */
 }
+
+.editorMenu {
+right: 50px;
+position: fixed;
+}
+
+.editorMenu ul {
+list-style: none;
+}
+
+[class^="menuicon-"], [class*=" menuicon-"] {
+	background-image: url("/css/fonts/editorIcons.png");
+	width: 48px;
+	height: 48px;
+	background-position: -98px -107px;
+	display:inline-block;
+}
+
+a:hover [class^="menuicon-"], [class*=" menuicon-"] {
+	background-position-y: -2px;
+}
+
+.menuicon-bold {
+	background-position-x: -2px;
+}
+.menuicon-un_bold {
+	background-position: -2px -54px;
+}
+.menuicon-italic {
+	background-position-x: -50px;
+}
+.menuicon-un_italic {
+	background-position: -50px -54px;
+}
+.menuicon-code {
+	background-position-x: -98px;
+}
+.menuicon-un_code {
+	background-position: -98px -54px;
+}
+.menuicon-h1 {
+	background-position-x: -146px;
+}
+.menuicon-un_h1 {
+	background-position: -146px -54px;
+}
+.menuicon-h2 {
+	background-position-x: -194px;
+}
+.menuicon-un_h2 {
+	background-position: -194px -54px;
+}
+.menuicon-h3 {
+	background-position-x: -242px;
+}
+.menuicon-un_h3 {
+	background-position: -242px -54px;
+}
+.menuicon-table {
+	background-position-x: -290px;
+}
+.menuicon-un_table {
+	background-position: -290px -54px;
+}
+background-image: url("/css/fonts/editorIcons.png");
+width: 50px;
+height: 50px;
+background-position: -98px -107px;
+border: 1px solid red;
 </style>
 </head>
 <body>
@@ -129,28 +198,6 @@ textarea.hiddenTextArea {
 <script type="text/javascript" src="/js/functions/graph.js"></script>
 <script type="text/javascript" src="/js/utils.js"></script>
 <script type="text/javascript">
-
-var isFirefox = typeof InstallTrigger !== 'undefined';   // Firefox 1.0+
-
-//insert text in a text area without breaking undo/redo buffer
-//TODO: probably need another version for IE<11.
-if (document.queryCommandSupported('insertText') && !isFirefox) {
-  function insertText(textarea, text) {
-	textarea.focus();
-	document.execCommand('insertText', false, text);
-  }
-} else {
-  function insertText(textarea, text) {
-  	var nSelStart = textarea.selectionStart;
-  	var nSelEnd = textarea.selectionEnd;
-  	var sOldText = textarea.value;
-	textarea.value = sOldText.substring(0, nSelStart) + 
-		text + 
-		sOldText.substring(nSelEnd);
-	textarea.setSelectionRange(nSelStart, nSelStart + text.length);
-	textarea.focus();
-  }
-}
 
 var DOM = Friar.DOM, 
     createClass = Friar.createClass,
@@ -382,17 +429,26 @@ var canInsertText = document.queryCommandSupported('insertText');
 var canMsUndo = document.queryCommandSupported('ms-beginUndoUnit');
 
 function insertText(ta, str) {
+	var start = ta.selectionStart;
+	var end = ta.selectionEnd;
 	if (canInsertText && !isFirefox) {
+		ta.focus();
 		document.execCommand('insertText', false, str);
+		//input event generated here.
+		ta.setSelectionRange(start, start + str.length);
 		return;
 	}
 	if (canMsUndo) document.execCommand('ms-beginUndoUnit');
 	var val = ta.value;
-	var start = ta.selectionStart;
-	var end = ta.selectionEnd;
 	ta.value = val.substring(0,start) + str + val.substring(end);
-	ta.selectionStart = ta.selectionEnd = start + str.length;
+	ta.setSelectionRange(start, start + str.length);
+	ta.focus();
 	if (canMsUndo) document.execCommand('ms-endUndoUnit');
+}
+
+function surroundText(textarea, start, end) {
+	var current = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+	insertText(textarea, start + current + end);
 }
 
 function pathFor(node, offset, model) {
@@ -634,6 +690,22 @@ var Selection = createClass({
 	},
 });
 
+var EditorMenu = createClass({
+	render: function() {
+		var children = [];
+		for (var k in this.props) {
+			var v = this.props[k];
+			if (typeof v === 'function') {
+				children.push(DOM.li({},[
+					DOM.a({
+						onClick: v,
+					}, [DOM.span({className: 'menuicon-' + k}, '')])]));
+			}
+		}
+		return DOM.div({className: 'editorMenu'}, [DOM.ul({}, children)]);
+	}
+});
+
 
 var Editor = createClass({
 	getInitialState: function() {
@@ -739,11 +811,14 @@ var Editor = createClass({
 	handleFocus: function(e) {
 		console.log('focus');
 		//if (!this.props.active) this.props.focus(this.props.name);
-		this.updateText();
+		//this.updateText();
+		this.blur = false;
+		this.updateCursor();
 	},
 	handleBlur: function(e) {
+		this.blur = true;
 		console.log('blur');
-		this.updateText();
+		//this.updateText();
 	},
 	handleInput: function(e) {
 		console.log('input');
@@ -759,6 +834,11 @@ var Editor = createClass({
 		this.textarea.node.selectionStart = this.textarea.selectionEnd = 0;
 	},
 	updateCursor: function(sel) {
+		if (this.blur) {
+			this.props.cursor.setState({selection: null});
+			return;
+		}
+
 		var sel = sel || this.state.selection;
 		var anchor, focus;
 		var range = document.createRange();
@@ -810,6 +890,20 @@ var Editor = createClass({
 	willUnmount: function() {
 		console.log('unmounting');
 	},
+	boldSelection: function() {
+		surroundText(this.textarea.node, '*', '*');
+		this.updateText();
+	},
+	italicSelection: function() {
+		surroundText(this.textarea.node, '_', '_');
+		this.updateText();
+	},
+	codeSelection: function() {},
+	paragraphSelection: function() {},
+	tableSelection: function() {},
+	heading1Selection: function() {},
+	heading2Selection: function() {},
+	heading3Selection: function() {},
 	render: function() {
 		//console.log('render');
 		//?? does this work when we are going with previous Child and updating
@@ -829,6 +923,17 @@ var Editor = createClass({
 
 		if (this.props.active) {
 			//children.push(this.selection);
+			children.push(EditorMenu({
+				bold: this.boldSelection,
+				un_bold: undefined,
+				italic: this.italicSelection,
+				un_italic: undefined,
+				code: this.codeSelection,
+				table: this.tableSelection, //takes rows + columns
+				h1: this.heading1Selection,
+				h2: this.heading2Selection,
+				h3: this.heading3Selection, //paragraphSelection for unh3
+			}))
 			children.push(Preview({model: this.props.model}));
 		}
 		return DOM.div({
