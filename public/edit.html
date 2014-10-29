@@ -831,6 +831,28 @@ var Editor = createClass({
 		//if (!this.props.active) this.props.focus(this.props.name);
 		this.updateText();
 	},
+	handlePaste: function(e) {
+		if (!this.props.active) return;
+
+		var clipped;
+		if (e.clipboardData || window.clipboardData) {
+			// enable paste of table from spreadsheet applications
+			e.preventDefault();
+			clipped = e.clipboardData ? e.clipboardData.getData("text/plain") : 
+			   window.clipboardData.getData("Text");
+			// convert tabs to pipes and put a pipe at the start of the line
+			clipped = clipped.replace(/^.*\t.*$/gm, function(m) { return '|' + m.replace(/\t/g, '|'); });
+			insertText(this.textarea.node, clipped);
+		}
+	},
+	handleCut: function(e) {
+		if (!this.props.active) return;
+		console.log('cut from ' + this.props.model.name);
+	},
+	handleCopy: function(e) {
+		if (!this.props.active) return;
+		console.log('copy from ' + this.props.model.name);
+	},
 	didMount: function() {
 		console.log('mounted');
 		//TODO: this stuff should be on the actual textarea node itself
@@ -838,6 +860,10 @@ var Editor = createClass({
 		//document.body.addEventListener('keyup', this.handleContentKeyUp);
 		this.textarea.node.value = this.state.text;
 		this.textarea.node.selectionStart = this.textarea.selectionEnd = 0;
+
+		document.body.addEventListener('paste', this.handlePaste);
+		this.textarea.node.addEventListener('cut', this.handleCut);
+		this.textarea.node.addEventListener('copy', this.handleCopy);
 	},
 	updateCursor: function(sel) {
 		if (this.blur) {
@@ -895,6 +921,9 @@ var Editor = createClass({
 	},
 	willUnmount: function() {
 		console.log('unmounting');
+		document.body.removeEventListener('paste', this.handlePaste);
+		this.textarea.node.removeEventListener('cut', this.handleCut);
+		this.textarea.node.removeEventListener('copy', this.handleCopy);
 	},
 	boldSelection: function() {
 		surroundText(this.textarea.node, '*', '*');

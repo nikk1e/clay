@@ -43,6 +43,9 @@
     "express-session": "~1.8.2",
     "tungus": "0.0.2",
     "mongoose": "~3.8.17",
-    "temp": "~0.8.1"
+    "temp": "~0.8.1",
+    "mongodb": "~1.4.19",
+    "mongojs": "~0.15.1",
+    "gridjs": "~0.1.0"
   }
 }
