@@ -435,20 +435,22 @@ function insertText(ta, str) {
 		ta.focus();
 		document.execCommand('insertText', false, str);
 		//input event generated here.
-		ta.setSelectionRange(start, start + str.length);
+		//ta.setSelectionRange(start, start + str.length);
 		return;
 	}
 	if (canMsUndo) document.execCommand('ms-beginUndoUnit');
 	var val = ta.value;
 	ta.value = val.substring(0,start) + str + val.substring(end);
-	ta.setSelectionRange(start, start + str.length);
-	ta.focus();
 	if (canMsUndo) document.execCommand('ms-endUndoUnit');
 }
 
 function surroundText(textarea, start, end) {
+	var start = textarea.selectionStart;
+	var end = textarea.selectionEnd;
 	var current = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
 	insertText(textarea, start + current + end);
+	textarea.setSelectionRange(start, start + start.length + end.length);
+	textarea.focus();
 }
 
 function pathFor(node, offset, model) {
@@ -803,7 +805,6 @@ var Editor = createClass({
 		this.updateText();
 	},
 	handleKeyDown: function(e) {
-		console.log('keydown');
 		this.updateText();
 	},
 	handleKeyUp: function(e) {
@@ -925,7 +926,7 @@ var Editor = createClass({
 
 		if (this.props.active) {
 			//children.push(this.selection);
-			children.push(EditorMenu({
+			/*children.push(EditorMenu({
 				bold: this.boldSelection,
 				un_bold: undefined,
 				italic: this.italicSelection,
@@ -935,7 +936,7 @@ var Editor = createClass({
 				h1: this.heading1Selection,
 				h2: this.heading2Selection,
 				h3: this.heading3Selection, //paragraphSelection for unh3
-			}))
+			}))*/
 			children.push(Preview({model: this.props.model}));
 		}
 		return DOM.div({
