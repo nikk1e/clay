@@ -227,7 +227,7 @@ var Table = createClass({
 			return DOM.tr({id: keyToId(token.key) + '.' + row.key.toString(36)},
 				row.cells.length > 0 ? row.cells.map(function(c,i) {
 					return DOM[type]({style: (alignments[i] || {}), 
-						className: classes[i]}, fixSpaces(c)); //TODO (c should be spans)
+						className: classes[i]}, fixSpaces(c) || '\u00A0'); //TODO (c should be spans)
 				}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
 		}
 
@@ -504,16 +504,18 @@ function offsetInCell(cell, path, key, offset) {
 	switch (cell.type) {
 		case 'table': 
 			var rowNum = key[1] || 0;
+			var preoffset = 0;
 			for (var i = 0; i < rowNum; i++) {
-				offset += cell.rows[i].cells.reduce(function(a,c) {
+				preoffset += cell.rows[i].cells.reduce(function(a,c) {
 					return a + c.length + 1;
 				},0) + 1; //+1 for newline that gets removed from raw by split
 			}
 			var cellNum = path.pop(); //path is now span path
 			for (var i = 0; i< cellNum; i++) {
-				offset += cell.rows[rowNum].cells[i].length; //change to raw length when we span cell
+				preoffset += cell.rows[rowNum].cells[i].length; //change to raw length when we span cell
 			}
-			offset += cellNum + 1; //add on pipes
+			if (offset === 1 && cell.rows[rowNum].cells[cellNum].length === 0) offset--;
+			offset += preoffset + cellNum + 1; //add on pipes
 			break;
 		case 'header':
 			offset += cell.level;
