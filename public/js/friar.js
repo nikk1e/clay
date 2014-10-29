@@ -222,14 +222,15 @@ DOMClass.prototype.updateChildren = function(nextChildren, prevChildren) {
 	var prevChildrenByName = {};
 	var pi = 0, ni = 0;
 	prevChildren.forEach(function(c,i) { 
-		prevChildrenByName[c.props.key ? '$' + c.props.key : '.' + (pi++)] = c;
+		prevChildrenByName[c.props.key ? '$' + c.props.key : (c.props.id ? '$' + c.props.id : '.' + (pi++))] = c;
 	});
 	var nextChildrenByName = {};
 	var lastIndex = 0;
+	//TODO: this algorithm doesn't work with a mix of keyed and unkeyed.
 	for (var nextIndex = 0; nextIndex < nextChildren.length; nextIndex ++) {
 		var child = nextChildren[nextIndex];
 	//nextChildren.forEach(function(child, nextIndex) {
-		name = child.props.key ? '$' + child.props.key : '.' + (ni++);
+		name = child.props.key ? '$' + child.props.key : (child.props.id ? '$' + child.props.id : '.' + (ni++));
 		nextChildrenByName[name] = child;
 		var prevChild = prevChildrenByName[name];
 		if (shouldUpdateComponent(prevChild, child)) {
