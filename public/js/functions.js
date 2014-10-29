@@ -52,12 +52,34 @@ function CountNumbers(list){
 	return num;
 }
 
+function RemoveLast(list, num) {
+	if(list !== undefined && list.length>0) {
+		if(num === undefined) num = 1;
+		return list.slice(0,(list.length-Math.abs(num)));
+	}
+	else {
+		return undefined;
+	}
+}
+
 function Count(list){
 	var num = 0;
 	list.forEach(function(v,i){
 		num++;
 	});
 	return num;
+}
+
+function first(func, list) {
+	var ret;
+	list.some(function(element) {
+		if (func(element)) {
+			ret = element;
+			return true;
+		}
+		return false;
+	});
+	return ret;
 }
 
 function range(start, end, step) {
@@ -78,6 +100,7 @@ function range(start, end, step) {
 
 function Head(list) {
 	var head;
+	if (list === null || list === undefined) return list;
 	list.some(function(v,i) { head = v; return true;});
 	return head;
 }
@@ -356,11 +379,45 @@ function _data(cube, url, args) {
 function dot(key, obj) {
 	if (arguments.length === 1)
 		return dot.bind(null, key);
+	if (obj === null || obj === undefined) return obj;
 	return obj[key];
 }
 
+function index(items, keys, parent){	
+	if (keys === null || keys === undefined) { return undefined; }
+	if (parent === null || parent === undefined) { parent = {}; }
+ 
+	var myKeys = keys.slice();
+	var key = myKeys.pop();
+
+	if (!(key === null || key === undefined)){
+		items.forEach(function(elem){
+			if (parent.hasOwnProperty(elem[key])) {                                                      
+				parent[elem[key]].push(elem);
+			}
+			else {                                                    
+				parent[elem[key]] = [elem];
+			}
+		});
+ 
+		for (var prop in parent) {
+			if (parent.hasOwnProperty(prop) && Array.isArray(parent[prop])) {
+				index(parent[prop], myKeys, parent[prop]);
+			}
+		}             
+	}
+	return parent;
+}
+
+
 function map(func, list) {
+	if (list === null || list === undefined) return list;
 	return list.map(func);
+}
+
+//list of list to list
+function concat(list) {
+	return Array.prototype.concat.apply([], list)
 }
 
 //
@@ -391,6 +448,10 @@ mixin(Cube.Functions, {
 	map: map,
 	_data: _data,
 	_csv: _csv,
+	RemoveLast: RemoveLast,
+	first: first,
+	concat: concat,
+	index: index,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
