@@ -302,53 +302,56 @@ function renderToFriar(model) {
 				});
 			}
 			if (token.result || token.error) {
-				ret.push(DOM.pre({className: langClass}, items));
+				ret.push(DOM.pre({className: langClass, id: 'pre-' + props.id}, items));
 				items = [];
 				if (sitems.length > 0) {
-					ret.push(DOM.pre({className: 'lang-sexpr'}, sitems));
+					ret.push(DOM.pre({className: 'lang-sexpr', id: 'sexpr-' + props.id}, sitems));
 					sitems = [];
 				}
 				if (token.result) {
 					try {
+						var resultprop = {className: 'result', id: 'result-' + props.id};
 						var result = token.result();
 						if (result === undefined) {
 							console.log('undefined result');
 						} else if (isElement(result)) {
-							ret.push(DOM.div({className: 'result'}, [Friar.Wrap(result)]));
+							ret.push(DOM.div(resultprop, [Friar.Wrap(result)]));
 						} else if (typeof(result) === 'string' || typeof(result) === 'number' || result instanceof String) {
-							ret.push(DOM.div({className: 'result'}, [DOM.pre({},result.toString())]));
+							ret.push(DOM.div(resultprop, [DOM.pre({},result.toString())]));
 						} else if (result === false) {
-							ret.push(DOM.div({className: 'result'}, [DOM.pre({className: 'error'},result.toString())]));
+							ret.push(DOM.div(resultprop, [DOM.pre({className: 'error'},result.toString())]));
 						} else if (result === true) {
-							ret.push(DOM.div({className: 'result'}, [DOM.pre({className: 'success'},result.toString())]));
+							ret.push(DOM.div(resultprop, [DOM.pre({className: 'success'},result.toString())]));
 						} else {
-							ret.push(DOM.div({className: 'result'}, result.toString()));
+							ret.push(DOM.div(resultprop, result.toString()));
 						}
 					} catch(e) {
 						token.error = e;
 					}
 				}
 				if (token.error)
-					ret.push(DOM.div({className: 'error'}, token.error.toString()));
+					ret.push(DOM.div({className: 'error', id: 'error-' + props.id}, token.error.toString()));
 			}
 			getToken();
 		} while (token && token.type === 'code' && token.lang === lang);
 		ungetToken();
 		if (items.length > 0)
-			ret.push(DOM.pre({className: langClass}, items));
+			ret.push(DOM.pre({className: langClass, id: 'pre-' + props.id}, items));
 		if (sitems.length > 0)
-			ret.push(DOM.pre({className: 'lang-sexpr'}, sitems));
+			ret.push(DOM.pre({className: 'lang-sexpr', id: 'sexpr-' + props.id}, sitems));
 		return ret
 	}
 
 	function renderList(listType, itemType) {
 		var items = [];
+		var id;
 		while (token && token.type === itemType) {
-			items.push(DOM.li({id: keyToId(token.key)},renderSpans(token))); //TODO: add key
+			id = keyToId(token.key);
+			items.push(DOM.li({id: id},renderSpans(token))); //TODO: add key
 			getToken();
 		}
 		ungetToken();
-		return [DOM[listType]({}, items)];
+		return [DOM[listType]({id: 'list-' + id}, items)];
 	}
 
 	function renderFigure() {
