@@ -126,6 +126,12 @@ passport.deserializeUser(function(user, done) {
     done(null, JSON.parse(user));
 });
 
+
+function randomId() {
+  return Math.floor(Math.random() * 9007199254740992);
+  //use toString(16) to put in url
+}
+
 var project = require('./routes/project')(base);
 var area = require('./routes/area')(base);
 
