@@ -28235,9 +28235,16 @@ var root = {
 
         }
         return false;
-      }
+      },
+      splitOnForbidden: true, // pass the element up to the next level.
+      //TODO: only expressions should have results (and they allways have one)
+      //if the code is an expression then we split
+      //otherwise we merge next. (probably only need a gooble next function)
+      //USE a thunk for the results... 
+      // at the merge stage if it encounters a function it runs it to get
+      // the actual result.
     },
-    DIV: function(n) {}, // only result divs
+    DIV: function(n) {}, // only result divs (remove these on the way in)
     TABLE: {
       TBODY: tableRows,
       THEAD: tableRows,

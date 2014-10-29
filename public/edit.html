@@ -130,6 +130,28 @@ textarea.hiddenTextArea {
 <script type="text/javascript" src="/js/utils.js"></script>
 <script type="text/javascript">
 
+var isFirefox = typeof InstallTrigger !== 'undefined';   // Firefox 1.0+
+
+//insert text in a text area without breaking undo/redo buffer
+//TODO: probably need another version for IE<11.
+if (document.queryCommandSupported('insertText') && !isFirefox) {
+  function insertText(textarea, text) {
+	textarea.focus();
+	document.execCommand('insertText', false, text);
+  }
+} else {
+  function insertText(textarea, text) {
+  	var nSelStart = textarea.selectionStart;
+  	var nSelEnd = textarea.selectionEnd;
+  	var sOldText = textarea.value;
+	textarea.value = sOldText.substring(0, nSelStart) + 
+		text + 
+		sOldText.substring(nSelEnd);
+	textarea.setSelectionRange(nSelStart, nSelStart + text.length);
+	textarea.focus();
+  }
+}
+
 var DOM = Friar.DOM, 
     createClass = Friar.createClass,
     Model = Cube.Model,
