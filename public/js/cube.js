@@ -2206,6 +2206,9 @@ Cube.prototype.recalculate = function() {
 	function _collectCell(node) { //closeure over name,model,etc //TODO: refactor
 		if (node.sexpr === undefined) return; //find all cells with sexprs
 
+		//clear error first
+		node.error = undefined;
+
 		if (node.keyValues) {
 			for (var keyName in node.keyValues) {
 				var keyValues = node.keyValues[keyName];
@@ -2364,9 +2367,17 @@ Cube.prototype.recalculate = function() {
 		for (p in packages) {
 			if (!packages.hasOwnProperty(p)) continue;
 			pack = packages[p];
-			for (var fkey in pack.functions) 
-				if (pack.functions.hasOwnProperty(fkey))
-					annotateDimensions(pack.functions[fkey],pass, pack.functions[fkey]._baseNamespace, hasChanged, packages);
+			for (var fkey in pack.functions) {
+				if (pack.functions.hasOwnProperty(fkey)) {
+					try {
+						annotateDimensions(pack.functions[fkey],pass, pack.functions[fkey]._baseNamespace, hasChanged, packages);
+					} catch (e) {
+						if (pack.functions[fkey].sourceNode)
+							pack.functions[fkey].sourceNode.error = e.toString();
+					}
+				}
+			}
+					
 		}
 		pass = pass + 1;
 	}
@@ -2390,8 +2401,6 @@ Cube.prototype.recalculate = function() {
 		return objMap(packg.functions, function(fname, func) {
 			try {
 				var comp = this.compileFunc(func, func._baseNamespace || pack);
-				if (func.sourceNode)
-					func.sourceNode.error = undefined;
 				return comp;
 			} catch(e) {
 				if (func.sourceNode)
@@ -2407,10 +2416,16 @@ Cube.prototype.recalculate = function() {
 			for (var fname in packages[pack].expressions) {
 				if (packages[pack].expressions.hasOwnProperty(fname)) {
 					var expr = packages[pack].expressions[fname]
-					annotateDimensions(expr, 0, pack, [], packages);
-					expr = me.resolveExcessDimensions(expr, pack);
-					packages[pack].expressions[fname] = expr;
-					me.compileExpression(expr, pack);
+					try {
+						annotateDimensions(expr, 0, pack, [], packages);
+						expr = me.resolveExcessDimensions(expr, pack);
+						packages[pack].expressions[fname] = expr;
+						me.compileExpression(expr, pack);
+					} catch (e) {
+						if (expr.sourceNode)
+							expr.sourceNode.error = e.toString();
+					}
+					
 				}
 			}
 		}
