@@ -1717,6 +1717,10 @@ Cube.prototype.compileExpr = function(expr, basepack, context) {
 			return '(' + me.compileExpr(expr[1], basepack, context) + ')';
 		case 'Divide':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' / ') + ')';
+		case 'And':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' && ') + ')';
+		case 'Or':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' || ') + ')';
 		case 'Not':
 			return '!(' + me.compileExpr(expr[1], basepack, context) + ')';
 		case 'GreaterEqual':
