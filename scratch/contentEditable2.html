@@ -35,7 +35,7 @@ table {
 </head>
 <body>
 <div id="inline-column1">
-    <div id="preview" contenteditable="true"  spellcheck="false">
+    <div id="preview">
     <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Atque ipsum officiis, eveniet exercitationem animi reiciendis officia asperiores temporibus illum aspernatur enim iure dolore corrupti beatae distinctio eum fuga assumenda quas in cum harum! Obcaecati nemo qui, quod, mollitia quibusdam expedita ut autem quaerat necessitatibus quas iste, eos repellat sapiente dolor.</p>
     <p>Adipisci dolore quis debitis, fugiat quidem optio sapiente iure, reprehenderit suscipit culpa accusamus assumenda qui. Nobis reprehenderit voluptatem nam, voluptate, sunt impedit recusandae, asperiores quasi, culpa voluptas possimus hic ipsa veniam unde fugit molestiae voluptates eius vel tempora tenetur. Modi, velit distinctio architecto aliquid. Recusandae alias culpa, quibusdam dolorum modi?</p>
     <p>Reprehenderit magni vitae, facere ex, illum quis quasi accusantium esse nisi blanditiis. Enim assumenda ipsa libero ea dolore dolor, delectus non cupiditate voluptatem quo neque ut eius nam facere fugit error voluptatum voluptatibus. Cumque provident magni fugiat nostrum animi deserunt. Et saepe dolorum, neque impedit unde totam sunt mollitia error.</p>
@@ -28069,7 +28069,7 @@ table {
 </body>
 <script type="text/javascript">
 var editor = document.getElementById('preview');
-
+/*
 debounce = function(func, wait, immediate) {
 	var timeout;
 	return function() {
@@ -28698,6 +28698,44 @@ var model = {
 //fix firefox (don't allow content resizing)
 document.execCommand("enableObjectResizing", false, "false");
 document.execCommand("enableInlineTableEditing", false, "false");
+*/
+
+//trigger spellcheck on whole document.
+preview.contentEditable = true;
+preview.focus();
+preview.contentEditable = false;
+
+var down = false;
+var last;
+function handleMouseDown(e) {
+  //console.log(e);
+  
+  if (e.target.nodeName !== 'DIV') {
+    if (last) {
+      last.removeAttribute('contenteditable');
+    }
+    last = e.target;
+    last.contentEditable = true;
+  }
+
+  down = true;
+}
+
+function handleMouseMove(e) {
+  if (down) {
+    //check selection is greater than single character
+    var selected = window.getSelection();
+    if (!selected.isCollapsed) last.removeAttribute('contenteditable');
+  }
+}
+
+function handleMouseUp(e) {
+  down = false;
+}
+
+document.body.addEventListener('mousedown', handleMouseDown, false);
+document.body.addEventListener('mousemove', handleMouseMove, false);
+document.body.addEventListener('mouseup', handleMouseUp, false);
 
 </script>
 </html>

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Test</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+
+        <link href='https://fonts.googleapis.com/css?family=Fauna+One|Oleo+Script|Fugaz+One|Monda|Unica+One|Alegreya:400italic,400|Abril+Fatface|Vollkorn' rel='stylesheet' type='text/css'>
+
+        <link href='https://fonts.googleapis.com/css?family=Playfair+Display:400,700,900,400italic,700italic,900italic|Vast+Shadow|Oswald:300|Playfair+Display+SC' rel='stylesheet' type='text/css'>
+
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+
+
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="/css/layouts/side-menu.css">
+<!--<![endif]-->
+<link rel="stylesheet" href="/css/clay.css"/>
+<style type="text/css">
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+figcaption {
+	position: absolute;
+	top: 0;
+	left: -170px;
+	width: 150px;
+	font-style: italic;
+	text-align: right;
+	color: rgba(0,0,0,0.5);
+	font-family: serif;
+}
+figcaption:before {
+	width: 35%;
+	margin-left: 65%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-bottom: 5px;
+}
+figure {
+	position: relative;
+	clear: both;
+}
+td.empty {
+	height: 20px;
+	border-bottom: 1px dotted #cbcbcb;
+}
+td.error {
+	border-top: 1px solid #cbcbcb;
+}
+hr {
+	border-top: 1px solid #edece4;
+	border-bottom: 0;
+	border-left: 0;
+	border-right: 0;
+}
+section:after {
+	width: 16%;
+	margin-left: 38%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-top: 50px;
+	margin-bottom: 50px;
+}
+pre[class*='lang-javascript'] {
+	background-color: #2A2C39;
+}
+pre[class*='lang-javascript'] > code {
+	color: #E9E9EB;
+}
+pre[class*='lang-sexpr'] {
+	display: none;
+	background-color: #283593;
+}
+pre[class*='lang-sexpr'] > code {
+	color: #E9E9EB;
+}
+.result pre {
+	background-color: rgb(134, 192, 241);
+	color: #fff;
+}
+.show-debug pre[class*='lang-sexpr'] {
+	display: block;
+	background-color: #283593;
+}
+
+.error {
+	color: red;
+}
+textarea.hiddenTextArea {
+	width: 100%;
+	max-width: 800px;
+	font-family: 'Open Sans', 'Segoe UI', verdana, sans-serif;
+	height: 50px;
+	opacity: 0;
+	position: absolute;
+	left: -3000px;
+}
+#cursor {
+	pointer-events:none; /* so clicks get passed through - Tested: Chrome, firefox, IE11 */
+}
+
+.editorMenu {
+right: 50px;
+position: fixed;
+}
+
+.editorMenu ul {
+list-style: none;
+}
+
+[class^="menuicon-"], [class*=" menuicon-"] {
+	background-image: url("/css/fonts/editorIcons.png");
+	width: 48px;
+	height: 48px;
+	background-position: -98px -107px;
+	display:inline-block;
+}
+
+a:hover [class^="menuicon-"], [class*=" menuicon-"] {
+	background-position-y: -2px;
+}
+
+.menuicon-bold {
+	background-position-x: -2px;
+}
+.menuicon-un_bold {
+	background-position: -2px -54px;
+}
+.menuicon-italic {
+	background-position-x: -50px;
+}
+.menuicon-un_italic {
+	background-position: -50px -54px;
+}
+.menuicon-code {
+	background-position-x: -98px;
+}
+.menuicon-un_code {
+	background-position: -98px -54px;
+}
+.menuicon-h1 {
+	background-position-x: -146px;
+}
+.menuicon-un_h1 {
+	background-position: -146px -54px;
+}
+.menuicon-h2 {
+	background-position-x: -194px;
+}
+.menuicon-un_h2 {
+	background-position: -194px -54px;
+}
+.menuicon-h3 {
+	background-position-x: -242px;
+}
+.menuicon-un_h3 {
+	background-position: -242px -54px;
+}
+.menuicon-table {
+	background-position-x: -290px;
+}
+.menuicon-un_table {
+	background-position: -290px -54px;
+}
+/*#section1 {
+	background: url("Tulips.jpg") no-repeat center; 
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}*/
+
+pre > span {
+	font-size: 0.8em;
+	position: absolute;
+	right: 15px; 
+	color: #ddd;
+	display: none;
+}
+
+[contenteditable]:focus { outline: 0px solid transparent; }
+</style>
+
+</head>
+<body>
+<div id="section1"></div>
+<textarea id="editor"></textarea>
+<div class="content">
+	<div id="preview" class="editor"><section><h1 id="clay:0">WM FXRates
+</h1><p id="clay:1">Extract the WM Rates from the nozzle API.&nbsp;
+</p><pre class="lang-cube" id="pre-clay:2" spellcheck="false">WMDataCall = Data("http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp",{"query"="select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]"})
+</pre><pre class="lang-sexpr" id="sexpr-clay:2"><code class="lang-sexpr">(Set (Symbol WMFXRate WMDataCall) (Call (Symbol _data) (Cube) (String http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp) (Dict (Pair (String query) (String `select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]`)))))
+</code></pre><p id="clay3">Dice the data up into cubes, needed as the data is without structure at this point. Dice the data up into cubes, needed as the data is without structure at this point. Dice the data up into cubes, needed as the data is without structure at this point. 
+</p><pre class="lang-cube" id="pre-clay:8"><span>Row</span><code id="clay4" class="lang-cube">Row[] = range(Count(WMDataCall))&nbsp;
+</code><span>Row</span><code id="clay:5" class="lang-cube">WMRateData[Row] = WMDataCall
+</code><span>Row</span><code id="clay:6" class="lang-cube">WM Ccy = dot("Id", WMRateData)&nbsp;
+</code><span>Row</span><code id="clay:7" class="lang-cube">WM Dates = dot("Date", WMRateData)&nbsp;
+</code><span>Row</span><code id="clay:8" class="lang-cube">WM Data = dot("P", WMRateData)
+</code></pre><pre class="lang-sexpr" id="sexpr-clay:8"><code class="lang-sexpr">(Category (Symbol WMFXRate Row) (Call (Symbol range) (Call (Symbol Count) (Symbol WMDataCall))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate WMRateData) (Indexed (Symbol WMDataCall) (Index (Symbol Row))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `WM Ccy`) (Call (Symbol dot) (String Id) (Symbol WMRateData)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `WM Dates`) (Call (Symbol dot) (String Date) (Symbol WMRateData)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `WM Data`) (Call (Symbol dot) (String P) (Symbol WMRateData)))
+</code></pre><p id="clay:1a">Pull out any of the fields which will be needed as keys.
+</p><pre class="lang-cube" id="pre-clay:b"><span>Unique Currencies</span><code id="clay:a" class="lang-cube">Unique Currencies[] = Unique(WM Ccy[Row])
+</code><span>Unique Dates</span><code id="clay:b" class="lang-cube">Unique Dates[] = Unique(WM Dates[Row])
+</code></pre><pre class="lang-sexpr" id="sexpr-clay:b"><code class="lang-sexpr">(Category (Symbol WMFXRate `Unique Currencies`) (Call (Symbol Unique) (Over (Symbol `WM Ccy`) (Symbol Row))))
+</code><code class="lang-sexpr">(Category (Symbol WMFXRate `Unique Dates`) (Call (Symbol Unique) (Over (Symbol `WM Dates`) (Symbol Row))))
+</code></pre><p id="clay:d">Just filter down to the latest rates (the last data point is the latest date).
+</p><pre class="lang-cube" id="pre-clay:1t"><span>Unique Currencies</span><code id="clay:1w" class="lang-cube">Latest Rate = Last(WM Data[Row, WM Ccy == Unique Currencies])
+</code><span>Unique Currencies</span><code id="clay:1x" class="lang-cube">Previous Rate = Last(RemoveLast(WM Data[Row, WM Ccy == Unique Currencies]))&nbsp;
+</code><span>Code</span><code id="clay:15" class="lang-cube">FX Rates = Latest Rate[Unique Currencies=Code]
+</code><span>Forward Code</span><code id="clay:1b" class="lang-cube">Forward FX Rates = Latest Rate[Unique Currencies=ForwardCode]&nbsp;
+</code><span>Code</span><code id="clay:1y" class="lang-cube">Previous FX Rates = Previous Rate[Unique Currencies=Code]
+</code><span>Forward Code</span><code id="clay:1z" class="lang-cube">Previous Forward FX Rates = Previous Rate[Unique Currencies=ForwardCode]&nbsp;
+</code><code id="clay:1t" class="lang-cube">Check
+</code></pre><pre class="lang-sexpr" id="sexpr-clay:1t"><code class="lang-sexpr">(Set (Symbol WMFXRate `Latest Rate`) (Call (Symbol Last) (Over (Restrict (Equal (Symbol `WM Ccy`) (Symbol `Unique Currencies`)) (Symbol `WM Data`)) (Symbol Row))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous Rate`) (Call (Symbol Last) (Call (Symbol RemoveLast) (Over (Restrict (Equal (Symbol `WM Ccy`) (Symbol `Unique Currencies`)) (Symbol `WM Data`)) (Symbol Row)))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol Code)) (Symbol `Latest Rate`)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Forward FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol ForwardCode)) (Symbol `Latest Rate`)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol Code)) (Symbol `Previous Rate`)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous Forward FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol ForwardCode)) (Symbol `Previous Rate`)))
+</code><code class="lang-sexpr">(Symbol Check)
+</code></pre><div class="result" id="result-clay:1t"><table class="pure-table pure-table-horizontal"><thead><tr><th class="highlight">Stats</th><th>Check</th></tr></thead><tbody><tr><td class="highlight">Count of currencies</td><td>32</td></tr><tr><td class="highlight">Count of previous currencies</td><td>32</td></tr><tr><td class="highlight">Count of forward rates</td><td>32</td></tr><tr><td class="highlight">Count of previous forward rates</td><td>32</td></tr></tbody></table></div><h2 id="clay:18">Mapping tables&nbsp;
+</h2><p id="clay:19">WM code to standard ISO code
+</p><table id="clay:20" class="pure-table pure-table-bordered"><thead><tr id="clay:20.0"><th class="null">Code[]</th><th class="highlight">Ccy=</th></tr></thead><tbody><tr id="clay:20.1"><td class="null">AUSTDOL</td><td class="highlight">AUD</td></tr><tr id="clay:20.2"><td class="null">BRACRUZ</td><td class="highlight">BRL</td></tr><tr id="clay:20.3"><td class="null">CHILPES</td><td class="highlight">CLP</td></tr><tr id="clay:20.4"><td class="null">CISRUBM</td><td class="highlight">RUB</td></tr><tr id="clay:20.5"><td class="null">CNDOLLR</td><td class="highlight">CAD</td></tr><tr id="clay:20.6"><td class="null">COLUPES</td><td class="highlight">COP</td></tr><tr id="clay:20.7"><td class="null">COMRAND</td><td class="highlight">ZAR</td></tr><tr id="clay:20.8"><td class="null">CZECHCM</td><td class="highlight">CZK</td></tr><tr id="clay:20.9"><td class="null">DANISHK</td><td class="highlight">DKK</td></tr><tr id="clay:20.a"><td class="null">EGYPTNP</td><td class="highlight">EGP</td></tr><tr id="clay:20.b"><td class="null">EURSTER</td><td class="highlight">EUR</td></tr><tr id="clay:20.c"><td class="null">HKDOLLR</td><td class="highlight">HKD</td></tr><tr id="clay:20.d"><td class="null">HUNFORT</td><td class="highlight">HUF</td></tr><tr id="clay:20.e"><td class="null">INDORUP</td><td class="highlight">INR</td></tr><tr id="clay:20.f"><td class="null">INDRUPE</td><td class="highlight">IDR</td></tr><tr id="clay:20.g"><td class="null">ISRSHEK</td><td class="highlight">ILS</td></tr><tr id="clay:20.h"><td class="null">JAPAYEN</td><td class="highlight">JPY</td></tr><tr id="clay:20.i"><td class="null">KORSWON</td><td class="highlight">KRW</td></tr><tr id="clay:20.j"><td class="null">MALADLR</td><td class="highlight">MYR</td></tr><tr id="clay:20.k"><td class="null">MEXPESO</td><td class="highlight">MXN</td></tr><tr id="clay:20.l"><td class="null">MOROCDM</td><td class="highlight">MAD</td></tr><tr id="clay:20.m"><td class="null">NORKRON</td><td class="highlight">NOK</td></tr><tr id="clay:20.n"><td class="null">NZDOLLR</td><td class="highlight">NZD</td></tr><tr id="clay:20.o"><td class="null">PHILPES</td><td class="highlight">PHP</td></tr><tr id="clay:20.p"><td class="null">POLZLOT</td><td class="highlight">PLN</td></tr><tr id="clay:20.q"><td class="null">SINGDOL</td><td class="highlight">SGD</td></tr><tr id="clay:20.r"><td class="null">SWEKRON</td><td class="highlight">SOK</td></tr><tr id="clay:20.s"><td class="null">SWISSFR</td><td class="highlight">CHF</td></tr><tr id="clay:20.t"><td class="null">TAIWDOL</td><td class="highlight">TWD</td></tr><tr id="clay:20.u"><td class="null">THABAHT</td><td class="highlight">THB</td></tr><tr id="clay:20.v"><td class="null">TURKLIR</td><td class="highlight">TRY</td></tr><tr id="clay:20.w"><td class="null">USDOLLR</td><td class="highlight">USD</td></tr></tbody><tfoot></tfoot></table><p id="clay:21">WM code to USSIM custom code
+</p><table id="clay:12" class="pure-table pure-table-bordered"><thead><tr id="clay:12.0"><th class="null">ForwardCode[]</th><th class="highlight">FwdCcy=</th></tr></thead><tbody><tr id="clay:12.1"><td class="null">UKAUD1F</td><td class="highlight">AUD1M</td></tr><tr id="clay:12.2"><td class="null">UKBRL1F</td><td class="highlight">BRL1M</td></tr><tr id="clay:12.3"><td class="null">UKCAD1F</td><td class="highlight">CAD1M</td></tr><tr id="clay:12.4"><td class="null">UKCHF1F</td><td class="highlight">CHF1M</td></tr><tr id="clay:12.5"><td class="null">UKCLP1F</td><td class="highlight">CLP1M</td></tr><tr id="clay:12.6"><td class="null">UKCOP1F</td><td class="highlight">COP1M</td></tr><tr id="clay:12.7"><td class="null">UKCZK1F</td><td class="highlight">CZK1M</td></tr><tr id="clay:12.8"><td class="null">UKDKK1F</td><td class="highlight">DKK1M</td></tr><tr id="clay:12.9"><td class="null">UKEGP1F</td><td class="highlight">EGP1M</td></tr><tr id="clay:12.a"><td class="null">UKHKD1F</td><td class="highlight">HKD1M</td></tr><tr id="clay:12.b"><td class="null">UKHUF1F</td><td class="highlight">HUF1M</td></tr><tr id="clay:12.c"><td class="null">UKIDR1F</td><td class="highlight">IDR1M</td></tr><tr id="clay:12.d"><td class="null">UKILS1F</td><td class="highlight">ILS1M</td></tr><tr id="clay:12.e"><td class="null">UKINR1F</td><td class="highlight">INR1M</td></tr><tr id="clay:12.f"><td class="null">UKJPY1F</td><td class="highlight">JPY1M</td></tr><tr id="clay:12.g"><td class="null">UKKRW1F</td><td class="highlight">KRW1M</td></tr><tr id="clay:12.h"><td class="null">UKMAD1F</td><td class="highlight">MAD1M</td></tr><tr id="clay:12.i"><td class="null">UKMXN1F</td><td class="highlight">MAX1M</td></tr><tr id="clay:12.j"><td class="null">UKMYR1F</td><td class="highlight">MYR1M</td></tr><tr id="clay:12.k"><td class="null">UKNOK1F</td><td class="highlight">NOK1M</td></tr><tr id="clay:12.l"><td class="null">UKNZD1F</td><td class="highlight">NZD1M</td></tr><tr id="clay:12.m"><td class="null">UKPHP1F</td><td class="highlight">PHP1M</td></tr><tr id="clay:12.n"><td class="null">UKPLN1F</td><td class="highlight">PLN1M</td></tr><tr id="clay:12.o"><td class="null">UKRUB1F</td><td class="highlight">RUB1M</td></tr><tr id="clay:12.p"><td class="null">UKSEK1F</td><td class="highlight">SEK1M</td></tr><tr id="clay:12.q"><td class="null">UKSGD1F</td><td class="highlight">SGD1M</td></tr><tr id="clay:12.r"><td class="null">UKTHB1F</td><td class="highlight">THB1M</td></tr><tr id="clay:12.s"><td class="null">UKTRY1F</td><td class="highlight">TRY1M</td></tr><tr id="clay:12.t"><td class="null">UKTWD1F</td><td class="highlight">TWD1M</td></tr><tr id="clay:12.u"><td class="null">UKXEU1F</td><td class="highlight">EUR1M</td></tr><tr id="clay:12.v"><td class="null">UKZAR1F</td><td class="highlight">ZAR1M</td></tr><tr id="clay:12.w"><td class="null">USGBP1F</td><td class="highlight">USGBP1M</td></tr></tbody><tfoot></tfoot></table><h2 id="clay:1o">Checks
+</h2><table id="clay:22" class="pure-table pure-table-bordered"><thead><tr id="clay:22.0"><th class="highlight">Stats=</th><th class="null">Check[]</th></tr></thead><tbody><tr id="clay:22.1"><td class="highlight">Count of currencies</td><td class="null">= Count(FX Rates[FX Rates])</td></tr><tr id="clay:22.2"><td class="highlight">Count of previous currencies</td><td class="null">= Count(Previous FX Rates[Previous FX Rates])</td></tr><tr id="clay:22.3"><td class="highlight">Count of forward rates</td><td class="null">= Count(Forward FX Rates[Forward FX Rates])</td></tr><tr id="clay:22.4"><td class="highlight">Count of previous forward rates</td><td class="null">= Count(Previous Forward FX Rates[Previous Forward FX Rates])</td></tr></tbody><tfoot></tfoot></table></section></div>
+</div>
+<script>
+//document.caretRangeFromPoint(x,y)
+//TextRange.moveToPoint(x,y)
+
+/*
+function createSelectionFromPoint(startX, startY, endX, endY) {
+    var doc = document;
+    var start, end, range = null;
+    if (typeof doc.caretPositionFromPoint != "undefined") {
+        start = doc.caretPositionFromPoint(startX, startY);
+        end = doc.caretPositionFromPoint(endX, endY);
+        range = doc.createRange();
+        range.setStart(start.offsetNode, start.offset);
+        range.setEnd(end.offsetNode, end.offset);
+    } else if (typeof doc.caretRangeFromPoint != "undefined") {
+        start = dodocuc.caretRangeFromPoint(startX, startY);
+        end = doc.caretRangeFromPoint(endX, endY);
+        range = doc.createRange();
+        range.setStart(start.startContainer, start.startOffset);
+        range.setEnd(end.startContainer, end.startOffset);
+    }
+    if (range !== null && typeof window.getSelection != "undefined") {
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else if (typeof doc.body.createTextRange != "undefined") {
+        range = doc.body.createTextRange();
+        range.moveToPoint(startX, startY);
+        var endRange = range.duplicate();
+        endRange.moveToPoint(endX, endY);
+        range.setEndPoint("EndToEnd", endRange);
+        range.select();
+    }
+}
+*/
+//createSelectionFromPoint(100, 50, 300, 200);
+
+var editor = document.getElementById('editor');
+function focusEditor() {
+	editor.focus();
+}
+
+var keyNames = {3: "Enter", 8: "Backspace", 9: "Tab", 13: "Enter", 16: "Shift", 17: "Ctrl", 18: "Alt",
+    19: "Pause", 20: "CapsLock", 27: "Esc", 32: "Space", 33: "PageUp", 34: "PageDown", 35: "End",
+    36: "Home", 37: "Left", 38: "Up", 39: "Right", 40: "Down", 44: "PrintScrn", 45: "Insert",
+    46: "Delete", 59: ";", 61: "=", 91: "Mod", 92: "Mod", 93: "Mod", 107: "=", 109: "-", 127: "Delete",
+    173: "-", 186: ";", 187: "=", 188: ",", 189: "-", 190: ".", 191: "/", 192: "`", 219: "[", 220: "\\",
+    221: "]", 222: "'", 63232: "Up", 63233: "Down", 63234: "Left", 63235: "Right", 63272: "Delete",
+                  63273: "Home", 63275: "End", 63276: "PageUp", 63277: "PageDown", 63302: "Insert"};
+(function() {
+    // Number keys
+    for (var i = 0; i < 10; i++) keyNames[i + 48] = keyNames[i + 96] = String(i);
+    // Alphabetic keys
+    for (var i = 65; i <= 90; i++) keyNames[i] = String.fromCharCode(i);
+    // Function keys
+    for (var i = 1; i <= 12; i++) keyNames[i + 111] = keyNames[i + 63235] = "F" + i;
+  })();
+
+var keyName = function(event) {
+    var base = keyNames[event.keyCode], name = base;
+    if (name == null || event.altGraphKey) return false;
+    if (event.altKey && base != "Alt") name = "Alt-" + name;
+    if (event.ctrlKey && base != "Ctrl") name = "Ctrl-" + name;
+    if (event.metaKey && base != "Cmd") name = "Cmd-" + name;
+    if (event.shiftKey && base != "Shift") name = "Shift-" + name;
+    return name;
+};
+
+var actions = {
+	'Ctrl-C': true,
+	'Ctrl': true,
+	'Shift': true,
+	'Alt': true,
+	'Cmd': true,
+	'Shift-Left': true,
+	'Shift-Right': true,
+	'Shift-Up': moveV(-1, true),
+	'Shift-Down': moveV(1, true),
+	'Left': true,
+	'Right': true,
+	'Up': moveV(-1),
+	'Down': moveV(1),
+}
+
+
+var firstText = preview.firstChild.firstChild.firstChild;
+var focus = new Caret(firstText, 4, false);
+var anchor = focus;
+
+function moveV(dir, extend) {
+	return function(e) {
+		var focusRange = document.createRange();
+		focusRange.setStart(focus.node, focus.offset);
+		focusRange.setEnd(focus.node, focus.offset);
+		var rects = focusRange.getClientRects();
+		var rect = rects[0];
+		var target = null;
+		var x = focus.goalColumn = focus.goalColumn || rect.left;
+		var y = dir > 0? rect.bottom + 3 : rect.top - 3;
+		for (;;) {
+			target = coordsCaret(document, x, y);
+			if (!target.outside) break;
+			if (dir < 0 ? y <= 0 : y >= 100000) { //TODO: need document height
+				target.hitSide = true;
+				break;
+			}
+			y += dir * 5;
+		}
+		if (target) {
+			focus.node = target.node;
+			focus.offset = target.offset;
+			if (!extend) {
+				anchor.node = target.node;
+				anchor.offset = target.offset;
+			}
+		}
+		e.preventDefault();
+	}
+}
+
+function handleKeyDown(e) {
+	var name = keyName(e);
+	console.log(name);
+	//check for a special key combination and don't focus the editor
+	if (!actions[name])
+		focusEditor();
+	else if (typeof actions[name] === 'function') {
+		actions[name](e);
+	} else {
+		var sel = document.getSelection();
+		if (sel.rangeCount === 1) {
+			var range = sel.getRangeAt(0);
+			console.log(range);
+		}
+	}
+	//e.preventDefault();
+}
+document.body.addEventListener('keydown', handleKeyDown, false);
+/*
+var down = false;
+var last;
+function handleMouseDown(e) {
+	//console.log(e);
+	if (last) {
+		last.contentEditable = false;
+		last.spellcheck = false;
+	}
+
+	last = e.target;
+	last.contentEditable = true;
+
+	down = true;
+}
+
+function handleMouseMove(e) {
+	if (down) {
+		last.contentEditable = false;
+		last.spellcheck = false;
+	}
+}
+
+function handleMouseUp(e) {
+	down = false;
+}
+
+document.body.addEventListener('mousedown', handleMouseDown, false);
+document.body.addEventListener('mousemove', handleMouseMove, false);
+document.body.addEventListener('mouseup', handleMouseUp, false);
+*/
+
+function Caret(node, offset, outside) {
+	this.node = node;
+	this.offset = offset;
+	this.outside = !!outside;
+}
+
+function aboveOrInRect(rect, x, y) {
+	return y <= rect.bottom && x >= rect.left && x <= rect.right;
+}
+
+//TODO: this can do a better job by doing a standard
+//binary search and a wrong line adjustment
+// add or remove from the x position 
+function offsetFromPoint(textnode, x, y) {
+	var doc = textnode.ownerDocument;
+	var range = doc.createRange();
+	var len = textnode.length;
+	var totalWidth = 0;
+	var widthBelow = 0;
+	var rect;
+	var line;
+	range.selectNode(textnode);
+	var rects = range.getClientRects();
+	//assume right-left top to bottom;
+	for (var i = line = (rects.length - 1); i >= 0; i--) {
+	 	rect = rects[i];
+	 	totalWidth += rect.width;
+	 	if (rect.bottom >= y) { //y increases down the screen
+	 		line = i;
+	 		widthBelow = totalWidth;
+	 	}
+	};
+	rect = rects[line];
+	var fromLeft = Math.max(0, Math.min(rect.width, x - rect.left));
+	var bestGuess = Math.min(Math.floor(len * (totalWidth - widthBelow + fromLeft) / totalWidth) + 2, textnode.length);
+	range.setEnd(textnode, bestGuess);
+	rects = range.getClientRects();
+	var lastLeft = rect.width;
+	var prevLast = lastLeft;
+	while ((rects.length - 1 > line ||
+		(rects.length > line && rects[line].width > fromLeft)) && 
+		bestGuess > 0) {
+		bestGuess -= 1;
+		range.setEnd(textnode, bestGuess);
+		prevLast = lastLeft;
+		lastLeft = rects[line].width;
+		rects = range.getClientRects();
+	}
+	if (fromLeft - lastLeft > prevLast - fromLeft) {
+		bestGuess += 1;
+	}
+	return bestGuess;
+}
+
+function last(a) { return a[a.length - 1]; }
+
+//find best caretPosition within a given root node.
+// assume linear (full width) children for now
+// if we want to do non full width then they should
+// be marked and need to match on x also.
+
+//We should be able to give a guess to this and get
+// a much better performance.
+// or for instance make the guess use the average height
+// of all the elements to work out the approx middle.
+
+
+//TODO: need to check this works in a paragraph with multiple inline elements..
+function caretPositionFromPointR(node, x, y, offset) {
+	var rect;
+	var range = node.ownerDocument.createRange();
+	if (node.nodeType === 3) {
+		offset = offsetFromPoint(node, x, y);
+		rect = node.parentNode.getBoundingClientRect();
+		return new Caret(node, offset, y < rect.top || y > rect.bottom);
+	}
+	var len = node.childNodes.length;
+	if (len === 0)
+		return new Caret(node, offset || 0); //TODO: outside?
+	//binary search of child nodes (assume top to bottom, left to right layout of nodes.)
+	range.setStartBefore(node.firstChild);
+	var from = 0;
+	var to = len;
+	var dist = to - from;
+	var maybeAfter = false;
+	var maybeRect = null;
+	for (;;) {
+		if (to - from <= 1) {
+			//TODO: check maybeAfter
+			if (middle && middle === from) {
+				middle = to;
+			} else {
+				middle = middle || from;
+			}
+			return caretPositionFromPointR(
+				node.childNodes[middle], x, y, middle);
+		}
+		var step = Math.ceil(dist / 2);
+		var middle = from + step;
+		var middleNode = node.childNodes[middle];
+		range.setEndAfter(middleNode);
+		rect = last(range.getClientRects());
+		if (y <= rect.bottom && 
+			(maybeRect === null || rect.bottom <= maybeRect.top ||
+				rect.right >= maybeRect.right)) {
+			if (x > rect.right) {
+				maybeAfter = middle;
+				maybeRect = rect;
+			}
+			to = middle; dist = step;
+		} 
+		else {
+			from = middle; dist -= step;
+		}
+	}
+}
+
+function caretPositionFromPoint(doc, x, y, elem) {
+	elem = elem || doc.elementFromPoint(x, y);
+	var range = doc.createRange();
+	range.selectNodeContents(elem);
+
+	var node = elem.firstChild;
+	var offset;
+	var rect;
+
+	if (!node) {
+		node = elem.parentNode;
+		//offset in parent node
+		offset = 0;
+	} else {
+		while (node) {
+			range.setEndAfter(node);
+			rect = range.getBoundingClientRect();
+			if (aboveOrInRect(rect, x, y) || !node.nextSibling) {
+				if (node.nodeType === 3) {
+					offset = offsetFromPoint(node, x, y);
+					break;
+				} else if (node.firstChild) {
+					elem = node;
+					node = elem.firstChild;
+					range.selectNodeContents(elem);
+					offset = 0;
+				} else {
+					node = node.parentNode;
+					break;
+				}
+			} else {
+				offset += 1;
+				node = node.nextSibling;
+			}
+		}
+		if (!node) {
+			node = elem;
+			offset = elem.childNodes.length;
+		}
+	}
+	if (node.getBoundingClientRect)
+		rect = node.getBoundingClientRect();
+	else 
+		rect = node.parentNode.getBoundingClientRect();
+	return new Caret(node, offset, y < rect.top);
+}
+
+function coordsCaret(doc, x, y) {
+	return caretPositionFromPointR(preview, x, y);;
+    //return caretPositionFromPoint(document, x, y);;
+}
+
+function handleMouseMove(e) {
+	var x = e.clientX;
+	var y = e.clientY;
+	var caret = coordsCaret(document, x, y)
+}
+
+
+
+//preview.addEventListener('mousemove', handleMouseMove, false);
+/*
+function handleMouseDown(e) {
+	var selected = document.getSelection();
+	if (selected.rangeCount !== 1)
+		return;
+	var range = selected.getRangeAt(0);
+	console.log(range);
+}
+function handleMouseMove(e) {
+	var selected = document.getSelection();
+	if (selected.rangeCount !== 1)
+			return;
+	var range = selected.getRangeAt(0);
+	console.log(range);
+	e.preventDefault();
+}
+document.body.addEventListener('mousedown', handleMouseDown, false);
+document.body.addEventListener('mousedown', handleMouseMove, false);
+*/
+</script>
+</body>
+</html>
