@@ -205,10 +205,31 @@ pre > span {
 }
 
 [contenteditable]:focus { outline: 0px solid transparent; }
+#dot {
+	background-color: red;
+	height: 10px;
+	width: 10px;
+	position: absolute;
+	z-index: 100;
+}
+
+#cursor {
+	pointer-events:none; /* so clicks get passed through - Tested: Chrome, firefox, IE11 */
+}
+#cursor > span {
+	position: absolute;
+	background-color: red;
+	z-index: 1000;
+	margin-right: -1px;
+	width: 1px;
+}
 </style>
+
 
 </head>
 <body>
+<div id="dot">&nbsp;</div>
+<div id="cursor"></div>
 <div id="section1"></div>
 <textarea id="editor"></textarea>
 <div class="content">
@@ -216,7 +237,7 @@ pre > span {
 </h1><p id="clay:1">Extract the WM Rates from the nozzle API.&nbsp;
 </p><pre class="lang-cube" id="pre-clay:2" spellcheck="false">WMDataCall = Data("http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp",{"query"="select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]"})
 </pre><pre class="lang-sexpr" id="sexpr-clay:2"><code class="lang-sexpr">(Set (Symbol WMFXRate WMDataCall) (Call (Symbol _data) (Cube) (String http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp) (Dict (Pair (String query) (String `select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]`)))))
-</code></pre><p id="clay3">Dice the data up into cubes, needed as the data is without structure at this point. Dice the data up into cubes, needed as the data is without structure at this point. Dice the data up into cubes, needed as the data is without structure at this point. 
+</code></pre><p id="clay3">Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point</strong>. Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point</strong>. Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point.</strong>  
 </p><pre class="lang-cube" id="pre-clay:8"><span>Row</span><code id="clay4" class="lang-cube">Row[] = range(Count(WMDataCall))&nbsp;
 </code><span>Row</span><code id="clay:5" class="lang-cube">WMRateData[Row] = WMDataCall
 </code><span>Row</span><code id="clay:6" class="lang-cube">WM Ccy = dot("Id", WMRateData)&nbsp;
@@ -295,6 +316,8 @@ function focusEditor() {
 	editor.focus();
 }
 
+var cursor = document.getElementById('cursor');
+
 var keyNames = {3: "Enter", 8: "Backspace", 9: "Tab", 13: "Enter", 16: "Shift", 17: "Ctrl", 18: "Alt",
     19: "Pause", 20: "CapsLock", 27: "Esc", 32: "Space", 33: "PageUp", 34: "PageDown", 35: "End",
     36: "Home", 37: "Left", 38: "Up", 39: "Right", 40: "Down", 44: "PrintScrn", 45: "Insert",
@@ -342,34 +365,66 @@ var firstText = preview.firstChild.firstChild.firstChild;
 var focus = new Caret(firstText, 4, false);
 var anchor = focus;
 
+function renderCursor() {
+	var range = document.createRange();
+	var scrollTop = document.documentElement.scrollTop || 
+					document.body.scrollTop;
+    var scrollLeft = document.documentElement.scrollLeft || 
+     			     document.body.scrollLeft;
+	if (focus.node === anchor.node && focus.offset === anchor.offset) {
+		//render blinking caret
+		range.setStart(focus.node, 0);
+		range.setEnd(focus.node, focus.offset);
+		var rect = last(range.getClientRects());
+		/*var cs = {
+				top: (rect.top + scrollTop) + 'px',
+				left: (rect.right + scrollLeft - 1) + 'px',
+				height: rect.height + 'px',
+				display: 'block',
+			}*/
+
+		var style = 'top: ' + (rect.top + scrollTop) + 'px; ' +
+			'left: ' + (rect.right + scrollLeft - 1) + 'px; ' +
+			'height: ' + rect.height + 'px; ' + 'display: block;';
+		cursor.innerHTML = '<span style=\'' + style + '\'>&nbsp;</span>';
+	} else {
+		//render overlay divs
+	}
+}
+
+setTimeout(renderCursor, 100); //give 100ms to load the fonts
+
+function last(a) { return a[a.length - 1]; }
+
 function moveV(dir, extend) {
 	return function(e) {
+		console.time('moveV');
+		var bounds = preview.getBoundingClientRect();
 		var focusRange = document.createRange();
-		focusRange.setStart(focus.node, focus.offset);
+		focusRange.setStart(focus.node, 0);
 		focusRange.setEnd(focus.node, focus.offset);
-		var rects = focusRange.getClientRects();
-		var rect = rects[0];
+		var rect = last(focusRange.getClientRects());
 		var target = null;
-		var x = focus.goalColumn = focus.goalColumn || rect.left;
+		var x = focus.goalColumn = focus.goalColumn || rect.right;
 		var y = dir > 0? rect.bottom + 3 : rect.top - 3;
 		for (;;) {
-			target = coordsCaret(document, x, y);
+			target = coordsCaret(preview, x, y);
 			if (!target.outside) break;
-			if (dir < 0 ? y <= 0 : y >= 100000) { //TODO: need document height
-				target.hitSide = true;
+			if (dir < 0 ? y <= bounds.top : y >= bounds.bottom) {
+				target.hitSide = true; //TODO: adjust to start
 				break;
 			}
 			y += dir * 5;
 		}
-		if (target) {
-			focus.node = target.node;
-			focus.offset = target.offset;
-			if (!extend) {
-				anchor.node = target.node;
-				anchor.offset = target.offset;
-			}
+		focus.node = target.node;
+		focus.offset = target.offset;
+		if (!extend) {
+			anchor.node = target.node;
+			anchor.offset = target.offset;
 		}
+		renderCursor();
 		e.preventDefault();
+		console.timeEnd('moveV');
 	}
 }
 
@@ -391,44 +446,12 @@ function handleKeyDown(e) {
 	//e.preventDefault();
 }
 document.body.addEventListener('keydown', handleKeyDown, false);
-/*
-var down = false;
-var last;
-function handleMouseDown(e) {
-	//console.log(e);
-	if (last) {
-		last.contentEditable = false;
-		last.spellcheck = false;
-	}
-
-	last = e.target;
-	last.contentEditable = true;
-
-	down = true;
-}
-
-function handleMouseMove(e) {
-	if (down) {
-		last.contentEditable = false;
-		last.spellcheck = false;
-	}
-}
-
-function handleMouseUp(e) {
-	down = false;
-}
-
-document.body.addEventListener('mousedown', handleMouseDown, false);
-document.body.addEventListener('mousemove', handleMouseMove, false);
-document.body.addEventListener('mouseup', handleMouseUp, false);
-*/
 
 function Caret(node, offset, outside) {
 	this.node = node;
 	this.offset = offset;
-	this.outside = !!outside;
+	this.outside = outside;
 }
-
 function aboveOrInRect(rect, x, y) {
 	return y <= rect.bottom && x >= rect.left && x <= rect.right;
 }
@@ -477,125 +500,96 @@ function offsetFromPoint(textnode, x, y) {
 	return bestGuess;
 }
 
-function last(a) { return a[a.length - 1]; }
-
-//find best caretPosition within a given root node.
-// assume linear (full width) children for now
-// if we want to do non full width then they should
-// be marked and need to match on x also.
-
-//We should be able to give a guess to this and get
-// a much better performance.
-// or for instance make the guess use the average height
-// of all the elements to work out the approx middle.
-
-
-//TODO: need to check this works in a paragraph with multiple inline elements..
-function caretPositionFromPointR(node, x, y, offset) {
-	var rect;
-	var range = node.ownerDocument.createRange();
+function rectFor(node) {
 	if (node.nodeType === 3) {
-		offset = offsetFromPoint(node, x, y);
-		rect = node.parentNode.getBoundingClientRect();
-		return new Caret(node, offset, y < rect.top || y > rect.bottom);
-	}
-	var len = node.childNodes.length;
-	if (len === 0)
-		return new Caret(node, offset || 0); //TODO: outside?
-	//binary search of child nodes (assume top to bottom, left to right layout of nodes.)
-	range.setStartBefore(node.firstChild);
-	var from = 0;
-	var to = len;
-	var dist = to - from;
-	var maybeAfter = false;
-	var maybeRect = null;
-	for (;;) {
-		if (to - from <= 1) {
-			//TODO: check maybeAfter
-			if (middle && middle === from) {
-				middle = to;
-			} else {
-				middle = middle || from;
-			}
-			return caretPositionFromPointR(
-				node.childNodes[middle], x, y, middle);
-		}
-		var step = Math.ceil(dist / 2);
-		var middle = from + step;
-		var middleNode = node.childNodes[middle];
-		range.setEndAfter(middleNode);
-		rect = last(range.getClientRects());
-		if (y <= rect.bottom && 
-			(maybeRect === null || rect.bottom <= maybeRect.top ||
-				rect.right >= maybeRect.right)) {
-			if (x > rect.right) {
-				maybeAfter = middle;
-				maybeRect = rect;
-			}
-			to = middle; dist = step;
-		} 
-		else {
-			from = middle; dist -= step;
-		}
+		range.selectNodeContents(node);
+		return range.getBoundingClientRect();
+	} else if (node.nodeType === 1) {
+		return node.getBoundingClientRect();
 	}
 }
 
-function caretPositionFromPoint(doc, x, y, elem) {
-	elem = elem || doc.elementFromPoint(x, y);
-	var range = doc.createRange();
-	range.selectNodeContents(elem);
+function handleMouseDown(e) {
+	var x = e.clientX;
+	var y = e.clientY;
+	var scrollTop = document.body.scrollTop;
+    var scrollLeft = document.body.scrollLeft;
+	var rect = preview.getBoundingClientRect();
+	//if elem -- find offset of children of elem.
+    console.time('caretReliable');
+    var caret = coordsCaret(preview, x, y);
+    console.timeEnd('caretReliable');
+    console.log(caret);
+	if (caret) {
+		var textC = caret.node.textContent;
+		console.log(textC.slice(0,caret.offset));
+	}
+	dot.style.top = (y + scrollTop) + 'px';
+	dot.style.left = (x + scrollLeft) + 'px';
+}
+document.body.addEventListener('mousedown', handleMouseDown, false);
 
-	var node = elem.firstChild;
-	var offset;
-	var rect;
-
-	if (!node) {
-		node = elem.parentNode;
-		//offset in parent node
-		offset = 0;
-	} else {
-		while (node) {
-			range.setEndAfter(node);
+function coordsCaret(root, x, y) {
+	var bestRect = null;
+	var best = root.childNodes.length - 1;
+	var rect, node;
+	var outside = true;
+	var range = root.ownerDocument.createRange();
+	for (var i = best; i >= 0; i--) {
+		node = root.childNodes[i];
+		if (node.nodeType === 3) {
+			range.selectNodeContents(node);
 			rect = range.getBoundingClientRect();
-			if (aboveOrInRect(rect, x, y) || !node.nextSibling) {
-				if (node.nodeType === 3) {
-					offset = offsetFromPoint(node, x, y);
-					break;
-				} else if (node.firstChild) {
-					elem = node;
-					node = elem.firstChild;
-					range.selectNodeContents(elem);
-					offset = 0;
-				} else {
-					node = node.parentNode;
-					break;
-				}
-			} else {
-				offset += 1;
-				node = node.nextSibling;
-			}
+		} else if (node.nodeType === 1) {
+			rect = node.getBoundingClientRect();
 		}
-		if (!node) {
-			node = elem;
-			offset = elem.childNodes.length;
+		if (rect.bottom >= y) {
+			if (rect.left <= x && rect.right >= x && rect.top <= y) {
+				best = i;
+				bestRect = rect;
+				break;
+			}
+			if (rect.left <= x) {
+				if (bestRect === null || 
+					(rect.bottom <= bestRect.top) || //strictly dominated
+						(rect.right >= bestRect.right && 
+						(rect.top <= y || (rect.top < bestRect.bottom)))) {
+					bestRect = rect;
+					best = i;
+				}
+			} else { // rect is right of the node
+				if (bestRect === null || 
+					(rect.bottom <= bestRect.top) || //strictly dominated
+						(rect.left <= bestRect.left && 
+						(rect.top <= y || (rect.top < bestRect.bottom)))) {
+					bestRect = rect;
+					best = i;
+				}
+			}
+			
+		}
+	};
+	node = root.childNodes[best];
+	if (bestRect === null) {
+		if (node.nodeType === 3) {
+			range.selectNodeContents(node);
+			bestRect = range.getBoundingClientRect();
+		} else if (node.nodeType === 1) {
+			bestRect = node.getBoundingClientRect();
 		}
 	}
-	if (node.getBoundingClientRect)
-		rect = node.getBoundingClientRect();
-	else 
-		rect = node.parentNode.getBoundingClientRect();
-	return new Caret(node, offset, y < rect.top);
-}
-
-function coordsCaret(doc, x, y) {
-	return caretPositionFromPointR(preview, x, y);;
-    //return caretPositionFromPoint(document, x, y);;
+	var offset = 0;
+	if (node.childNodes.length > 0) return coordsCaret(node, x, y);
+	if (node.nodeType === 3 &&
+	   !(bestRect.top === 0 && bestRect.bottom === 0)) //hidden text
+		offset = offsetFromPoint(node, x, y);
+	return new Caret(node, offset, bestRect.bottom < y || bestRect.top > y)
 }
 
 function handleMouseMove(e) {
 	var x = e.clientX;
 	var y = e.clientY;
-	var caret = coordsCaret(document, x, y)
+	var caret = coordsCaret(preview, x, y)
 }
 
 
