@@ -86,9 +86,7 @@ Element.prototype.attributes = function(index, attributes) {
 	var endIndex = index + this.length();
 	var start = starts[index] = starts[index] || {};
 	var end = ends[endIndex] = ends[endIndex] || {};
-	var value = this.options || true;
-	start[this._attribute] = (this._attribute !== this.type ? 
-				{ _type: this.type, _value: value } : value);
+	start[this._attribute] = { _type: this.type, _value: this.options };
 	end[this._attribute] = true;
 	var offset = index;
 	var len = this.children.length;
@@ -102,20 +100,20 @@ Element.prototype.attributes = function(index, attributes) {
 };
 
 //first fragment in a document is main content.
-function Document(fragments, options) { this.children = fragments || []; this.options = options || {}; }
-function Fragment(sections, options) { this.children = sections || []; this.options = options || {}; }
-function Section(paragraphs, options) { this.children = paragraphs || []; this.options = options || {}; }
-function P(spans, options) { this.children = spans || []; this.options = options || {}; }
-function Header(spans, options) { this.children = spans || []; this.options = options || {}; }
-function Quote(spans, options) { this.children = spans || []; this.options = options || {}; }
-function Ulli(spans, options) { this.children = spans || []; this.options = options || {}; }
-function Olli(spans, opitons) { this.children = spans || []; this.options = options || {}; }
-function Code(spans, options) { this.children = spans || []; this.options = options || {}; }
-function Figure(spans, options) { this.children = spans || []; this.options = options || {}; }
-function Table(rows, options) { this.children = rows || []; this.options = options || {}; }
-function Row(cells, options) { this.children = cells || []; this.options = options || {}; }
-function Cell(spans, options) { this.children = spans || []; this.options = options || {}; }
-function Link(spans, options) { this.children = spans || []; this.options = options || {}; }
+function Document(fragments, options) { this.children = fragments || []; if (options) this.options = options }
+function Fragment(sections, options) { this.children = sections || []; if (options) this.options = options }
+function Section(paragraphs, options) { this.children = paragraphs || []; if (options) this.options = options }
+function P(spans, options) { this.children = spans || []; if (options) this.options = options }
+function Header(spans, options) { this.children = spans || []; if (options) this.options = options }
+function Quote(spans, options) { this.children = spans || []; if (options) this.options = options }
+function Ulli(spans, options) { this.children = spans || []; if (options) this.options = options }
+function Olli(spans, opitons) { this.children = spans || []; if (options) this.options = options }
+function Code(spans, options) { this.children = spans || []; if (options) this.options = options }
+function Figure(spans, options) { this.children = spans || []; if (options) this.options = options }
+function Table(rows, options) { this.children = rows || []; if (options) this.options = options }
+function Row(cells, options) { this.children = cells || []; if (options) this.options = options }
+function Cell(spans, options) { this.children = spans || []; if (options) this.options = options }
+function Link(spans, options) { this.children = spans || []; if (options) this.options = options }
 function Strong(spans) { this.children = spans || []; }
 function Em(spans) { this.children = spans || []; }
 function Sub(spans) { this.children = spans || []; }
@@ -181,22 +179,18 @@ function wrap(cs, starts, ends, elvl, at) {
 		if (start[at]) {
 			if (emph) chunks[last] = new klass(stack, emph);
 			emph = start[at];
-			if (emph._type) {
-				klass = Element._constructors[emph._type];
-				emph = emph._value;
-			} else {
-				klass = Element._constructors[at];
-			}
+			klass = Element._constructors[emph._type];
+			emph = emph._value;
 			stack = [];
 			last = i;
 		}
-		if (end[at] && emph) {
+		if (end[at] && stack) {
 			chunks[last] = new klass(stack, emph)
 			emph = false;
 			stack = null;
 			last = i;
 		}
-		if (emph && last < i && 
+		if (stack && last < i && 
 			(lvl(start) > elvl || lvl(end) > elvl)) {
 			chunks[last] = new klass(stack, emph);
 			last = i;
@@ -208,7 +202,7 @@ function wrap(cs, starts, ends, elvl, at) {
 			chunks[i] = v;
 		}
 	});
-	if (emph) chunks[last] = new klass(stack, emph);
+	if (stack) chunks[last] = new klass(stack, emph);
 	return chunks;
 }
 
@@ -241,6 +235,8 @@ function fromBase(str, start, end) { // -> document
 
 //Very very slow version (all the way to text and back)
 function insertText(doc, index, text) {
+	//TODO: insert never needs to do anything with the att...
+	// should just go to the bottom of the tree and zip back up.
 	var str = doc.textContent();
 	var att = doc.attributes();
 	var start = [];
@@ -262,36 +258,76 @@ function insertText(doc, index, text) {
 	var chunks = fromBase(str, start, end);
 	return chunks[0];
 }
-
+//TODO: first remove the attributes then delete text
+//if there are any between the delete text then it
+//is an error.
 function deleteText(doc, index, length) {
 	var str = doc.textContent();
 	var att = doc.attributes();
 	var start = [];
 	var end = [];
 	var len = length;
+	var endI = index + length;
 	str = str.slice(0, index) + str.slice(index + length);
-	//TODO: need to do some merging of stuff.
-	att.start.forEach(function(v, i) {
-		if (i > index)
-			start[i + len] = v;
-		else
-			start[i] = v;
-	});
+	var endCounts = {};
 	att.end.forEach(function(v, i) {
-		if (i >= index)
-			end[i + len] = v;
-		else
+		if (i <= index)
 			end[i] = v;
+		else if (i > endI)
+			end[i - len] = v;
+		else {
+			end[index] = end[index] || {}
+			for (var k in v) {
+				endCounts[k] = (endCounts[k] || 0) + 1;
+				end[index][k] = true;
+			}
+		}
+	});
+	att.start.forEach(function(v, i) {
+		if (i <= index)
+			start[i] = v;
+		else if (i > endI)
+			start[i - len] = v;
+		else {
+			start[index] = start[index] || {}
+			for (var k in v) {
+				if (endCounts[k] === UNDEFINED || (endCounts[k] -= 1) < 0)
+					start[index][k] = v[k];
+			}
+		}
 	});
 	var chunks = fromBase(str, start, end);
 	return chunks[0];
 }
-function setAttribute(document, startIndex, endIndex, attribute, value) {
-	return document;
+//DON'T LIKE THIS ATTRIBUTE CONCEPT... IT IS BROKEN BECAUSE IT DOESN'T STOP
+//  B ... B .. E .... E (except it would probably cause an error)
+
+//endIndex can come before start index
+function setAttribute(doc, startIndex, endIndex, attribute, value) {
+	var str = doc.textContent();
+	var att = doc.attributes();
+	var start = att.start;
+	var end = att.end;
+	if (!!start[startIndex][attribute] !== !!end[endIndex][attribute])
+		throw "Will result in missmatched endpoints";
+	if (!value._type) value = {_type: attribute, value: value};
+	start[startIndex][attribute] = value;
+	end[endIndex][attribute] = true;
+	var chunks = fromBase(str, start, end);
+	return chunks[0];
 }
 //just set with undefined
-function removeAttribute(document, startIndex, endIndex, attribute) {
-	return document;
+function removeAttribute(doc, startIndex, endIndex, attribute) {
+	var str = doc.textContent();
+	var att = doc.attributes();
+	var start = att.start;
+	var end = att.end;
+	if (!start[startIndex][attribute] || !end[endIndex][attribute])
+		throw "Missing attribute";
+	delete start[startIndex][attribute];
+	delete end[endIndex][attribute];
+	var chunks = fromBase(str, start, end);
+	return chunks[0];
 }
 
 //Example
@@ -310,3 +346,4 @@ var chunks = fromBase(str, att.start, att.end);
 
 var b = insertText(a, 15, "This is a paragraph that goes in the middle")
 var c = insertText(b, 10, "very very good ")
+JSON.stringify(deleteText(c,30,44))
