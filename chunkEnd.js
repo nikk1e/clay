@@ -27,13 +27,14 @@ var attributes = [];
 
 var UNDEFINED;
 
+/*
 function TextNode(text) { this.text = text; };
 TextNode.prototype.length = function() { return this.text.length; };
 TextNode.prototype.textContent = function() { return this.text; };
 TextNode.prototype.toJSON = function() { return this.text; };
 TextNode.prototype.attributes = function(index, attributes) { 
 	return attributes || { start: [], end: [] }; 
-};
+};*/
 
 //Treat elements as immutable so all methods can be memoized
 function Element(klass, options) {
@@ -55,7 +56,8 @@ Element.prototype.length = function() {
 			0;
 		//+length of all the children
 		for (var i = this.children.length - 1; i >= 0; i--) {
-			acc += this.children[i].length();
+			var child = this.children[i]
+			acc += (typeof child.length === 'number') ? child.length : child.length();
 		};
 		this._length = acc;
 	}
@@ -64,7 +66,7 @@ Element.prototype.length = function() {
 Element.prototype.textContent = function() {
 	if (this._textContent === UNDEFINED) {
 		this._textContent = this.children.map(function(c) {
-			return c.textContent();
+			return (typeof c === 'string'? c : c.textContent());
 		}).join(this._space);
 	}
 	return this._textContent;
@@ -93,8 +95,12 @@ Element.prototype.attributes = function(index, attributes) {
 	for (var i = 0; i < len; i++) {
 		var child = this.children[i];
 		//don't need to set attributes as it is modified in place
-		attributes = child.attributes(offset, attributes);
-		offset += child.length() + this._space.length;
+		if (typeof child === 'string') {
+			offset += child.length + this._space.length;
+		} else {
+			child.attributes(offset, attributes);
+			offset += child.length() + this._space.length;
+		}
 	};
 	return attributes;
 };
@@ -153,7 +159,7 @@ var ATTRIBUTES = {
 	sup: 1,
 	sub: 2,
 	em: 3,
-	strong: 4, 
+	strong: 4,
 	link: 5,
 	cell: 47,
 	row: 48,
@@ -163,6 +169,7 @@ var ATTRIBUTES = {
 	document: 100,
 };
 
+var LEVELS = ATTRIBUTES;
 //change attributes to ... {length: .., options: ...}
 
 function wrap(cs, starts, ends, elvl, at) {
@@ -220,7 +227,7 @@ function fromBase(str, start, end) { // -> document
 		if (i > last) {
 			chunk = str.slice(last, i);
 			if (chunk !== '\n' && chunk !== '\t')
-				chunks[last] = new TextNode(chunk);
+				chunks[last] = chunk;
 			else
 				chunks[last] = null;
 		}
@@ -308,6 +315,8 @@ function setAttribute(doc, startIndex, endIndex, attribute, value) {
 	var att = doc.attributes();
 	var start = att.start;
 	var end = att.end;
+	start[startIndex] = start[startIndex] || {};
+	end[endIndex] = end[endIndex] || {};
 	if (!!start[startIndex][attribute] !== !!end[endIndex][attribute])
 		throw "Will result in missmatched endpoints";
 	if (!value._type) value = {_type: attribute, value: value};
@@ -322,7 +331,7 @@ function removeAttribute(doc, startIndex, endIndex, attribute) {
 	var att = doc.attributes();
 	var start = att.start;
 	var end = att.end;
-	if (!start[startIndex][attribute] || !end[endIndex][attribute])
+	if (!(start[startIndex] || {})[attribute] || !(end[endIndex] ||{})[attribute])
 		throw "Missing attribute";
 	delete start[startIndex][attribute];
 	delete end[endIndex][attribute];
@@ -333,9 +342,9 @@ function removeAttribute(doc, startIndex, endIndex, attribute) {
 //Example
 var a = new Document([
 	new Fragment([new Section([
-		new P([new TextNode("This is a test")]), 
-		new P(), 
-		new P([new TextNode("This is another test")])
+		new P(["This is a test"]),
+		new P(),
+		new P(["This is another test"])
 		])
 	])
 ]);
@@ -346,4 +355,202 @@ var chunks = fromBase(str, att.start, att.end);
 
 var b = insertText(a, 15, "This is a paragraph that goes in the middle")
 var c = insertText(b, 10, "very very good ")
+var d = setAttribute(c, 0, 10, 'strong', true)
+var e = insertText(d, 10, "probably ")
 JSON.stringify(deleteText(c,30,44))
+
+
+//operation transform example
+// [5,"this", -4] // skip 5, insert "this", delete -4
+
+//IDEA
+// [{document: {...}, fragment: {..}, section: {...}, paragraph: {...}},"TEXT",
+//  {paragraph: false},"\n",{paragraph: {}}, {paragraph: false}, "\n", {paragraph: {}}, "Some more text", 
+// {paragraph: false, document: false, section: false, fragment: false}]
+
+// Cannot dissallow empty items (as you need to be able to hit bold and then type)
+//
+
+function Mark(attribute, value, type) {
+	this.attribute = attribute;
+	this.value = value;
+	if (type) this.type = type;
+}
+Mark.prototype.invert = function() {
+	return new Unmark(this.attribute, this.value, this.type);
+};
+
+function Unmark(attribute, value, type) {
+	this.attribute = attribute;
+	this.value = value;
+	if (type) this.type = type;
+}
+Unmark.prototype.invert = function() {
+	return new Mark(this.attribute, this.value, this.type);
+};
+
+function Insert(str) {
+	this.string = str;
+}
+Insert.prototype.invert = function() {
+	return new Skip(this.string);
+};
+
+function Skip(str) { //delete
+	this.string = str;
+}
+Skip.prototype.invert = function() {
+	return new Insert(this.string);
+};
+
+function Retain(n) {
+	this.n = n;
+}
+Retain.prototype.invert = function() {
+	return this;
+};
+
+function Operations(ops) {
+	this.ops = ops || [];
+}
+Operations.prototype.apply = function(doc) {
+	// body...
+};
+Operations.prototype.invert = function() {
+	return new Operations(this.ops.map(function(op) { return op.invert(); }));
+};
+
+
+
+
+
+////
+
+/*
+function Strong(spans) { this.children = spans; }
+function Em(spans) { this.children = spans; }
+function P(spans, options) { 
+	this.children = spans;
+	if (options) this.options = options; 
+}
+*/
+
+//var Constructors = {
+//	em: Em,
+//	strong: Strong,
+//	p: P,
+//};
+
+var Constructors = Element._constructors;
+
+function Mark(attribute, options, type) {
+	this.attribute = attribute;
+	this.options = options;
+	this.klass = Constructors[type || attribute]
+}
+function EndMark(attribute) {
+	this.attribute = attribute;
+}
+/*
+function UnMark(attributem options, type) {
+	this.attribute = attributes;
+	this.options = options;
+	this.type = type;
+}
+function UnEndMark(attribute) {
+	this.attribute = attribute;
+}*/
+function Retain(n) {
+	this.n = n;
+}
+
+var exA = [new Mark('paragraph',{}, 'p'), 
+	new Mark('em', true), 
+	"Some cool ", 
+	new Mark('strong', true), 
+	"Text", 
+	new EndMark('em'), 
+	" that needs emphasis", 
+	new EndMark('strong'), 
+	". Followed by text that is just text", 
+	new EndMark('paragraph'),
+];
+
+var exB = [new Mark('paragraph',{}, 'p'), 
+	new Mark('em', true), 
+	"Some cool ", 
+	new Mark('strong', true), 
+	"Text", 
+	new EndMark('strong'), 
+	" that needs emphasis", 
+	new EndMark('em'), 
+	". Followed by text that is just text", 
+	new EndMark('paragraph'),
+];
+
+
+function apply(doc, ops) {
+	var chunks = [];
+	var stack = [];
+	var yard = [];
+	var level = 10000; //sentinel level
+	var tl, n, op, nl;
+
+	for (var i = 0; i < ops.length; i++) {
+		op = ops[i];
+		if (op instanceof Mark) {
+			nl = LEVELS[op.attribute];
+			while (nl >= level) {
+				tl = stack.pop();
+				level = tl.level;
+				n = new tl.op.klass(chunks, tl.op.options);
+				chunks = tl.chunks;
+				chunks.push(n);
+				yard.push(tl);
+			}
+			stack.push({op: op, chunks: chunks, level: level});
+			chunks = [];
+			level = nl;
+			while(tl = yard.pop()) {
+				op = tl.op;
+				stack.push({op: op, chunks: chunks, level: level});
+				level = tl.level;
+				chunks = [];
+			}
+		} else if (op instanceof EndMark) {
+			tl = stack.pop();
+			while(tl.op.attribute !== op.attribute) {
+				n = new tl.op.klass(chunks, tl.op.options);
+				chunks = tl.chunks;
+				chunks.push(n);
+				yard.push(tl);
+				tl = stack.pop();
+			};
+			n = new tl.op.klass(chunks, tl.op.options);
+			chunks = tl.chunks
+			chunks.push(n);
+			level = tl.level;
+			while(tl = yard.pop()) {
+				op = tl.op;
+				stack.push({op: op, chunks: chunks, level: level});
+				level = tl.level;
+				chunks = [];
+			}
+		} else if (typeof op === 'string') {
+			//insert text
+			chunks.push(op);
+		}
+	}
+
+	while (tl = stack.pop()) {
+		n = new tl.op.klass(chunks, tl.op.options);
+		chunks = tl.chunks
+		chunks.push(n);
+	}
+
+	return chunks[0];
+}
+
+'\n' + 
+JSON.stringify(apply(null, exA)) + '\n' + 
+JSON.stringify(apply(null, exB)) + '\n';
