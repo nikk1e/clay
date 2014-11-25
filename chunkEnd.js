@@ -113,11 +113,9 @@ function Em(spans) { this.children = spans || []; this.init(); }
 function Sub(spans) { this.children = spans || []; this.init(); }
 function Sup(spans) { this.children = spans || []; this.init(); }
 
-function Result() {} //TODO: make a result object that takes up one character
-
-Document.prototype = new Element(Document, {space: '\n', type: 'document'})
-Fragment.prototype = new Element(Fragment, {space: '\n', type: 'fragment'});
-Section.prototype = new Element(Section, {space: '\n', type: 'section'});
+Document.prototype = new Element(Document, {type: 'document'});
+Fragment.prototype = new Element(Fragment, {type: 'fragment'});
+Section.prototype = new Element(Section, {type: 'section'});
 P.prototype = new Element(P, {type: 'p', attribute: 'paragraph'});
 Header.prototype = new Element(Header, {type: 'header', attribute: 'paragraph'});
 Quote.prototype = new Element(Quote, {type: 'quote',attribute: 'paragraph'});
@@ -125,19 +123,17 @@ Ulli.prototype = new Element(Ulli, {type: 'ulli', attribute: 'paragraph'});
 Olli.prototype = new Element(Olli, {type: 'olli', attribute: 'paragraph'});
 Figure.prototype = new Element(Figure, {type: 'figure', attribute: 'paragraph'});
 Code.prototype = new Element(Code, {type: 'code', attribute: 'paragraph'});
-Table.prototype = new Element(Table, {space: '\n', type: 'table', attribute: 'paragraph'});
-Row.prototype = new Element(Row, {space: '\t', type: 'row'});
+Table.prototype = new Element(Table, {type: 'table', attribute: 'paragraph'});
+Row.prototype = new Element(Row, {type: 'row'});
 Cell.prototype = new Element(Cell, {type: 'cell'});
 Link.prototype = new Element(Link, {type: 'link'});
 Strong.prototype = new Element(Strong, {type: 'strong'});
 Em.prototype = new Element(Em, {type: 'em'});
-//TODO: if these are mutually exculsive then we should make them one class with an option
-Sub.prototype = new Element(Sub, {type: 'sub'});
-Sup.prototype = new Element(Sup, {type: 'sup'}); //we don't allow sup sup
+Sub.prototype = new Element(Sub, {type: 'sub', attribute: 'supb'});
+Sup.prototype = new Element(Sup, {type: 'sup', attribute: 'supb'});
 
 var LEVELS = {
-	sup: 1,
-	sub: 2,
+	supb: 2,
 	em: 3,
 	strong: 4,
 	link: 5,
@@ -159,8 +155,9 @@ function Mark(attribute, options, type) {
 function EndMark(attribute) {
 	this.attribute = attribute;
 }
+//UnMark needs to go before where the mark is retained
 function UnMark(attribute, options, type) {
-	this.attribute = attributes;
+	this.attribute = attribute;
 	this.options = options;
 	this.type = type;
 }
@@ -170,8 +167,8 @@ function UnEndMark(attribute) {
 function Retain(n) {
 	this.n = n;
 }
-function Skip(n) {
-	this.n = n;
+function Skip(str) {
+	this.str = str;
 }
 
 function Operation() {}
@@ -190,8 +187,14 @@ function apply(doc, opsO) {
 	var level = 10000; //sentinel level
 	var op;
 	var cursor = -1;
+	var unMarks = {};
+	var unEndMarks = {};
 
 	function endMark(attribute) {
+		if (unEndMarks[attribute]) {
+			delete unEndMarks[attribute];
+			return;
+		}
 		var yard = [];
 		var n;
 		var tl = stack.pop();
@@ -215,6 +218,10 @@ function apply(doc, opsO) {
 	}
 
 	function mark(op) {
+		if (unMarks[op.attribute]) {
+			delete unMarks[op.attribute];
+			return;
+		}
 		var yard = [];
 		var n;
 		var nl = LEVELS[op.attribute];
@@ -245,14 +252,22 @@ function apply(doc, opsO) {
 			};
 			cursor += op.n;
 		} else if (op instanceof Skip) {
-			cursor += op.n;
+			cursor += op.str.length;
 		} else if (op instanceof Mark) {
 			mark(op);
+		} else if (op instanceof UnMark) {
+			unMarks[op.attribute] = op;
+		} else if (op instanceof UnEndMark) {
+			unEndMarks[op.attribute] = op;
 		} else if (op instanceof EndMark) {
 			endMark(op.attribute);
 		} else {
 			//insert text (or object)
-			chunks.push(op);
+			if (typeof op === 'string' && 
+				typeof chunks[chunks.length - 1] === 'string')
+				chunks[chunks.length - 1] += op;
+			else
+				chunks.push(op);
 		}
 	}
 
@@ -298,6 +313,23 @@ var exB = [new Retain(1),
 	new EndMark('em'), 
 	". Followed by text that is just text",
 	new Retain(exDoc.length + 1) //End
+];
+
+var exC = [new Retain(1+14),
+	new UnEndMark('paragraph'),
+	new UnMark('paragraph'),
+	new Retain(1),
+	new Mark('em', true), 
+	"Some cool ",
+	new UnMark('strong', true),
+	new Mark('strong', true),
+	"Text", 
+	new EndMark('em'),
+	" that needs emphasis",
+	new UnEndMark('strong'),
+	new EndMark('strong'),
+	". Followed by text that is just text",
+	new Retain(exDoc.length + 1 - 13) //End
 ];
 
 '\n' + 
