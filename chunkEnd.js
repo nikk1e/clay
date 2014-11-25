@@ -150,12 +150,27 @@ var Constructors = Element._constructors;
 function Mark(attribute, options, type) {
 	this.attribute = attribute;
 	this.options = options;
-	this.klass = Constructors[type || attribute]
+	this.type = type;
 }
 function EndMark(attribute) {
 	this.attribute = attribute;
 }
 //UnMark needs to go before where the mark is retained
+//So there is no way this can work for OT or undo/redo
+//because invert is not true.
+
+/* IDEA:
+	Can fix the location of UnMark problem by first
+	iterating through the operation and expanding
+	all the retains. We can then cancel out all the
+	unmarks and marks.
+
+	does this fix the OT problem?
+
+	Q: UnMark and UnEndMark must always match?
+	A: No, you might just do an UnMark/Mark to update something
+	   So |UnMark| + |EndMark| = |Mark| + |UnEndMark|
+*/
 function UnMark(attribute, options, type) {
 	this.attribute = attribute;
 	this.options = options;
@@ -166,19 +181,83 @@ function UnEndMark(attribute) {
 }
 function Retain(n) {
 	this.n = n;
+	this.inputLen = n;
 }
 function Skip(str) {
 	this.str = str;
+	this.inputLen = str.length;
+}
+function Insert(str) {
+	this.str;
 }
 
-function Operation() {}
+function Operation() {
+	this.inputLen = 0;
+}
+
 Mark.prototype = new Operation();
 EndMark.prototype = new Operation();
 UnMark.prototype = new Operation();
 UnEndMark.prototype = new Operation();
 Retain.prototype = new Operation();
 Skip.prototype = new Operation();
+Input.prototype = new Operation();
 
+Mark.prototype.invert = function() {
+	return new UnMark(this.attribute, this.options, this.type);
+};
+EndMark.prototype.invert = function() {
+	return new UnEndMark(this.attribute);
+};
+UnMark.prototype.invert = function() {
+	return new Mark(this.attribute, this.options, this.type);
+};
+UnEndMark.prototype.invert = function() {
+	return new EndMark(this.attribute);
+};
+Retain.prototype.invert = function() {
+	return this;
+};
+Skip.prototype.invert = function() {
+	return new Input(this.str);
+};
+Input.prototype.invert = function() {
+	return new Skip(this.str);
+};
+
+function Operations(ops) {
+	this.ops = ops;
+	this.inputLen = -2;
+	for (var i = this.ops.length - 1; i >= 0; i--) {
+		this.inputLen += this.ops[i].inputLen;
+	};
+}
+Operations.prototype.push = function(op) { 
+	this.inputLen += op.inputLen;
+	this.ops.push(op);
+};
+Operations.prototype.retain = function(n) { 
+	this.push(new Retain(n)); 
+};
+Operations.prototype.skip = function(str) { 
+	this.push(new Skip(str)); 
+};
+Operations.prototype.end = function(doc) {
+	if (doc.length > this.inputLen) 
+		this.retain(doc.length - this.inputLen); 
+};
+Operations.prototype.mark = function(attribute, options, type) { 
+	this.push(new Mark(attribute, options, type)); 
+};
+Operations.prototype.endmark = function(attribute) { 
+	this.push(new EndMark(attribute)); 
+};
+Operations.prototype.unmark = function(attribute, options, type) { 
+	this.push(new UnMark(attribute, options, type)); 
+};
+Operations.prototype.unendmark = function(attribute) { 
+	this.push(new UnEndMark(attribute)); 
+};
 
 function apply(doc, opsO) {
 	var ops = opsO.slice(0).reverse();
@@ -197,15 +276,18 @@ function apply(doc, opsO) {
 		}
 		var yard = [];
 		var n;
+		var klass;
 		var tl = stack.pop();
 		while(tl.op.attribute !== attribute) {
-			n = new tl.op.klass(chunks, tl.op.options);
+			klass = Constructors[tl.op.type || tl.op.attribute];
+			n = new klass(chunks, tl.op.options);
 			chunks = tl.chunks;
 			chunks.push(n);
 			yard.push(tl);
 			tl = stack.pop();
 		};
-		n = new tl.op.klass(chunks, tl.op.options);
+		klass = Constructors[tl.op.type || tl.op.attribute];
+		n = new klass(chunks, tl.op.options);
 		chunks = tl.chunks
 		chunks.push(n);
 		level = tl.level;
@@ -223,12 +305,13 @@ function apply(doc, opsO) {
 			return;
 		}
 		var yard = [];
-		var n;
+		var n, klass;
 		var nl = LEVELS[op.attribute];
 		while (nl >= level) {
 			tl = stack.pop();
 			level = tl.level;
-			n = new tl.op.klass(chunks, tl.op.options);
+			klass = Constructors[tl.op.type || tl.op.attribute];
+			n = new klass(chunks, tl.op.options);
 			chunks = tl.chunks;
 			chunks.push(n);
 			yard.push(tl);
@@ -261,8 +344,12 @@ function apply(doc, opsO) {
 			unEndMarks[op.attribute] = op;
 		} else if (op instanceof EndMark) {
 			endMark(op.attribute);
+		} else if (op instanceof Insert) {
+			if (typeof chunks[chunks.length - 1] === 'string')
+				chunks[chunks.length - 1] += op.str;
+			else
+				chunks.push(op.str);
 		} else {
-			//insert text (or object)
 			if (typeof op === 'string' && 
 				typeof chunks[chunks.length - 1] === 'string')
 				chunks[chunks.length - 1] += op;
@@ -271,13 +358,7 @@ function apply(doc, opsO) {
 		}
 	}
 
-	//TODO: this should be an error.
-	while (tl = stack.pop()) {
-		console.log(tl.op);
-		n = new tl.op.klass(chunks, tl.op.options);
-		chunks = tl.chunks
-		chunks.push(n);
-	}
+	if (stack.length > 0) throw "Non empty stack at end of apply";
 
 	return chunks[0];
 }
@@ -293,25 +374,25 @@ var exDoc = new Document([
 
 var exA = [new Retain(1+15),
 	new Mark('em', true), 
-	"Some cool ", 
+	new Insert("Some cool "), 
 	new Mark('strong', true), 
-	"Text", 
+	new Insert("Text"), 
 	new EndMark('em'),
-	" that needs emphasis", 
+	new Insert(" that needs emphasis"), 
 	new EndMark('strong'), 
-	". Followed by text that is just text",
+	new Insert(". Followed by text that is just text"),
 	new Retain(exDoc.length + 1 - 15) //End
 ];
 
 var exB = [new Retain(1),
 	new Mark('em', true), 
-	"Some cool ", 
+	new Insert("Some cool "), 
 	new Mark('strong', true),
-	"Text", 
+	new Insert("Text"), 
 	new EndMark('strong'), 
-	" that needs emphasis", 
+	new Insert(" that needs emphasis"), 
 	new EndMark('em'), 
-	". Followed by text that is just text",
+	new Insert(". Followed by text that is just text"),
 	new Retain(exDoc.length + 1) //End
 ];
 
@@ -320,15 +401,15 @@ var exC = [new Retain(1+14),
 	new UnMark('paragraph'),
 	new Retain(1),
 	new Mark('em', true), 
-	"Some cool ",
+	new Insert("Some cool "),
 	new UnMark('strong', true),
 	new Mark('strong', true),
-	"Text", 
+	new Insert("Text"), 
 	new EndMark('em'),
-	" that needs emphasis",
+	new Insert(" that needs emphasis"),
 	new UnEndMark('strong'),
 	new EndMark('strong'),
-	". Followed by text that is just text",
+	new Insert(". Followed by text that is just text"),
 	new Retain(exDoc.length + 1 - 13) //End
 ];
 
