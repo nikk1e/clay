@@ -173,6 +173,7 @@ function Skip(str) {
 }
 function Insert(str) {
 	this.str = str;
+	this.length = str.length;
 }
 
 function Operation() {
@@ -203,15 +204,15 @@ Retain.prototype.invert = function() {
 	return this;
 };
 Skip.prototype.invert = function() {
-	return new Input(this.str);
+	return new Insert(this.str);
 };
 Insert.prototype.invert = function() {
 	return new Skip(this.str);
 };
 
 function Operations(ops) {
-	this.ops = ops;
-	this.inputLen = -2;
+	this.ops = ops || [];
+	this.inputLen = 0;
 	for (var i = this.ops.length - 1; i >= 0; i--) {
 		this.inputLen += this.ops[i].inputLen;
 	};
@@ -222,25 +223,151 @@ Operations.prototype.push = function(op) {
 };
 Operations.prototype.retain = function(n) { 
 	this.push(new Retain(n)); 
+	return this;
 };
 Operations.prototype.skip = function(str) { 
 	this.push(new Skip(str)); 
+	return this;
 };
 Operations.prototype.end = function(doc) {
-	if (doc.length > this.inputLen) 
-		this.retain(doc.length - this.inputLen); 
+	if (doc.length >= this.inputLen) 
+		this.retain(doc.length - this.inputLen + 1); 
+	return this;
 };
 Operations.prototype.mark = function(attribute, options, type) { 
 	this.push(new Mark(attribute, options, type)); 
+	return this;
 };
 Operations.prototype.endmark = function(attribute) { 
 	this.push(new EndMark(attribute)); 
+	return this;
 };
 Operations.prototype.unmark = function(attribute, options, type) { 
 	this.push(new UnMark(attribute, options, type)); 
+	return this;
 };
 Operations.prototype.unendmark = function(attribute) { 
 	this.push(new UnEndMark(attribute)); 
+	return this;
+};
+Operations.prototype.insert = function(str) { 
+	this.push(new Insert(str)); 
+	return this;
+};
+Operations.prototype.invert = function() {
+	return new Operations(this.ops.map(function(op) {
+		return op.invert();
+	}));
+};
+Operations.prototype.apply = function(doc) {
+	return apply(doc, this.ops);
+};
+//left is if the data is from the client or server
+// server sends back ops that should come before the
+// op you sent so you can transform them
+// with your ops (and the opposite left to the server).
+Operations.prototype.transform = function(otherOps, left) {
+	var newOps = new Operations();
+
+	var ops = this.ops;
+
+	var ia = 0;
+	var io = 0;
+	var offset = 0; //used in take
+	var component;
+
+	function take(n, indivisableField) {
+		if (ia === ops.length)
+			return n === -1 ? null : new Retain(n);
+
+		var part;
+		var c = ops[ia];
+		if (c instanceof Retain) {
+			if (n === -1 || c.n - offset <= n) {
+				part = new Retain(c.n - offset);
+				++ia;
+				offset = 0;
+				return part;
+			} else {
+				offset += n;
+				return new Retain(n);
+			}
+		} else if (c instanceof Insert) {
+			 if (n === -1 || indivisableField === 'i' || c.length - offset <= n) {
+			 	part = new Insert(c.str.slice(offset));
+			 	++ia;
+			 	offset = 0;
+			 	return part;
+			 } else {
+			 	part = new Insert(c.str.slice(offset, offset + n));
+			 	offset += n;
+			 	return part;
+			 }
+		} else if (c instanceof Skip) {
+			if (n === -1 || indivisableField === 'd' || c.inputLen - offset <= n) {
+				part = new Skip(c.str.slice(offset, offset + n));
+				++ia;
+				offset = 0;
+				return part;
+        	} else {
+        		part = new Skip(c.str.slice(offset, offset + n));
+			 	offset += n;
+			 	return part;
+			}
+		} else {
+			offset = 0;
+			return c; //mark/endmark/unmark/unendmark
+		}
+	}
+
+	for (io = 0; io < otherOps.ops.length; io++) {
+		var opo = otherOps.ops[io];
+		var length, chunk;
+		if (opo instanceof Retain) {
+			length = opo.n;
+			while (length > 0) {
+				chunk = take(length, 'i'); // don't split insert
+				newOps.push(chunk); //append(chunk);
+				length -= chunk.inputLen;
+			}
+		} else if (opo instanceof Insert) {
+			if (left && ops[ia] instanceof Insert) {
+				newOps.push(take(-1)); //left insert goes first;
+			}
+			newOps.retain(opo.length); //skip the inserted text
+		} else if (opo instanceof Skip) {
+			length = opo.inputLen;
+			while (length > 0) {
+				chunk = take(length, 'i'); // don't split insert
+				if (chunk instanceof Retain) {
+					length -= chunk.n;
+				} else if (chunk instanceof Insert) {
+					newOps.push(chunk);
+				} else if (chunk instanceof Skip) {
+					length -= chunk.inputLen;
+				} else {
+					//mark/unmark/endmark/unendmark
+				}
+			}
+		} else {
+			//mark/unmark/endmark/unendmark
+		}
+	}
+
+	while ((component = take(-1)))
+		newOps.push(component);
+
+	return newOps;
+};
+Operations.prototype.compose = function(other) {
+	//TODO: implement
+};
+
+var shouldMerge = {
+	supb: true,
+	em: true,
+	strong: true,
+	link: true,
 };
 
 function apply(doc, opsO) {
@@ -365,7 +492,7 @@ function apply(doc, opsO) {
 			if (unMarks[op.attribute]) {
 				delete unMarks[op.attribute];
 				unMarks.length -= 1;
-			} else if (endMarks[op.attribute]) {
+			} else if (endMarks[op.attribute] && shouldMerge[op.attribute]) {
 				delete endMarks[op.attribute];
 			} else if (marks[op.attribute]) {
 				throw "Mark " + op.attribute + " already set."
@@ -394,7 +521,7 @@ function apply(doc, opsO) {
 			if (unEndMarks[op.attribute]) {
 				delete unEndMarks[op.attribute];
 				unEndMarks.length -= 1;
-			} else if (marks[op.attribute]) {
+			} else if (marks[op.attribute] && shouldMerge[op.attribute]) {
 				delete marks[op.attribute];
 			} else if (endMarks[op.attribute]) {
 				throw "EndMark " + op.attribute + " already set."
@@ -438,7 +565,7 @@ var exDoc = new Document([
 	])
 ]);
 
-var exA = [new Retain(1+15),
+var exA = new Operations([new Retain(1+15),
 	new Mark('em', true), 
 	new Insert("Some cool "), 
 	new Mark('strong', true), 
@@ -447,10 +574,9 @@ var exA = [new Retain(1+15),
 	new Insert(" that needs emphasis"), 
 	new EndMark('strong'), 
 	new Insert(". Followed by text that is just text"),
-	new Retain(exDoc.length + 1 - 15) //End
-];
+]).end(exDoc);
 
-var exB = [new Retain(1),
+var exB = new Operations([new Retain(1),
 	new Mark('em', true), 
 	new Insert("Some cool "), 
 	new Mark('strong', true),
@@ -458,13 +584,12 @@ var exB = [new Retain(1),
 	new EndMark('strong'), 
 	new Insert(" that needs emphasis"), 
 	new EndMark('em'), 
-	new Insert(". Followed by text that is just text"),
-	new Retain(exDoc.length + 1) //End
-];
+	new Insert(". Followed by text that is just text")
+]).end(exDoc);
 
-var exC = [new Retain(1+14),
+var exC = new Operations([new Retain(1+14),
 	new UnEndMark('paragraph'),
-	new UnMark('paragraph'),
+	new UnMark('paragraph',undefined,'p'),
 	new Skip('\n'), //remove the 
 	new Mark('em', true), 
 	new Insert("Some cool "),
@@ -476,10 +601,40 @@ var exC = [new Retain(1+14),
 	new UnEndMark('strong'),
 	new EndMark('strong'),
 	new Insert(". Followed by text that is just text"),
-	new Retain(exDoc.length + 1 - 13) //End
-];
+	//new Retain(exDoc.length + 1 - 13) //End
+	new Retain(5),
+	new Retain(5),
+	new Retain(5),
+	new Retain(5),
+	new Retain(5),
+]);
 
 '\n' + 
-JSON.stringify(apply(exDoc, exA)) + '\n' + 
-JSON.stringify(apply(exDoc, exB)) + '\n' + 
-JSON.stringify(apply(exDoc, exC)) + '\n';
+JSON.stringify(exA.apply(exDoc)) + '\n' + 
+JSON.stringify(exB.apply(exDoc)) + '\n' + 
+JSON.stringify(exC.apply(exDoc)) + '\n';
+
+JSON.stringify(exC.invert().apply(exC.apply(exDoc))) === JSON.stringify(exDoc)
+
+
+var tDoc = new Document(["This is a test string."]);
+
+
+//Test Insert
+var tA = new Operations().retain(10).insert('very very good ').end(tDoc);
+var tB = new Operations().retain(10).insert('absolutely awesome ').end(tDoc);
+
+var tAprime = tA.transform(tB);
+var tBprime = tB.transform(tA, true);
+
+tBprime.apply(tA.apply(tDoc)).textContent() === tAprime.apply(tB.apply(tDoc)).textContent();
+
+
+//Test Skip
+var tA = new Operations().retain(5).skip('is a test ').end(tDoc);
+var tB = new Operations().retain(10).skip('test ').end(tDoc);
+
+var tAprime = tA.transform(tB);
+var tBprime = tB.transform(tA, true);
+
+tBprime.apply(tA.apply(tDoc)).textContent() === tAprime.apply(tB.apply(tDoc)).textContent()
