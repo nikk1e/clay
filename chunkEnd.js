@@ -56,11 +56,11 @@ Element.prototype.toJSON = function() {
 };
 Element.prototype.operationsForRange = function(start, end, ops) {
 	ops = ops || [];
-	if (start < 0) {
+	if (start <= 0) {
 		if (end > this.length) {
 			ops.push(this); 
 			return ops; //range covers whole element
-		} else {
+		} else if (end > 0) {
 			//push down
 			ops.push(new Mark(this._attribute, this.options, this.type))
 		}
@@ -72,7 +72,7 @@ Element.prototype.operationsForRange = function(start, end, ops) {
 		if (len < 0) break;
 		//skip elements before start
 		if (cursor + child.length >= start) {
-			if (cursor > start && child.length < len) {
+			if (cursor >= start && child.length < len) {
 				ops.push(child);
 			} else if (typeof child === 'string') {
 				if (end > cursor) {
@@ -155,22 +155,6 @@ function Mark(attribute, options, type) {
 function EndMark(attribute) {
 	this.attribute = attribute;
 }
-//UnMark needs to go before where the mark is retained
-//So there is no way this can work for OT or undo/redo
-//because invert is not true.
-
-/* IDEA:
-	Can fix the location of UnMark problem by first
-	iterating through the operation and expanding
-	all the retains. We can then cancel out all the
-	unmarks and marks.
-
-	does this fix the OT problem?
-
-	Q: UnMark and UnEndMark must always match?
-	A: No, you might just do an UnMark/Mark to update something
-	   So |UnMark| + |EndMark| = |Mark| + |UnEndMark|
-*/
 function UnMark(attribute, options, type) {
 	this.attribute = attribute;
 	this.options = options;
@@ -188,7 +172,7 @@ function Skip(str) {
 	this.inputLen = str.length;
 }
 function Insert(str) {
-	this.str;
+	this.str = str;
 }
 
 function Operation() {
@@ -201,7 +185,7 @@ UnMark.prototype = new Operation();
 UnEndMark.prototype = new Operation();
 Retain.prototype = new Operation();
 Skip.prototype = new Operation();
-Input.prototype = new Operation();
+Insert.prototype = new Operation();
 
 Mark.prototype.invert = function() {
 	return new UnMark(this.attribute, this.options, this.type);
@@ -221,7 +205,7 @@ Retain.prototype.invert = function() {
 Skip.prototype.invert = function() {
 	return new Input(this.str);
 };
-Input.prototype.invert = function() {
+Insert.prototype.invert = function() {
 	return new Skip(this.str);
 };
 
@@ -260,20 +244,20 @@ Operations.prototype.unendmark = function(attribute) {
 };
 
 function apply(doc, opsO) {
-	var ops = opsO.slice(0).reverse();
+	var ops = [];
 	var chunks = [];
 	var stack = [];
 	var level = 10000; //sentinel level
 	var op;
-	var cursor = -1;
+	var cursor = 0;
 	var unMarks = {};
 	var unEndMarks = {};
+	unMarks.length = 0;
+	unEndMarks.length = 0;
+	var marks = {};
+	var endMarks = {};
 
 	function endMark(attribute) {
-		if (unEndMarks[attribute]) {
-			delete unEndMarks[attribute];
-			return;
-		}
 		var yard = [];
 		var n;
 		var klass;
@@ -300,20 +284,21 @@ function apply(doc, opsO) {
 	}
 
 	function mark(op) {
-		if (unMarks[op.attribute]) {
-			delete unMarks[op.attribute];
-			return;
-		}
 		var yard = [];
 		var n, klass;
 		var nl = LEVELS[op.attribute];
 		while (nl >= level) {
 			tl = stack.pop();
 			level = tl.level;
-			klass = Constructors[tl.op.type || tl.op.attribute];
-			n = new klass(chunks, tl.op.options);
-			chunks = tl.chunks;
-			chunks.push(n);
+			if (chunks.length > 0) {
+				klass = Constructors[tl.op.type || tl.op.attribute];
+				n = new klass(chunks, tl.op.options);
+				chunks = tl.chunks;
+				chunks.push(n);
+			} else {
+				chunks = tl.chunks;
+			}
+			
 			yard.push(tl);
 		}
 		stack.push({op: op, chunks: chunks, level: level});
@@ -327,36 +312,117 @@ function apply(doc, opsO) {
 		}
 	}
 
-	while ((op = ops.pop()) !== UNDEFINED) {
+	function processMarks() {
+		if (unMarks.length > 0)
+			throw "UnMark with no matching mark";
+		if (unEndMarks.length > 0)
+			throw "UnEndMark with no matching endMark";
+		//do endMarks
+		for (var attribute in endMarks) {
+			if (endMarks.hasOwnProperty(attribute)) {
+				endMark(attribute);
+			}
+		}
+		endMarks = {};
+		//do marks
+		for (var attribute in marks) {
+			if (marks.hasOwnProperty(attribute)) {
+				mark(marks[attribute]);
+			}
+		}
+		marks = {};
+	}
+
+	//expand all the retains.
+	for (var i = 0; i < opsO.length; i++) {
+		op = opsO[i];
 		if (op instanceof Retain) {
 			var nops = doc.operationsForRange(cursor, cursor + op.n);
-			for (var i = nops.length - 1; i >= 0; i--) {
-				ops.push(nops[i]);
+			for (var j = 0; j < nops.length; j++) {
+				ops.push(nops[j]);
 			};
 			cursor += op.n;
 		} else if (op instanceof Skip) {
+			//all the Mark and EndMarks need to net off.
+			var nops = doc.operationsForRange(cursor, cursor + op.str.length);
+			for (var j = 0; j < nops.length; j++) {
+				if (nops[j] instanceof Mark || nops[j] instanceof EndMark)
+					ops.push(nops[j]);
+			};
 			cursor += op.str.length;
-		} else if (op instanceof Mark) {
-			mark(op);
-		} else if (op instanceof UnMark) {
-			unMarks[op.attribute] = op;
-		} else if (op instanceof UnEndMark) {
-			unEndMarks[op.attribute] = op;
-		} else if (op instanceof EndMark) {
-			endMark(op.attribute);
-		} else if (op instanceof Insert) {
-			if (typeof chunks[chunks.length - 1] === 'string')
-				chunks[chunks.length - 1] += op.str;
-			else
-				chunks.push(op.str);
 		} else {
-			if (typeof op === 'string' && 
-				typeof chunks[chunks.length - 1] === 'string')
-				chunks[chunks.length - 1] += op;
-			else
-				chunks.push(op);
+			ops.push(op);
 		}
-	}
+	};
+
+	for (var i = 0; i < ops.length; i++) {
+		op = ops[i];
+		//keep track of all the marks and unmarks
+		// but only actually process them when we move
+		// the cursor on. That we we can cancel them out
+		// when they match off.
+		if (op instanceof Mark) {
+			if (unMarks[op.attribute]) {
+				delete unMarks[op.attribute];
+				unMarks.length -= 1;
+			} else if (endMarks[op.attribute]) {
+				delete endMarks[op.attribute];
+			} else if (marks[op.attribute]) {
+				throw "Mark " + op.attribute + " already set."
+			} else {
+				marks[op.attribute] = op;
+			}
+		} else if (op instanceof UnMark) {
+			if (marks[op.attribute]) {
+				delete marks[op.attribute];
+			} else if (unMarks[op.attribute]) {
+				throw "UnMark " + op.attribute + " already set.";
+			} else {
+				unMarks[op.attribute] = op;
+				unMarks.length += 1;
+			}
+		} else if (op instanceof UnEndMark) {
+			if (endMarks[op.attribute]) {
+				delete endMarks[op.attribute];
+			} else if (unEndMarks[op.attribute]) {
+				throw "UnEndMark " + op.attribute + " already set.";
+			} else {
+				unEndMarks[op.attribute] = op;
+				unEndMarks.length += 1;
+			}
+		} else if (op instanceof EndMark) {
+			if (unEndMarks[op.attribute]) {
+				delete unEndMarks[op.attribute];
+				unEndMarks.length -= 1;
+			} else if (marks[op.attribute]) {
+				delete marks[op.attribute];
+			} else if (endMarks[op.attribute]) {
+				throw "EndMark " + op.attribute + " already set."
+			} else {
+				endMarks[op.attribute] = op;
+			}
+		} else {
+			processMarks();
+			if (op instanceof Insert) {
+				if (typeof chunks[chunks.length - 1] === 'string' &&
+					!(chunks.length === 1 && 
+						(chunks[0] === '\n' || chunks[0] === '\t')))
+					chunks[chunks.length - 1] += op.str;
+				else
+					chunks.push(op.str);
+			} else {
+				if (typeof op === 'string' && 
+					typeof chunks[chunks.length - 1] === 'string' &&
+					!(chunks.length === 1 && 
+						(chunks[0] === '\n' || chunks[0] === '\t')))
+					chunks[chunks.length - 1] += op;
+				else
+					chunks.push(op);
+			}
+		}
+	};
+
+	processMarks();
 
 	if (stack.length > 0) throw "Non empty stack at end of apply";
 
@@ -365,9 +431,9 @@ function apply(doc, opsO) {
 
 var exDoc = new Document([
 	new Fragment([new Section([
-		new P(["This is a test"]),"\n",
-		new P(),"\n",
-		new P(["This is another test"]),
+		new P(["\n","This is a test"]),
+		new P(["\n"]),
+		new P(["\n","This is another test"]),
 		])
 	])
 ]);
@@ -399,12 +465,12 @@ var exB = [new Retain(1),
 var exC = [new Retain(1+14),
 	new UnEndMark('paragraph'),
 	new UnMark('paragraph'),
-	new Retain(1),
+	new Skip('\n'), //remove the 
 	new Mark('em', true), 
 	new Insert("Some cool "),
 	new UnMark('strong', true),
 	new Mark('strong', true),
-	new Insert("Text"), 
+	new Insert("Text"),
 	new EndMark('em'),
 	new Insert(" that needs emphasis"),
 	new UnEndMark('strong'),
@@ -415,4 +481,5 @@ var exC = [new Retain(1+14),
 
 '\n' + 
 JSON.stringify(apply(exDoc, exA)) + '\n' + 
-JSON.stringify(apply(exDoc, exB)) + '\n';
+JSON.stringify(apply(exDoc, exB)) + '\n' + 
+JSON.stringify(apply(exDoc, exC)) + '\n';
