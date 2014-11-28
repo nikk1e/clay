@@ -316,10 +316,15 @@ Operations.prototype.transform = function(otherOps, left) {
 			}
 		} else {
 			offset = 0;
+			++ia;
 			return c; //mark/endmark/unmark/unendmark
 		}
 	}
 
+	var marks = {};
+	var endMarks = {};
+	var unMarks = {};
+	var x;
 	for (io = 0; io < otherOps.ops.length; io++) {
 		var opo = otherOps.ops[io];
 		var length, chunk;
@@ -327,7 +332,51 @@ Operations.prototype.transform = function(otherOps, left) {
 			length = opo.n;
 			while (length > 0) {
 				chunk = take(length, 'i'); // don't split insert
-				newOps.push(chunk); //append(chunk);
+				if (chunk instanceof Mark) {
+					if (endMarks[chunk.attribute]) {
+						newOps.push(chunk);
+						delete endMarks[chunk.attribute];
+					} else if ((x = marks[chunk.attribute])) {
+						if ((x.options !== chunk.options || //TODO: object compare
+							x.type !== chunk.type) && !left) {
+							//Different and "~left" so they came first
+							//meaning we need to end them
+							//and put us in their place
+							newOps.endmark(chunk.attribute);
+							endMarks[chunk.attribute] = x;
+							delete marks[chunk.attribute];
+						} else {
+							//same or "left" so we came first
+							unMarks[chunk.attribute] = chunk;
+						}
+					} else {
+						marks[chunk.attribute] = chunk;
+						newOps.push(chunk);
+					}
+				} else if (chunk instanceof EndMark) {
+					if (endMarks[chunk.attribute]) {
+						delete endMarks[chunk.attribute];
+					} else if (marks[chunk.attribute]) {
+						newOps.push(chunk);
+						delete marks[chunk.attribute];
+					} else {
+						newOps.push(chunk);
+						endMarks[chunk.attribute] = true;
+					}
+					//NOTE: this is relying on cancelling
+					//but is correct.
+					if (unMarks[chunk.attribute]) {
+						//put the other item back
+						newOps.push(unMarks[chunk.attribute]);
+						delete unMarks[chunk.attribute];
+					}
+				} else if (chunk instanceof UnMark) {
+					newOps.push(chunk); //TODO
+				} else if (chunk instanceof UnEndMark) {
+					newOps.push(chunk); //TODO
+				} else {
+					newOps.push(chunk); //append(chunk);
+				}
 				length -= chunk.inputLen;
 			}
 		} else if (opo instanceof Insert) {
@@ -345,12 +394,66 @@ Operations.prototype.transform = function(otherOps, left) {
 					newOps.push(chunk);
 				} else if (chunk instanceof Skip) {
 					length -= chunk.inputLen;
-				} else {
-					//mark/unmark/endmark/unendmark
+				} else if (chunk instanceof Mark) {
+					if (endMarks[chunk.attribute]) {
+						newOps.push(chunk);
+						delete endMarks[chunk.attribute];
+					} else {
+						marks[chunk.attribute] = chunk;
+						newOps.push(chunk);
+					}
+				} else if (chunk instanceof EndMark) {
+					if (endMarks[chunk.attribute]) {
+						delete endMarks[chunk.attribute];
+					} else if (marks[chunk.attribute]) {
+						newOps.push(chunk);
+						delete marks[chunk.attribute];
+					} else {
+						newOps.push(chunk);
+						endMarks[chunk.attribute] = chunk;
+					}
+					if (unMarks[chunk.attribute]) {
+						//put the other item back
+						newOps.push(unMarks[chunk.attribute]);
+						delete unMarks[chunk.attribute];
+					}
+				} else if (chunk instanceof UnMark) {
+					newOps.push(chunk); //TODO:
+				} else if (chunk instanceof UnEndMark) {
+					newOps.push(chunk); //TODO:
 				}
 			}
-		} else {
-			//mark/unmark/endmark/unendmark
+		} else if (opo instanceof Mark) {
+			//TODO: this doesn't cover 
+			// anywhere near all the orderings
+			if ((x = marks[opo.attribute])) {
+				if ((x.options !== opo.options || //TODO: object compare
+					x.type !== opo.type) && left) {
+					//Different and "left" so we came first
+					//meaning we need to end ourselves
+					//so the other stays in place
+					newOps.endmark(opo.attribute);
+					endMarks[opo.attribute] = x;
+					delete marks[opo.attribute];
+				} else {
+					//same or "~left" so they came first
+					//so we need to remove their mark
+					//so our mark continues
+					newOps.unmark(opo.attribute, opo.options, opo.type);
+					unMarks[opo.attribute] = opo;
+				}
+			} else {
+				marks[opo.attribute] = opo;
+			}
+		} else if (opo instanceof EndMark) {
+			if (unMarks[opo.attribute]) {
+				newOps.unendmark(opo.attribute);
+				delete unMarks[opo.attribute];
+			}
+		} else if (opo instanceof UnMark) {
+			//TODO
+		} else if (opo instanceof UnEndMark) {
+			//TODO
 		}
 	}
 
@@ -488,6 +591,8 @@ function apply(doc, opsO) {
 		// but only actually process them when we move
 		// the cursor on. That we we can cancel them out
 		// when they match off.
+		// TODO: this doesn't really work for 
+		// unMark then mark...
 		if (op instanceof Mark) {
 			if (unMarks[op.attribute]) {
 				delete unMarks[op.attribute];
@@ -627,14 +732,76 @@ var tB = new Operations().retain(10).insert('absolutely awesome ').end(tDoc);
 var tAprime = tA.transform(tB);
 var tBprime = tB.transform(tA, true);
 
-tBprime.apply(tA.apply(tDoc)).textContent() === tAprime.apply(tB.apply(tDoc)).textContent();
-
+console.log(tBprime.apply(tA.apply(tDoc)).textContent() === 
+	tAprime.apply(tB.apply(tDoc)).textContent())
 
 //Test Skip
-var tA = new Operations().retain(5).skip('is a test ').end(tDoc);
+var tA = new Operations().retain(5).skip('is a test ')
+	.retain(6).insert(' I like the look of').end(tDoc);
 var tB = new Operations().retain(10).skip('test ').end(tDoc);
 
 var tAprime = tA.transform(tB);
 var tBprime = tB.transform(tA, true);
 
-tBprime.apply(tA.apply(tDoc)).textContent() === tAprime.apply(tB.apply(tDoc)).textContent()
+console.log(tBprime.apply(tA.apply(tDoc)).textContent() === 
+	tAprime.apply(tB.apply(tDoc)).textContent())
+
+
+//Test Mark/EndMark
+var tA = new Operations().retain(5)
+	.mark('strong', true).retain(6)
+	.endmark('strong', true).end(tDoc);
+var tB = new Operations().retain(10)
+	.mark('strong', true).retain(4)
+	.endmark('strong', true).end(tDoc);
+
+JSON.stringify(tA.apply(tDoc)) + '\n' +
+JSON.stringify(tB.apply(tDoc));
+var tAprime = tA.transform(tB);
+var tBprime = tB.transform(tA, true);
+
+console.log(tBprime.apply(tA.apply(tDoc)).textContent() === 
+	tAprime.apply(tB.apply(tDoc)).textContent())
+
+JSON.stringify(tAprime.apply(tB.apply(tDoc))) + '\n' +
+JSON.stringify(tBprime.apply(tA.apply(tDoc)));
+
+//Test Mark/EndMark (overlapped) This is a test string.
+var tA = new Operations().retain(6)
+	.mark('strong', true).retain(7)
+	.endmark('strong', true).end(tDoc);
+var tB = new Operations().retain(8)
+	.mark('strong', true).retain(1)
+	.endmark('strong', true).end(tDoc);
+
+JSON.stringify(tA.apply(tDoc)) + '\n' +
+JSON.stringify(tB.apply(tDoc));
+var tAprime = tA.transform(tB);
+var tBprime = tB.transform(tA, true);
+
+console.log(tBprime.apply(tA.apply(tDoc)).textContent() === 
+	tAprime.apply(tB.apply(tDoc)).textContent())
+
+JSON.stringify(tAprime.apply(tB.apply(tDoc))) + '\n ' +
+JSON.stringify(tBprime.apply(tA.apply(tDoc)));
+
+
+//Test unmark/mark && unendmark/unmark
+
+var tDoc2 = new Document([new P(["\nThis is a"]),new P(["\ntest string."])]);
+
+var tA = new Operations().retain(10)
+	.unendmark('paragraph').unmark('paragraph',undefined, 'p').skip('\n').end(tDoc2);
+var tB = new Operations().unmark('paragraph',undefined, 'p')
+	.mark('paragraph', { someOption: true }, 'p').end(tDoc2);
+
+JSON.stringify(tA.apply(tDoc2)) + '\n' +
+JSON.stringify(tB.apply(tDoc2));
+var tAprime = tA.transform(tB);
+var tBprime = tB.transform(tA, true); //TODO: this is not working
+
+console.log(tBprime.apply(tA.apply(tDoc2)).textContent() === 
+	tAprime.apply(tB.apply(tDoc2)).textContent())
+
+JSON.stringify(tAprime.apply(tB.apply(tDoc2))) + '\n ' +
+JSON.stringify(tBprime.apply(tA.apply(tDoc2)));
