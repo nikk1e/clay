@@ -372,6 +372,7 @@ Operations.prototype.transform = function(otherOps, left) {
 					}
 				} else if (chunk instanceof UnMark) {
 					newOps.push(chunk); //TODO
+					unMarks[chunk.attribute] = chunk;
 				} else if (chunk instanceof UnEndMark) {
 					newOps.push(chunk); //TODO
 				} else {
@@ -398,6 +399,9 @@ Operations.prototype.transform = function(otherOps, left) {
 					if (endMarks[chunk.attribute]) {
 						newOps.push(chunk);
 						delete endMarks[chunk.attribute];
+					} else if (unMarks[chunk.attribute]) {
+						newOps.push(chunk);
+						delete unMarks[chunk.attribute];
 					} else {
 						marks[chunk.attribute] = chunk;
 						newOps.push(chunk);
@@ -418,7 +422,9 @@ Operations.prototype.transform = function(otherOps, left) {
 						delete unMarks[chunk.attribute];
 					}
 				} else if (chunk instanceof UnMark) {
-					newOps.push(chunk); //TODO:
+					//TODO: probably need to check for marks
+					newOps.push(chunk);
+					unMarks[chunk.attribute] = chunk;
 				} else if (chunk instanceof UnEndMark) {
 					newOps.push(chunk); //TODO:
 				}
@@ -594,7 +600,8 @@ function apply(doc, opsO) {
 		// TODO: this doesn't really work for 
 		// unMark then mark...
 		if (op instanceof Mark) {
-			if (unMarks[op.attribute]) {
+			if (unMarks[op.attribute] && 
+				unMarks[op.attribute].options === op.options) {
 				delete unMarks[op.attribute];
 				unMarks.length -= 1;
 			} else if (endMarks[op.attribute] && shouldMerge[op.attribute]) {
@@ -605,7 +612,8 @@ function apply(doc, opsO) {
 				marks[op.attribute] = op;
 			}
 		} else if (op instanceof UnMark) {
-			if (marks[op.attribute]) {
+			if (marks[op.attribute] && 
+				marks[op.attribute].options === op.options) {
 				delete marks[op.attribute];
 			} else if (unMarks[op.attribute]) {
 				throw "UnMark " + op.attribute + " already set.";
@@ -721,9 +729,7 @@ JSON.stringify(exC.apply(exDoc)) + '\n';
 
 JSON.stringify(exC.invert().apply(exC.apply(exDoc))) === JSON.stringify(exDoc)
 
-
 var tDoc = new Document(["This is a test string."]);
-
 
 //Test Insert
 var tA = new Operations().retain(10).insert('very very good ').end(tDoc);
@@ -787,18 +793,21 @@ JSON.stringify(tBprime.apply(tA.apply(tDoc)));
 
 
 //Test unmark/mark && unendmark/unmark
-
-var tDoc2 = new Document([new P(["\nThis is a"]),new P(["\ntest string."])]);
+var tDoc2 = new Document([new P(["\n","This is a"]),
+	new P(["\n","test string."])]);
 
 var tA = new Operations().retain(10)
-	.unendmark('paragraph').unmark('paragraph',undefined, 'p').skip('\n').end(tDoc2);
+	.unendmark('paragraph').unmark('paragraph',undefined, 'p')
+	.skip('\n').end(tDoc2);
 var tB = new Operations().unmark('paragraph',undefined, 'p')
-	.mark('paragraph', { someOption: true }, 'p').end(tDoc2);
+	.mark('paragraph', { someOption: true }, 'p')
+	.retain(1) //this retain needed to avoid un matching mark unmark
+	.end(tDoc2);
 
 JSON.stringify(tA.apply(tDoc2)) + '\n' +
 JSON.stringify(tB.apply(tDoc2));
 var tAprime = tA.transform(tB);
-var tBprime = tB.transform(tA, true); //TODO: this is not working
+var tBprime = tB.transform(tA, true);
 
 console.log(tBprime.apply(tA.apply(tDoc2)).textContent() === 
 	tAprime.apply(tB.apply(tDoc2)).textContent())
