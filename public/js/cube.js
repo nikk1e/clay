@@ -1347,19 +1347,27 @@ Cube.prototype.mergeModel = function(name, model) {
 };
 
 Cube.prototype.import = function(path, opt_as_namespace) {
+	if (this._outstandingImports === undefined) this._outstandingImports = 0;
 	var model = this.models[path];
 	var me = this;
 	if (!model) {
+		//put a holding model in place to avoid double fetch
+		var cells = [new Header()];
+		cells[0].raw = '#' + path;
+		model = new Model(path, cells, opt_as_namespace || path);
+		me.models[path] = model;
+		if (me.names.indexOf(path) == -1) me.names.push(path);
 		//load model using import helper
+		me._outstandingImports++;
 		Cube.Import(path, function(err, model) {
-			if (!model) {
-				var cells = [new Header()];
-				cells[0].raw = '#' + path;
-				model = new Model(path, cells, opt_as_namespace || path);
+			me._outstandingImports--;
+			if (!model || err) {
+				console.log(err);
+				return;
 			}
-			me.models[path] = model;
-			if (me.names.indexOf(path) == -1) me.names.push(path);
-			me.recalculate();
+			me.models[path] = model; //replace with fetched model
+			if (me._outstandingImports <= 0)
+				me.recalculate();
 			//if (me.onupdate) me.onupdate(path);
 		});
 	} else {
@@ -2636,7 +2644,8 @@ Cube.lex = lex
 Cube.parse = parse;
 
 //Cube.Import should return a cells array
-Cube.Import = function(path, cube, opt_as_namespace) { return; }; //should be replace by editor with a real function
+Cube.Import = function(path, cube, opt_as_namespace) { return; }; 
+//should be replace by editor with a real function
 
 base.Cube = Cube;
 

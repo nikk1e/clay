@@ -814,3 +814,71 @@ console.log(tBprime.apply(tA.apply(tDoc2)).textContent() ===
 
 JSON.stringify(tAprime.apply(tB.apply(tDoc2))) + '\n ' +
 JSON.stringify(tBprime.apply(tA.apply(tDoc2)));
+
+
+/*
+
+function Store() {
+	... document.
+	... selection
+	... operations cache.
+}
+
+//Client
+- applyOperationFromServer(operation)
+- applyOperationFromClient(operation)
+- setState(state)
+- serverAck() //revision++
+- serverReconnect()
+
+--- virtual (Subclasses Client for different states..)
+
+transformSelection(selection)
+sendOperation(revision, operation)
+applyOperation(operation)
+
+--- AwaitingConfirm -_edit_by_user_-> AwaitingWithBuffer
+
+
+//EditorClient
+
+SelfMeta (selectionBefore, selectionAfter)
+-invert
+-compose(other) = new SelfMeta(this.selectionBefore, other.SelectionAfter)
+-transform(operation)
+
+OtherMeta(clientId, selection);
+OtherClient(id, listEl, editorAdapter, name, selection)
+
+EditorClient (revision, clients, serverAdapter, editorAdapter) {
+	Client.call(this, revision) //super(revision)
+	this.undoManager = new UndoManager();
+
+	this.editorAdapter.registerCallbacks({
+		change: function(operation, inverse)
+		selectionChange: 
+		blur: ...
+	})
+	this.editorAdapter.registerUndo -> !this.undoManager -> performUndo(self.applyUnredo)
+	this.editorAdapter.registerRedo
+}
+
+inherit(EditorClient, Client)
+  function inherit (Const, Super) {
+    function F () {}
+    F.prototype = Super.prototype;
+    Const.prototype = new F();
+    Const.prototype.constructor = Const;
+  }
+
+//Server adaptor
+ AjaxAdapter
+ SocketIOAdapter
+
+//neither server adaptors deal with the initial doc
+//
+
+-sendOperation(revision, operation, selection)
+-sendSelection(selection)
+-registerCallbacks(cb) //operation, selection (change of selection by other client), reconnect, set_name, client_left
+*/

@@ -307,7 +307,7 @@ pre > span {
 <div class="content">
 	<div id="preview" class="editor"><section><h1 id="clay:0">WM FXRates
 </h1><p id="clay:1">Extract the WM Rates from the nozzle API.&nbsp;
-</p><pre class="lang-cube" id="pre-clay:2" spellcheck="false">WMDataCall = Data("http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp",{"query"="select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]"})
+</p><pre class="lang-cube" id="pre-clay:2" spellcheck="false">WMDataCall <strong>Thi si s a test</strong>= Data("http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp",{"query"="select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]"})
 </pre><pre class="lang-sexpr" id="sexpr-clay:2"><code class="lang-sexpr">(Set (Symbol WMFXRate WMDataCall) (Call (Symbol _data) (Cube) (String http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp) (Dict (Pair (String query) (String `select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]`)))))
 </code></pre><p id="clay3">Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point</strong>. Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point</strong>. Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point.</strong>  
 </p><pre class="lang-cube" id="pre-clay:8"><span>Row</span><code id="clay4" class="lang-cube">Row[] = range(Count(WMDataCall))&nbsp;
@@ -340,7 +340,7 @@ pre > span {
 </code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol Code)) (Symbol `Previous Rate`)))
 </code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous Forward FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol ForwardCode)) (Symbol `Previous Rate`)))
 </code><code class="lang-sexpr">(Symbol Check)
-</code></pre><div data-atomic="true" class="result" id="result-clay:1t"><table class="pure-table pure-table-horizontal"><thead><tr><th class="highlight">Stats</th><th>Check</th></tr></thead><tbody><tr><td class="highlight">Count of currencies</td><td>32</td></tr><tr><td class="highlight">Count of previous currencies</td><td>32</td></tr><tr><td class="highlight">Count of forward rates</td><td>32</td></tr><tr><td class="highlight">Count of previous forward rates</td><td>32</td></tr></tbody></table></div><ul><li>Test a list</li><li>Test another  list item</li></ul><h2 id="clay:18">Mapping tables&nbsp;
+</code></pre><div data-atomic="true" readonly="true" class="result" id="result-clay:1t"><table class="pure-table pure-table-horizontal"><thead><tr><th class="highlight">Stats</th><th>Check</th></tr></thead><tbody><tr><td class="highlight">Count of currencies</td><td>32</td></tr><tr><td class="highlight">Count of previous currencies</td><td>32</td></tr><tr><td class="highlight">Count of forward rates</td><td>32</td></tr><tr><td class="highlight">Count of previous forward rates</td><td>32</td></tr></tbody></table></div><ul><li>Test a list</li><li>Test another  list item</li></ul><h2 id="clay:18">Mapping tables&nbsp;
 </h2><p id="clay:19">WM code to standard ISO code
 </p><table id="clay:20" class="pure-table pure-table-bordered"><thead><tr id="clay:20.0"><th class="null">Code[]</th><th class="highlight">Ccy=</th></tr></thead><tbody><tr id="clay:20.1"><td class="null">AUSTDOL</td><td class="highlight">AUD</td></tr><tr id="clay:20.2"><td class="null">BRACRUZ</td><td class="highlight">BRL</td></tr><tr id="clay:20.3"><td class="null">CHILPES</td><td class="highlight">CLP</td></tr><tr id="clay:20.4"><td class="null">CISRUBM</td><td class="highlight">RUB</td></tr><tr id="clay:20.5"><td class="null">CNDOLLR</td><td class="highlight">CAD</td></tr><tr id="clay:20.6"><td class="null">COLUPES</td><td class="highlight">COP</td></tr><tr id="clay:20.7"><td class="null">COMRAND</td><td class="highlight">ZAR</td></tr><tr id="clay:20.8"><td class="null">CZECHCM</td><td class="highlight">CZK</td></tr><tr id="clay:20.9"><td class="null">DANISHK</td><td class="highlight">DKK</td></tr><tr id="clay:20.a"><td class="null">EGYPTNP</td><td class="highlight">EGP</td></tr><tr id="clay:20.b"><td class="null">EURSTER</td><td class="highlight">EUR</td></tr><tr id="clay:20.c"><td class="null">HKDOLLR</td><td class="highlight">HKD</td></tr><tr id="clay:20.d"><td class="null">HUNFORT</td><td class="highlight">HUF</td></tr><tr id="clay:20.e"><td class="null">INDORUP</td><td class="highlight">INR</td></tr><tr id="clay:20.f"><td class="null">INDRUPE</td><td class="highlight">IDR</td></tr><tr id="clay:20.g"><td class="null">ISRSHEK</td><td class="highlight">ILS</td></tr><tr id="clay:20.h"><td class="null">JAPAYEN</td><td class="highlight">JPY</td></tr><tr id="clay:20.i"><td class="null">KORSWON</td><td class="highlight">KRW</td></tr><tr id="clay:20.j"><td class="null">MALADLR</td><td class="highlight">MYR</td></tr><tr id="clay:20.k"><td class="null">MEXPESO</td><td class="highlight">MXN</td></tr><tr id="clay:20.l"><td class="null">MOROCDM</td><td class="highlight">MAD</td></tr><tr id="clay:20.m"><td class="null">NORKRON</td><td class="highlight">NOK</td></tr><tr id="clay:20.n"><td class="null">NZDOLLR</td><td class="highlight">NZD</td></tr><tr id="clay:20.o"><td class="null">PHILPES</td><td class="highlight">PHP</td></tr><tr id="clay:20.p"><td class="null">POLZLOT</td><td class="highlight">PLN</td></tr><tr id="clay:20.q"><td class="null">SINGDOL</td><td class="highlight">SGD</td></tr><tr id="clay:20.r"><td class="null">SWEKRON</td><td class="highlight">SOK</td></tr><tr id="clay:20.s"><td class="null">SWISSFR</td><td class="highlight">CHF</td></tr><tr id="clay:20.t"><td class="null">TAIWDOL</td><td class="highlight">TWD</td></tr><tr id="clay:20.u"><td class="null">THABAHT</td><td class="highlight">THB</td></tr><tr id="clay:20.v"><td class="null">TURKLIR</td><td class="highlight">TRY</td></tr><tr id="clay:20.w"><td class="null">USDOLLR</td><td class="highlight">USD</td></tr></tbody><tfoot></tfoot></table><p id="clay:21">WM code to USSIM custom code
 </p><table id="clay:12" class="pure-table pure-table-bordered"><thead><tr id="clay:12.0"><th class="null">ForwardCode[]</th><th class="highlight">FwdCcy=</th></tr></thead><tbody><tr id="clay:12.1"><td class="null">UKAUD1F</td><td class="highlight">AUD1M</td></tr><tr id="clay:12.2"><td class="null">UKBRL1F</td><td class="highlight">BRL1M</td></tr><tr id="clay:12.3"><td class="null">UKCAD1F</td><td class="highlight">CAD1M</td></tr><tr id="clay:12.4"><td class="null">UKCHF1F</td><td class="highlight">CHF1M</td></tr><tr id="clay:12.5"><td class="null">UKCLP1F</td><td class="highlight">CLP1M</td></tr><tr id="clay:12.6"><td class="null">UKCOP1F</td><td class="highlight">COP1M</td></tr><tr id="clay:12.7"><td class="null">UKCZK1F</td><td class="highlight">CZK1M</td></tr><tr id="clay:12.8"><td class="null">UKDKK1F</td><td class="highlight">DKK1M</td></tr><tr id="clay:12.9"><td class="null">UKEGP1F</td><td class="highlight">EGP1M</td></tr><tr id="clay:12.a"><td class="null">UKHKD1F</td><td class="highlight">HKD1M</td></tr><tr id="clay:12.b"><td class="null">UKHUF1F</td><td class="highlight">HUF1M</td></tr><tr id="clay:12.c"><td class="null">UKIDR1F</td><td class="highlight">IDR1M</td></tr><tr id="clay:12.d"><td class="null">UKILS1F</td><td class="highlight">ILS1M</td></tr><tr id="clay:12.e"><td class="null">UKINR1F</td><td class="highlight">INR1M</td></tr><tr id="clay:12.f"><td class="null">UKJPY1F</td><td class="highlight">JPY1M</td></tr><tr id="clay:12.g"><td class="null">UKKRW1F</td><td class="highlight">KRW1M</td></tr><tr id="clay:12.h"><td class="null">UKMAD1F</td><td class="highlight">MAD1M</td></tr><tr id="clay:12.i"><td class="null">UKMXN1F</td><td class="highlight">MAX1M</td></tr><tr id="clay:12.j"><td class="null">UKMYR1F</td><td class="highlight">MYR1M</td></tr><tr id="clay:12.k"><td class="null">UKNOK1F</td><td class="highlight">NOK1M</td></tr><tr id="clay:12.l"><td class="null">UKNZD1F</td><td class="highlight">NZD1M</td></tr><tr id="clay:12.m"><td class="null">UKPHP1F</td><td class="highlight">PHP1M</td></tr><tr id="clay:12.n"><td class="null">UKPLN1F</td><td class="highlight">PLN1M</td></tr><tr id="clay:12.o"><td class="null">UKRUB1F</td><td class="highlight">RUB1M</td></tr><tr id="clay:12.p"><td class="null">UKSEK1F</td><td class="highlight">SEK1M</td></tr><tr id="clay:12.q"><td class="null">UKSGD1F</td><td class="highlight">SGD1M</td></tr><tr id="clay:12.r"><td class="null">UKTHB1F</td><td class="highlight">THB1M</td></tr><tr id="clay:12.s"><td class="null">UKTRY1F</td><td class="highlight">TRY1M</td></tr><tr id="clay:12.t"><td class="null">UKTWD1F</td><td class="highlight">TWD1M</td></tr><tr id="clay:12.u"><td class="null">UKXEU1F</td><td class="highlight">EUR1M</td></tr><tr id="clay:12.v"><td class="null">UKZAR1F</td><td class="highlight">ZAR1M</td></tr><tr id="clay:12.w"><td class="null">USGBP1F</td><td class="highlight">USGBP1M</td></tr></tbody><tfoot></tfoot></table><h2 id="clay:1o">Checks
@@ -449,34 +449,96 @@ function isInverted(sel) {
 	return false;
 }
 
+/*
+Adjustment Model
+ Selection -> ModelSelection -> SelectedRectangles -> Render
+
+# Initial version
+
+Assume a big textual representation with global attributes.
+
+Can put table attributes on regions.
+
+Some attributes are range attributes. Others are attached to a particular point.
+
+So table is a range attribute (meaning all the lines in here are table). Can split on tab characters anyway. What about paragraph types. These should just be on the newline character? Or you think of attributes as being from between the characters. 
+
+insertCharacters (flag for start of paragraph)
+deleteCharacters (flag for start of paragraph is where you end up)
+setAttribute (undefined !== null) (from/to)
+
+Can do an always right if you make the newline go with next not previous.
+*/
+
+var model = {
+	text: "", //text content
+	attributes: [], //sparse array
+}
+
+/*
+function adjustInvisible(caret, dir) {
+	var offset = caret.offset;
+	var node = caret.node.childNodes[offset - 1];
+
+	while (node && node.getClientRects().length === 0) {
+		offset += dir;
+		node = caret.node.childNodes[offset - 1]
+	}
+	offset = Math.min(caret.node.childNodes.length, Math.max(0, offset));
+	return new Caret(caret.node, offset, false);
+}
+
+function adjustAntiAtomic(caret, before) {
+	var offset = caret.offset;
+	var parent = caret.node;
+	var node = parent.childNodes[offset + (before ? -1 : 0)];
+	var atomic = node.getAttribute('data-atomic');
+	while (node && node.childNodes && !atomic) {
+		offset = before ? node.childNodes.length : 0;
+		parent = node;
+		node = parent.childNodes[offset + (before ? -1 : 0)];
+		atomic = node && node.getAttribute && node.getAttribute('data-atomic');
+	}
+	if (parent.nodeType === 3 && before) {
+		offset = parent.textContent.length;
+	}
+	return new Caret(parent, offset, false);
+}
+
 function adjustAtomic(caret, before) {
 	var node = caret.node;
 	if (node.nodeType === 3) node = node.parentNode;
 	while (node && node !== preview) {
 		var atomic = node.getAttribute('data-atomic');
 		if (atomic) {
-			var range = document.createRange();
-			range.selectNode(node)
-			if (before)
-				return new Caret(range.startContainer, range.startOffset, false);
-			else
-				return new Caret(range.endContainer, range.endOffset, false);
+			var offset = nodeIndex(node) + (before ? 0 : 1);
+			var caret = new Caret(node.parentNode, offset, false);
+			if (offset !== 0) {
+				caret = adjustInvisible(caret, before ? -1 : 1);
+				caret = adjustAntiAtomic(caret, before);
+			}
+			return caret;
 		}
 		node = node.parentNode;
 	}
 	return caret;
 }
 
+*/
+var lastMoveBack = false;
+
 function adjustSelection(sel) {
+	/*
 	if (isCollapsed(sel)) {
-		var caret = adjustAtomic(sel.focus, true);
+		var caret = adjustAtomic(sel.focus, lastMoveBack);
 		return {focus: caret, anchor: caret };
 	} else {
 		var inverted = isInverted(sel);
 		var focus = adjustAtomic(sel.focus, inverted);
 		var anchor = adjustAtomic(sel.anchor, !inverted);
 		return { focus: focus, anchor: anchor };
-	}
+	}*/
+	return sel;
 }
 
 function nodeIndex(node) {
@@ -505,12 +567,6 @@ function renderCursor() {
 		range.setStart(focus.node, 0);
 		range.setEnd(focus.node, focus.offset);
 		var rect = last(range.getClientRects());
-		/*var cs = {
-				top: (rect.top + scrollTop) + 'px',
-				left: (rect.right + scrollLeft - 1) + 'px',
-				height: rect.height + 'px',
-				display: 'block',
-		}*/
 		style = 'top: ' + (rect.top + scrollTop) + 'px; ' +
 			'left: ' + (rect.right + scrollLeft - 1) + 'px; ' +
 			'height: ' + rect.height + 'px; ' + 'display: block;';
@@ -520,8 +576,8 @@ function renderCursor() {
 		cursor.innerHTML = rects.map(function(r) {
 			style = 'top: ' + (r.top + scrollTop) + 'px; ' +
 			'left: ' + (r.left + scrollLeft) + 'px; ' +
-			'height: ' + r.height + 'px; ' + 
-			'width: ' + r.width + 'px;';
+			'height: ' + (r.bottom - r.top) + 'px; ' + 
+			'width: ' + (r.right - r.left) + 'px;';
 			return'<div style="'+ style +'">&nbsp;</div>';
 		}).join('');
 	}
@@ -534,15 +590,16 @@ function last(a) { return a[a.length - 1]; }
 function caretClientRect(caret) {
 	var node = caret.node;
 	var rect;
-	if (node.nodeType === 3) {
-		var range = document.createRange();
+	var range = document.createRange();
+	//if (node.nodeType === 3) {
 		range.setStart(caret.node, 0);
 		range.setEnd(caret.node, caret.offset);
 		rect = last(range.getClientRects());
 		return {left: rect.right, right: rect.right, 
 				top: rect.top, bottom: rect.bottom, 
 				height: rect.bottom - rect.top};
-	}
+	//}
+	/*
 	if (caret.offset === 0) {
 		//before first child
 		node = caret.node.firstChild; 
@@ -560,7 +617,7 @@ function caretClientRect(caret) {
 			top: rect.top, bottom: rect.bottom,
 			height: rect.bottom - rect.top
 		};
-	}
+	}*/
 }
 
 function nodePath(n) {
@@ -602,7 +659,9 @@ function selectionClientRects(sel) {
 			left: Math.min(a.left, f.left),
 		}];
 	} else {
+
 		var ca = commonAncestor(sel.focus.node, sel.anchor.node);
+		//TODO: select in tables return different rect
 		var rect = ca.getBoundingClientRect();
 		if (isInverted(sel)) {
 			var temp = a;
@@ -653,6 +712,7 @@ function moveV(dir, extend) {
 		var target = null;
 		var x = selection.goalColumn = selection.goalColumn || rect.right;
 		var y = dir > 0? rect.bottom + 3 : rect.top - 3;
+		lastMoveBack = dir < 0;
 		if (selection.hitSide) {
 			y = (rect.bottom + rect.top) / 2;
 			selection.hitSide = false;
