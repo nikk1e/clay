@@ -18,7 +18,12 @@ function mixin(obj, mix) {
 
 function Sum(list) {
 	var sum = 0;
-	list.forEach(function(v,i) { if (v !== undefined) sum += v; });
+	if(list===undefined) return sum;
+	list.forEach(function(v,i) {
+		if (v !== undefined && !isNaN(v)) {
+			sum += v; 
+		}
+	});		
 	return sum;
 }
 
@@ -64,6 +69,7 @@ function RemoveLast(list, num) {
 
 function Count(list){
 	var num = 0;
+	if(list === undefined) return num;
 	list.forEach(function(v,i){
 		num++;
 	});
@@ -120,7 +126,7 @@ function Last(list) {
 }
 
 function Round(list) {  
-	if(Array.isArray(lst)) {
+	if(Array.isArray(list)) {
         return list.map(Math.round);
     }
     return Math.round(list);       
@@ -359,7 +365,7 @@ function queryString(data) {
 FETCHING = {}; //sentinal
 //gets data from jsonp call with caching in Cube
 //note: refetch is cube.clearDataCache() then recalc.
-function _data(cube, url, args) {
+function _data(cube, url, args, options) {
 	var fullurl = url + '?' + queryString(args);
 	var cache = cube.dataCache();
 	var data = cache[fullurl];
@@ -379,7 +385,8 @@ function _data(cube, url, args) {
 			onTimeout: function() {
 				cache[fullurl] = new Error("Timeout while fetching data");
 				cube.recalculate();
-			}
+			},
+			timeout: options.timeout || 10,
 		})
 	}
 	if (data === FETCHING) throw "Data pending...";
@@ -419,6 +426,7 @@ function index2(items, keys) {
 function index3(items, keys) {
 	var rkeys = {};
 	var values = {};
+	if (items === undefined) return undefined;
 	var ilen = items.length;
 	var klen = keys.length;
 	var elem;
@@ -470,6 +478,53 @@ function concat(list) {
 	return Array.prototype.concat.apply([], list)
 }
 
+//list of list to list
+function uconcat(list) {
+	return Unique(Array.prototype.concat.apply([], list));
+}
+
+function toDateString(elem) {
+	var ret;
+	ret = Date.parse(elem);
+	return ret.toDateString();
+}
+
+function format(list) {  
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return item.toLocaleString();
+        });
+    }
+    return list.toLocaleString();      
+}
+
+function coalesce(list){
+	if(Array.isArray(list)){
+		var ret = [];
+		list.forEach(function(item){
+			if(!(item === null || item === undefined)) ret.push(item);
+		});
+		return ret;
+	}		
+	return list;	
+}
+
+function numbers(list){
+	if(Array.isArray(list)){
+		var ret = [];
+		list.forEach(function(item){
+			if(!(item === null || item === undefined || isNaN(item))) ret.push(item);
+		});
+		return ret;
+	}		
+	return list;	
+}
+
+function isnull(x, val){
+	if(!(x === null || x === undefined)) return x;	
+	return val;	
+}
+
 //
 mixin(Cube.Functions, {
 	Sum: Sum,
@@ -480,6 +535,7 @@ mixin(Cube.Functions, {
 	Head: Head,
 	Tail: Tail,
 	Last: Last,
+	End: Last,
 	Unique: Unique,
 	_Table: _Table,
 	BasicTable: BasicTable,
@@ -501,9 +557,15 @@ mixin(Cube.Functions, {
 	RemoveLast: RemoveLast,
 	first: first,
 	concat: concat,
-	index: index2,
-	indexb: index3,
+	index: index3,
+	indexb: index2,
 	file: File,
+	uconcat: uconcat,
+	format: format,
+	coalesce: coalesce,
+	isnull:isnull,
+	toDateString:toDateString,
+	numbers:numbers,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
