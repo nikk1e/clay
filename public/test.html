@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Test</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" type="text/css" href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,700|Inconsolata" />
+
+        <link href='https://fonts.googleapis.com/css?family=Fauna+One|Oleo+Script|Fugaz+One|Monda|Unica+One|Alegreya:400italic,400|Abril+Fatface|Vollkorn' rel='stylesheet' type='text/css'>
+
+        <link href='https://fonts.googleapis.com/css?family=Playfair+Display:400,700,900,400italic,700italic,900italic|Vast+Shadow|Oswald:300|Playfair+Display+SC' rel='stylesheet' type='text/css'>
+
+<link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css"/>
+
+
+<!--[if lte IE 8]>
+    <link rel="stylesheet" href="css/layouts/side-menu-old-ie.css">
+<![endif]-->
+<!--[if gt IE 8]><!-->
+        <link rel="stylesheet" href="/css/layouts/side-menu.css">
+<!--<![endif]-->
+<link rel="stylesheet" href="/css/clay.css"/>
+<style type="text/css">
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+figcaption {
+	position: absolute;
+	top: 0;
+	left: -170px;
+	width: 150px;
+	font-style: italic;
+	text-align: right;
+	color: rgba(0,0,0,0.5);
+	font-family: serif;
+}
+figcaption:before {
+	width: 35%;
+	margin-left: 65%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-bottom: 5px;
+}
+figure {
+	position: relative;
+	clear: both;
+}
+td.empty {
+	height: 20px;
+	border-bottom: 1px dotted #cbcbcb;
+}
+td.error {
+	border-top: 1px solid #cbcbcb;
+}
+hr {
+	border-top: 1px solid #edece4;
+	border-bottom: 0;
+	border-left: 0;
+	border-right: 0;
+}
+section:after {
+	width: 16%;
+	margin-left: 38%;
+	border-top: 1px solid #edece4;
+	display: block;
+	content: '';
+	margin-top: 50px;
+	margin-bottom: 50px;
+}
+pre[class*='lang-javascript'] {
+	background-color: #2A2C39;
+}
+pre[class*='lang-javascript'] > code {
+	color: #E9E9EB;
+}
+pre[class*='lang-sexpr'] {
+	display: none;
+	background-color: #283593;
+}
+pre[class*='lang-sexpr'] > code {
+	color: #E9E9EB;
+}
+.result pre {
+	background-color: rgb(134, 192, 241);
+	color: #fff;
+}
+.show-debug pre[class*='lang-sexpr'] {
+	display: block;
+	background-color: #283593;
+}
+
+.error {
+	color: red;
+}
+textarea.hiddenTextArea {
+	width: 100%;
+	max-width: 800px;
+	font-family: 'Open Sans', 'Segoe UI', verdana, sans-serif;
+	height: 50px;
+	opacity: 0;
+	position: absolute;
+	left: -3000px;
+}
+#cursor {
+	pointer-events:none; /* so clicks get passed through - Tested: Chrome, firefox, IE11 */
+}
+
+.editorMenu {
+right: 50px;
+position: fixed;
+}
+
+.editorMenu ul {
+list-style: none;
+}
+
+[class^="menuicon-"], [class*=" menuicon-"] {
+	background-image: url("/css/fonts/editorIcons.png");
+	width: 48px;
+	height: 48px;
+	background-position: -98px -107px;
+	display:inline-block;
+}
+
+a:hover [class^="menuicon-"], [class*=" menuicon-"] {
+	background-position-y: -2px;
+}
+
+.menuicon-bold {
+	background-position-x: -2px;
+}
+.menuicon-un_bold {
+	background-position: -2px -54px;
+}
+.menuicon-italic {
+	background-position-x: -50px;
+}
+.menuicon-un_italic {
+	background-position: -50px -54px;
+}
+.menuicon-code {
+	background-position-x: -98px;
+}
+.menuicon-un_code {
+	background-position: -98px -54px;
+}
+.menuicon-h1 {
+	background-position-x: -146px;
+}
+.menuicon-un_h1 {
+	background-position: -146px -54px;
+}
+.menuicon-h2 {
+	background-position-x: -194px;
+}
+.menuicon-un_h2 {
+	background-position: -194px -54px;
+}
+.menuicon-h3 {
+	background-position-x: -242px;
+}
+.menuicon-un_h3 {
+	background-position: -242px -54px;
+}
+.menuicon-table {
+	background-position-x: -290px;
+}
+.menuicon-un_table {
+	background-position: -290px -54px;
+}
+/*#section1 {
+	background: url("Tulips.jpg") no-repeat center; 
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}*/
+
+pre > span {
+	font-size: 0.8em;
+	position: absolute;
+	right: 15px; 
+	color: #ddd;
+	display: none;
+}
+
+[contenteditable]:focus { outline: 0px solid transparent; }
+
+#cursor {
+	pointer-events:none; /* so clicks get passed through - Tested: Chrome, firefox, IE11 */
+}
+#cursor > span {
+	position: absolute;
+	z-index: 1000;
+	margin-right: -1px;
+	width: 1px;
+}
+
+@keyframes "blink" {
+	from,to {
+	opacity: 1;
+}
+ 50% {
+    opacity: 0.2;
+ }
+
+}
+
+@-moz-keyframes blink {
+	from,to {
+    opacity: 1;
+}
+ 50% {
+    opacity: 0.2;
+ }
+
+}
+
+@-webkit-keyframes "blink" {
+	from,to {
+    opacity: 1;
+}
+ 50% {
+    opacity: 0.2;
+ }
+
+}
+
+@-ms-keyframes "blink" {
+	from,to {
+    opacity: 1;
+}
+ 50% {
+    opacity: 0.2;
+ }
+
+}
+
+@-o-keyframes "blink" {
+	from,to {
+    opacity: 1;
+}
+ 50% {
+    opacity: 0.2;
+ }
+}
+
+#cursor {
+	top: 0;
+	left: 0;
+	position: absolute;
+	padding: 0;
+	margin: 0;
+	z-index: 100;
+	display: block;
+}
+
+#cursor > div {
+	background: rgba(0, 128, 236, 0.51);
+	box-sizing: border-box;
+	position: absolute;
+	padding: 0;
+	margin: 0;
+}
+
+#cursor.unfocused > div {
+	background: rgba(128, 128, 128, 0.51);
+}
+#cursor.unfocused > span {
+	background: rgba(128, 128, 128, 0.0);
+}
+#cursor.focused > span {
+	background-color: rgb(0, 128, 236);
+	-webkit-animation: 1s blink step-end infinite;
+	-moz-animation: 1s blink step-end infinite;
+	-ms-animation: 1s blink step-end infinite;
+	-o-animation: 1s blink step-end infinite;
+	animation: 1s blink step-end infinite;
+}
+</style>
+
+
+</head>
+<body>
+<div id="cursor"></div>
+<textarea id="editor"></textarea>
+<div class="content">
+	<div id="preview" class="editor"><section><h1 id="clay:0">WM FXRates
+</h1><p id="clay:1">Extract the WM Rates from the nozzle API.&nbsp;
+</p><pre class="lang-cube" id="pre-clay:2" spellcheck="false">WMDataCall <strong>Thi si s a test</strong>= Data("http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp",{"query"="select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]"})
+</pre><pre class="lang-sexpr" id="sexpr-clay:2"><code class="lang-sexpr">(Set (Symbol WMFXRate WMDataCall) (Call (Symbol _data) (Cube) (String http://uss-lon-apps1dv/Nozzle/api/Data/FireHose/Jsonp) (Dict (Pair (String query) (String `select [ï»¿Identifier] as Id, Date, P from [WMRates.nozzle]`)))))
+</code></pre><p id="clay3">Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point</strong>. Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point</strong>. Dice <strong>the</strong> data <strong>up</strong> into <strong>cubes</strong>, needed <strong>as</strong> the <strong>data</strong> is <strong>without</strong> structure <strong>at</strong> this <strong>point.</strong>  
+</p><pre class="lang-cube" id="pre-clay:8"><span>Row</span><code id="clay4" class="lang-cube">Row[] = range(Count(WMDataCall))&nbsp;
+</code><span>Row</span><code id="clay:5" class="lang-cube">WMRateData[Row] = WMDataCall
+</code><span>Row</span><code id="clay:6" class="lang-cube">WM Ccy = dot("Id", WMRateData)&nbsp;
+</code><span>Row</span><code id="clay:7" class="lang-cube">WM Dates = dot("Date", WMRateData)&nbsp;
+</code><span>Row</span><code id="clay:8" class="lang-cube">WM Data = dot("P", WMRateData)
+</code></pre><pre class="lang-sexpr" id="sexpr-clay:8"><code class="lang-sexpr">(Category (Symbol WMFXRate Row) (Call (Symbol range) (Call (Symbol Count) (Symbol WMDataCall))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate WMRateData) (Indexed (Symbol WMDataCall) (Index (Symbol Row))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `WM Ccy`) (Call (Symbol dot) (String Id) (Symbol WMRateData)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `WM Dates`) (Call (Symbol dot) (String Date) (Symbol WMRateData)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `WM Data`) (Call (Symbol dot) (String P) (Symbol WMRateData)))
+</code></pre><p id="clay:1a">Pull out any of the fields which will be needed as keys. Pull out any of the fields which will be needed as keys. Pull out any of the fields which will be needed as keys. Pull out any of the fields which will be needed as keys. Pull out any of the fields which will be needed as keys.
+</p><pre class="lang-cube" id="pre-clay:b"><span>Unique Currencies</span><code id="clay:a" class="lang-cube">Unique Currencies[] = Unique(WM Ccy[Row])
+</code><span>Unique Dates</span><code id="clay:b" class="lang-cube">Unique Dates[] = Unique(WM Dates[Row])
+</code></pre><pre class="lang-sexpr" id="sexpr-clay:b"><code class="lang-sexpr">(Category (Symbol WMFXRate `Unique Currencies`) (Call (Symbol Unique) (Over (Symbol `WM Ccy`) (Symbol Row))))
+</code><code class="lang-sexpr">(Category (Symbol WMFXRate `Unique Dates`) (Call (Symbol Unique) (Over (Symbol `WM Dates`) (Symbol Row))))
+</code></pre><p id="clay:d">Just filter down to the latest rates (the last data point is the latest date).
+</p><pre class="lang-cube" id="pre-clay:1t"><span>Unique Currencies</span><code id="clay:1w" class="lang-cube">Latest Rate = Last(WM Data[Row, WM Ccy == Unique Currencies])
+</code><span>Unique Currencies</span><code id="clay:1x" class="lang-cube">Previous Rate = Last(RemoveLast(WM Data[Row, WM Ccy == Unique Currencies]))&nbsp;
+</code><span>Code</span><code id="clay:15" class="lang-cube">FX Rates = Latest Rate[Unique Currencies=Code]
+</code><span>Forward Code</span><code id="clay:1b" class="lang-cube">Forward FX Rates = Latest Rate[Unique Currencies=ForwardCode]&nbsp;
+</code><span>Code</span><code id="clay:1y" class="lang-cube">Previous FX Rates = Previous Rate[Unique Currencies=Code]
+</code><span>Forward Code</span><code id="clay:1z" class="lang-cube">Previous Forward FX Rates = Previous Rate[Unique Currencies=ForwardCode]&nbsp;
+</code><code id="clay:1t" class="lang-cube">Check
+</code></pre><pre class="lang-sexpr" id="sexpr-clay:1t"><code class="lang-sexpr">(Set (Symbol WMFXRate `Latest Rate`) (Call (Symbol Last) (Over (Restrict (Equal (Symbol `WM Ccy`) (Symbol `Unique Currencies`)) (Symbol `WM Data`)) (Symbol Row))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous Rate`) (Call (Symbol Last) (Call (Symbol RemoveLast) (Over (Restrict (Equal (Symbol `WM Ccy`) (Symbol `Unique Currencies`)) (Symbol `WM Data`)) (Symbol Row)))))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol Code)) (Symbol `Latest Rate`)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Forward FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol ForwardCode)) (Symbol `Latest Rate`)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol Code)) (Symbol `Previous Rate`)))
+</code><code class="lang-sexpr">(Set (Symbol WMFXRate `Previous Forward FX Rates`) (LetS (Index (Symbol `Unique Currencies`)) (IndexOf (Symbol `Unique Currencies`) (Symbol ForwardCode)) (Symbol `Previous Rate`)))
+</code><code class="lang-sexpr">(Symbol Check)
+</code></pre><div data-atomic="true" readonly="true" class="result" id="result-clay:1t"><table class="pure-table pure-table-horizontal"><thead><tr><th class="highlight">Stats</th><th>Check</th></tr></thead><tbody><tr><td class="highlight">Count of currencies</td><td>32</td></tr><tr><td class="highlight">Count of previous currencies</td><td>32</td></tr><tr><td class="highlight">Count of forward rates</td><td>32</td></tr><tr><td class="highlight">Count of previous forward rates</td><td>32</td></tr></tbody></table></div><ul><li>Test a list</li><li>Test another  list item</li></ul><h2 id="clay:18">Mapping tables&nbsp;
+</h2><p id="clay:19">WM code to standard ISO code
+</p><table id="clay:20" class="pure-table pure-table-bordered"><thead><tr id="clay:20.0"><th class="null">Code[]</th><th class="highlight">Ccy=</th></tr></thead><tbody><tr id="clay:20.1"><td class="null">AUSTDOL</td><td class="highlight">AUD</td></tr><tr id="clay:20.2"><td class="null">BRACRUZ</td><td class="highlight">BRL</td></tr><tr id="clay:20.3"><td class="null">CHILPES</td><td class="highlight">CLP</td></tr><tr id="clay:20.4"><td class="null">CISRUBM</td><td class="highlight">RUB</td></tr><tr id="clay:20.5"><td class="null">CNDOLLR</td><td class="highlight">CAD</td></tr><tr id="clay:20.6"><td class="null">COLUPES</td><td class="highlight">COP</td></tr><tr id="clay:20.7"><td class="null">COMRAND</td><td class="highlight">ZAR</td></tr><tr id="clay:20.8"><td class="null">CZECHCM</td><td class="highlight">CZK</td></tr><tr id="clay:20.9"><td class="null">DANISHK</td><td class="highlight">DKK</td></tr><tr id="clay:20.a"><td class="null">EGYPTNP</td><td class="highlight">EGP</td></tr><tr id="clay:20.b"><td class="null">EURSTER</td><td class="highlight">EUR</td></tr><tr id="clay:20.c"><td class="null">HKDOLLR</td><td class="highlight">HKD</td></tr><tr id="clay:20.d"><td class="null">HUNFORT</td><td class="highlight">HUF</td></tr><tr id="clay:20.e"><td class="null">INDORUP</td><td class="highlight">INR</td></tr><tr id="clay:20.f"><td class="null">INDRUPE</td><td class="highlight">IDR</td></tr><tr id="clay:20.g"><td class="null">ISRSHEK</td><td class="highlight">ILS</td></tr><tr id="clay:20.h"><td class="null">JAPAYEN</td><td class="highlight">JPY</td></tr><tr id="clay:20.i"><td class="null">KORSWON</td><td class="highlight">KRW</td></tr><tr id="clay:20.j"><td class="null">MALADLR</td><td class="highlight">MYR</td></tr><tr id="clay:20.k"><td class="null">MEXPESO</td><td class="highlight">MXN</td></tr><tr id="clay:20.l"><td class="null">MOROCDM</td><td class="highlight">MAD</td></tr><tr id="clay:20.m"><td class="null">NORKRON</td><td class="highlight">NOK</td></tr><tr id="clay:20.n"><td class="null">NZDOLLR</td><td class="highlight">NZD</td></tr><tr id="clay:20.o"><td class="null">PHILPES</td><td class="highlight">PHP</td></tr><tr id="clay:20.p"><td class="null">POLZLOT</td><td class="highlight">PLN</td></tr><tr id="clay:20.q"><td class="null">SINGDOL</td><td class="highlight">SGD</td></tr><tr id="clay:20.r"><td class="null">SWEKRON</td><td class="highlight">SOK</td></tr><tr id="clay:20.s"><td class="null">SWISSFR</td><td class="highlight">CHF</td></tr><tr id="clay:20.t"><td class="null">TAIWDOL</td><td class="highlight">TWD</td></tr><tr id="clay:20.u"><td class="null">THABAHT</td><td class="highlight">THB</td></tr><tr id="clay:20.v"><td class="null">TURKLIR</td><td class="highlight">TRY</td></tr><tr id="clay:20.w"><td class="null">USDOLLR</td><td class="highlight">USD</td></tr></tbody><tfoot></tfoot></table><p id="clay:21">WM code to USSIM custom code
+</p><table id="clay:12" class="pure-table pure-table-bordered"><thead><tr id="clay:12.0"><th class="null">ForwardCode[]</th><th class="highlight">FwdCcy=</th></tr></thead><tbody><tr id="clay:12.1"><td class="null">UKAUD1F</td><td class="highlight">AUD1M</td></tr><tr id="clay:12.2"><td class="null">UKBRL1F</td><td class="highlight">BRL1M</td></tr><tr id="clay:12.3"><td class="null">UKCAD1F</td><td class="highlight">CAD1M</td></tr><tr id="clay:12.4"><td class="null">UKCHF1F</td><td class="highlight">CHF1M</td></tr><tr id="clay:12.5"><td class="null">UKCLP1F</td><td class="highlight">CLP1M</td></tr><tr id="clay:12.6"><td class="null">UKCOP1F</td><td class="highlight">COP1M</td></tr><tr id="clay:12.7"><td class="null">UKCZK1F</td><td class="highlight">CZK1M</td></tr><tr id="clay:12.8"><td class="null">UKDKK1F</td><td class="highlight">DKK1M</td></tr><tr id="clay:12.9"><td class="null">UKEGP1F</td><td class="highlight">EGP1M</td></tr><tr id="clay:12.a"><td class="null">UKHKD1F</td><td class="highlight">HKD1M</td></tr><tr id="clay:12.b"><td class="null">UKHUF1F</td><td class="highlight">HUF1M</td></tr><tr id="clay:12.c"><td class="null">UKIDR1F</td><td class="highlight">IDR1M</td></tr><tr id="clay:12.d"><td class="null">UKILS1F</td><td class="highlight">ILS1M</td></tr><tr id="clay:12.e"><td class="null">UKINR1F</td><td class="highlight">INR1M</td></tr><tr id="clay:12.f"><td class="null">UKJPY1F</td><td class="highlight">JPY1M</td></tr><tr id="clay:12.g"><td class="null">UKKRW1F</td><td class="highlight">KRW1M</td></tr><tr id="clay:12.h"><td class="null">UKMAD1F</td><td class="highlight">MAD1M</td></tr><tr id="clay:12.i"><td class="null">UKMXN1F</td><td class="highlight">MAX1M</td></tr><tr id="clay:12.j"><td class="null">UKMYR1F</td><td class="highlight">MYR1M</td></tr><tr id="clay:12.k"><td class="null">UKNOK1F</td><td class="highlight">NOK1M</td></tr><tr id="clay:12.l"><td class="null">UKNZD1F</td><td class="highlight">NZD1M</td></tr><tr id="clay:12.m"><td class="null">UKPHP1F</td><td class="highlight">PHP1M</td></tr><tr id="clay:12.n"><td class="null">UKPLN1F</td><td class="highlight">PLN1M</td></tr><tr id="clay:12.o"><td class="null">UKRUB1F</td><td class="highlight">RUB1M</td></tr><tr id="clay:12.p"><td class="null">UKSEK1F</td><td class="highlight">SEK1M</td></tr><tr id="clay:12.q"><td class="null">UKSGD1F</td><td class="highlight">SGD1M</td></tr><tr id="clay:12.r"><td class="null">UKTHB1F</td><td class="highlight">THB1M</td></tr><tr id="clay:12.s"><td class="null">UKTRY1F</td><td class="highlight">TRY1M</td></tr><tr id="clay:12.t"><td class="null">UKTWD1F</td><td class="highlight">TWD1M</td></tr><tr id="clay:12.u"><td class="null">UKXEU1F</td><td class="highlight">EUR1M</td></tr><tr id="clay:12.v"><td class="null">UKZAR1F</td><td class="highlight">ZAR1M</td></tr><tr id="clay:12.w"><td class="null">USGBP1F</td><td class="highlight">USGBP1M</td></tr></tbody><tfoot></tfoot></table><h2 id="clay:1o">Checks
+</h2><table id="clay:22" class="pure-table pure-table-bordered"><thead><tr id="clay:22.0"><th class="highlight">Stats=</th><th class="null">Check[]</th></tr></thead><tbody><tr id="clay:22.1"><td class="highlight">Count of currencies</td><td class="null">= Count(FX Rates[FX Rates])</td></tr><tr id="clay:22.2"><td class="highlight">Count of previous currencies</td><td class="null">= Count(Previous FX Rates[Previous FX Rates])</td></tr><tr id="clay:22.3"><td class="highlight">Count of forward rates</td><td class="null">= Count(Forward FX Rates[Forward FX Rates])</td></tr><tr id="clay:22.4"><td class="highlight">Count of previous forward rates</td><td class="null">= Count(Previous Forward FX Rates[Previous Forward FX Rates])</td></tr></tbody><tfoot></tfoot></table></section></div>
+</div>
+<script>
+var editor = document.getElementById('editor');
+var cursor = document.getElementById('cursor');
+var preview = document.getElementById('preview');
+
+function focusEditor() {
+	editor.focus();
+}
+
+var keyNames = {
+	3: "Enter", 8: "Backspace", 9: "Tab", 
+	13: "Enter", 16: "Shift", 17: "Ctrl", 
+	18: "Alt", 19: "Pause", 20: "CapsLock", 
+	27: "Esc", 32: "Space", 33: "PageUp", 
+	34: "PageDown", 35: "End",36: "Home", 
+	37: "Left", 38: "Up", 39: "Right", 
+	40: "Down", 44: "PrintScrn", 45: "Insert",
+    46: "Delete", 59: ";", 61: "=", 
+    91: "Mod", 92: "Mod", 93: "Mod", 
+    107: "=", 109: "-", 127: "Delete",
+    173: "-", 186: ";", 187: "=", 
+    188: ",", 189: "-", 190: ".", 
+    191: "/", 192: "`", 219: "[", 
+    220: "\\", 221: "]", 222: "'", 
+    63232: "Up", 63233: "Down", 63234: "Left", 
+    63235: "Right", 63272: "Delete", 63273: "Home", 
+    63275: "End", 63276: "PageUp", 63277: "PageDown", 
+    63302: "Insert"
+};
+(function() {
+    // Number keys
+    for (var i = 0; i < 10; i++) keyNames[i + 48] = keyNames[i + 96] = String(i);
+    // Alphabetic keys
+    for (var i = 65; i <= 90; i++) keyNames[i] = String.fromCharCode(i);
+    // Function keys
+    for (var i = 1; i <= 12; i++) keyNames[i + 111] = keyNames[i + 63235] = "F" + i;
+  })();
+
+var keyName = function(event) {
+    var base = keyNames[event.keyCode], name = base;
+    if (name == null || event.altGraphKey) return false;
+    if (event.altKey && base != "Alt") name = "Alt-" + name;
+    if (event.ctrlKey && base != "Ctrl") name = "Ctrl-" + name;
+    if (event.metaKey && base != "Cmd") name = "Cmd-" + name;
+    if (event.shiftKey && base != "Shift") name = "Shift-" + name;
+    return name;
+};
+
+var actions = {
+	'Ctrl-C': true,
+	'Ctrl': true,
+	'Shift': true,
+	'Alt': true,
+	'Cmd': true,
+	'Shift-Left': true,
+	'Shift-Right': true,
+	'Shift-Up': moveV(-1, true),
+	'Shift-Down': moveV(1, true),
+	'Left': true,
+	'Right': true,
+	'Up': moveV(-1),
+	'Down': moveV(1),
+}
+
+
+var _firstText = preview.firstChild.firstChild.firstChild;
+
+var selection = {
+	focus: new Caret(_firstText, 4, false),
+	anchor: new Caret(_firstText, 4, false),
+	goalColumn: null,
+	hitSide: false,
+};
+var adjustedSelection = adjustSelection(selection);
+
+function isCollapsed(sel) {
+	return sel.focus.node === sel.anchor.node &&
+	sel.focus.offset === sel.anchor.offset;
+}
+
+function isInverted(sel) {
+	var fpath = [], apath = [];
+	var node = sel.focus.node;
+	fpath.push(sel.focus.offset);
+	apath.push(sel.anchor.offset);
+	while (node && node !== preview) {
+		fpath.push(nodeIndex(node))
+		node = node.parentNode;
+	}
+	node = sel.anchor.node;
+	while (node && node !== preview) {
+		apath.push(nodeIndex(node))
+		node = node.parentNode;
+	}
+	while (fpath.length > 0 && apath.length > 0) {
+		var a = apath.pop();
+		var f = fpath.pop();
+		if (a > f) return true;
+		if (f > a) return false;
+	}
+	return false;
+}
+
+/*
+Adjustment Model
+ Selection -> ModelSelection -> SelectedRectangles -> Render
+
+# Initial version
+
+Assume a big textual representation with global attributes.
+
+Can put table attributes on regions.
+
+Some attributes are range attributes. Others are attached to a particular point.
+
+So table is a range attribute (meaning all the lines in here are table). Can split on tab characters anyway. What about paragraph types. These should just be on the newline character? Or you think of attributes as being from between the characters. 
+
+insertCharacters (flag for start of paragraph)
+deleteCharacters (flag for start of paragraph is where you end up)
+setAttribute (undefined !== null) (from/to)
+
+Can do an always right if you make the newline go with next not previous.
+*/
+
+var model = {
+	text: "", //text content
+	attributes: [], //sparse array
+}
+
+/*
+function adjustInvisible(caret, dir) {
+	var offset = caret.offset;
+	var node = caret.node.childNodes[offset - 1];
+
+	while (node && node.getClientRects().length === 0) {
+		offset += dir;
+		node = caret.node.childNodes[offset - 1]
+	}
+	offset = Math.min(caret.node.childNodes.length, Math.max(0, offset));
+	return new Caret(caret.node, offset, false);
+}
+
+function adjustAntiAtomic(caret, before) {
+	var offset = caret.offset;
+	var parent = caret.node;
+	var node = parent.childNodes[offset + (before ? -1 : 0)];
+	var atomic = node.getAttribute('data-atomic');
+	while (node && node.childNodes && !atomic) {
+		offset = before ? node.childNodes.length : 0;
+		parent = node;
+		node = parent.childNodes[offset + (before ? -1 : 0)];
+		atomic = node && node.getAttribute && node.getAttribute('data-atomic');
+	}
+	if (parent.nodeType === 3 && before) {
+		offset = parent.textContent.length;
+	}
+	return new Caret(parent, offset, false);
+}
+
+function adjustAtomic(caret, before) {
+	var node = caret.node;
+	if (node.nodeType === 3) node = node.parentNode;
+	while (node && node !== preview) {
+		var atomic = node.getAttribute('data-atomic');
+		if (atomic) {
+			var offset = nodeIndex(node) + (before ? 0 : 1);
+			var caret = new Caret(node.parentNode, offset, false);
+			if (offset !== 0) {
+				caret = adjustInvisible(caret, before ? -1 : 1);
+				caret = adjustAntiAtomic(caret, before);
+			}
+			return caret;
+		}
+		node = node.parentNode;
+	}
+	return caret;
+}
+
+*/
+var lastMoveBack = false;
+
+function adjustSelection(sel) {
+	/*
+	if (isCollapsed(sel)) {
+		var caret = adjustAtomic(sel.focus, lastMoveBack);
+		return {focus: caret, anchor: caret };
+	} else {
+		var inverted = isInverted(sel);
+		var focus = adjustAtomic(sel.focus, inverted);
+		var anchor = adjustAtomic(sel.anchor, !inverted);
+		return { focus: focus, anchor: anchor };
+	}*/
+	return sel;
+}
+
+function nodeIndex(node) {
+	var ind = -1;
+	while (node) {
+		ind += 1;
+		node = node.previousSibling;
+	}
+	return ind;
+}
+
+function renderCursor() {
+	var range = document.createRange();
+	var scrollTop = document.documentElement.scrollTop || 
+					document.body.scrollTop;
+    var scrollLeft = document.documentElement.scrollLeft || 
+     			     document.body.scrollLeft;
+    var style;
+    //probably want to put this somewhere else
+    adjustedSelection = adjustSelection(selection);
+    var focus = adjustedSelection.focus;
+    var anchor = adjustedSelection.anchor;
+    cursor.className = hasFocus ? 'focused' : 'unfocused';
+	if (focus.node === anchor.node && focus.offset === anchor.offset) {
+		//render blinking caret
+		range.setStart(focus.node, 0);
+		range.setEnd(focus.node, focus.offset);
+		var rect = last(range.getClientRects());
+		style = 'top: ' + (rect.top + scrollTop) + 'px; ' +
+			'left: ' + (rect.right + scrollLeft - 1) + 'px; ' +
+			'height: ' + rect.height + 'px; ' + 'display: block;';
+		cursor.innerHTML = '<span style=\'' + style + '\'>&nbsp;</span>';
+	} else {
+		var rects = selectionClientRects(adjustedSelection);
+		cursor.innerHTML = rects.map(function(r) {
+			style = 'top: ' + (r.top + scrollTop) + 'px; ' +
+			'left: ' + (r.left + scrollLeft) + 'px; ' +
+			'height: ' + (r.bottom - r.top) + 'px; ' + 
+			'width: ' + (r.right - r.left) + 'px;';
+			return'<div style="'+ style +'">&nbsp;</div>';
+		}).join('');
+	}
+}
+
+setTimeout(renderCursor, 100); //give 100ms to load the fonts
+
+function last(a) { return a[a.length - 1]; }
+
+function caretClientRect(caret) {
+	var node = caret.node;
+	var rect;
+	var range = document.createRange();
+	//if (node.nodeType === 3) {
+		range.setStart(caret.node, 0);
+		range.setEnd(caret.node, caret.offset);
+		rect = last(range.getClientRects());
+		return {left: rect.right, right: rect.right, 
+				top: rect.top, bottom: rect.bottom, 
+				height: rect.bottom - rect.top};
+	//}
+	/*
+	if (caret.offset === 0) {
+		//before first child
+		node = caret.node.firstChild; 
+		//assume this is not missing or textNode
+		rect = node.getBoundingClientRect(); 
+		return {left: rect.left, right: rect.right, 
+			top: rect.top, bottom: rect.bottom, 
+			height: rect.bottom - rect.top
+		};
+	} else {
+		node = caret.node.childNodes[caret.offset - 1]; 
+		//assume this is not missing or textNode
+		rect = node.getBoundingClientRect(); 
+		return {left: rect.right, right: rect.right, 
+			top: rect.top, bottom: rect.bottom,
+			height: rect.bottom - rect.top
+		};
+	}*/
+}
+
+function nodePath(n) {
+	var path = [];
+	while (n && n !== preview) {
+		path.push(n);
+		n = n.parentNode;
+	}
+	return path;
+}
+
+function commonAncestor(a, b) {
+	apath = nodePath(a);
+	bpath = nodePath(b);
+	var as,bs;
+	do {
+		as = apath.pop();
+		bs = bpath.pop();
+	} while(as && bs && as !== bs)
+	return as;
+}
+
+var OVERLAP_THRESHOLD = 0.9;
+function sameLine(a, b) {
+	var height = Math.min(a.bottom - a.top, b.bottom - b.top);
+	var overlap = Math.min(a.bottom - b.top, b.bottom - a.top);
+	return (overlap / height) > OVERLAP_THRESHOLD;
+}
+
+function selectionClientRects(sel) {
+	var f = caretClientRect(sel.focus);
+	if (isCollapsed(sel)) return [f];
+	var a = caretClientRect(sel.anchor);
+	if (sameLine(f,a)) {
+		return [{
+			top: Math.min(a.top, f.top),
+			bottom: Math.max(a.bottom, f.bottom),
+			right: Math.max(a.right, f.right),
+			left: Math.min(a.left, f.left),
+		}];
+	} else {
+
+		var ca = commonAncestor(sel.focus.node, sel.anchor.node);
+		//TODO: select in tables return different rect
+		var rect = ca.getBoundingClientRect();
+		if (isInverted(sel)) {
+			var temp = a;
+			a = f; f = temp;
+		}
+		var gap = f.top - a.bottom;
+		if (gap < 10) {
+			f.top -= gap / 2;
+			a.bottom += gap / 2;
+			gap = 0;
+		} 
+		var first = {
+			top: a.top,
+			bottom: a.bottom,
+			right: rect.right,
+			left: a.left,
+			height: a.bottom - a.top,
+			width: rect.right - a.left,
+		};
+		var last = {
+			top: f.top,
+			bottom: f.bottom,
+			right: f.right,
+			left: rect.left,
+			height: f.bottom - f.top,
+			width: f.right - rect.left,
+		};
+		if (gap !== 0) {
+			return [first,{
+				top: a.bottom,
+				bottom: f.top,
+				right: rect.right,
+				left: rect.left,
+				height: f.top - a.bottom,
+				width: rect.right - rect.left,
+			}, last];
+		} else {
+			return [first, last];
+		}
+	}
+}
+
+function moveV(dir, extend) {
+	return function(e) {
+		console.time('moveV');
+		var bounds = preview.getBoundingClientRect();
+		var rect = caretClientRect(adjustedSelection.focus);
+		var target = null;
+		var x = selection.goalColumn = selection.goalColumn || rect.right;
+		var y = dir > 0? rect.bottom + 3 : rect.top - 3;
+		lastMoveBack = dir < 0;
+		if (selection.hitSide) {
+			y = (rect.bottom + rect.top) / 2;
+			selection.hitSide = false;
+		}
+		for (;;) {
+			target = coordsCaret(preview, x, y);
+			if (!target.outside) break;
+			if (dir < 0 ? y <= bounds.top : y >= bounds.bottom) {
+				selection.hitSide = true; //TODO: adjust to start
+				if (dir < 0)
+					target.offset = 0;
+				else if (target.node.nodeType === 3)
+					target.offset = target.node.length;
+				break;
+			}
+			y += dir * 5;
+		}
+		selection.focus = target;
+		if (!extend) {
+			selection.anchor.node = target.node;
+			selection.anchor.offset = target.offset;
+		}
+		renderCursor();
+		e.preventDefault();
+		console.timeEnd('moveV');
+	}
+}
+
+function Caret(node, offset, outside) {
+	this.node = node;
+	this.offset = offset;
+	this.outside = outside;
+}
+
+function offsetFromPoint(textnode, x, y) {
+	var doc = textnode.ownerDocument;
+	var range = doc.createRange();
+	var len = textnode.length;
+	var rect;
+	var rects;
+	range.selectNode(textnode);
+	rects = range.getClientRects();
+	rect = range.getBoundingClientRect();
+	var totalWidth = rect.right * 2;
+	var innerY = Math.min(rect.bottom - 1, Math.max(rect.top + 1, y));
+	//binary search
+	var to = len;
+	while (textnode.textContent[to - 1] === '\n') to -= 1;
+	var from = 0;
+	var fromX = rects[0].left;
+	var toX = last(rects).right;
+	var dist = to - from;
+	var toWrong = false;
+	for (;;) {
+		if (to - from <= 1) {
+			if (toWrong) return from;
+			return (x < fromX || x - fromX <= toX - x) ? from : to;
+		}
+		var step = Math.ceil(dist / 2);
+		var middle = from + step;
+		range.setEnd(textnode, middle);
+		rects = range.getClientRects();
+		rect = last(rects);
+
+		var rx = rect.right;
+		if (rect.top > innerY) rx += totalWidth;
+		else if (rect.bottom < innerY) rx -= totalWidth;
+
+		if (x <= rx) { 
+			to = middle; 
+			dist = step; 
+			toX = rect.right; 
+			toWrong = rx !== rect.right 
+		} else { from = middle; dist -= step; fromX = rect.right; }
+	}
+}
+
+//modified distance of point from rect
+function modifiedDist(rect, x, y) {
+	var ud = y < rect.bottom ? Math.max(0, rect.top - y) : 
+							   (y - rect.bottom);
+	var rl = (x >= rect.right) ? x - rect.right : 
+			 ((x <= rect.left) ? rect.left - x : 0);
+	return rl + ud * 100; //make up down offset much worse than left right
+}
+
+function coordsCaret(root, x, y) {
+	var best = null;
+	var bestRect = null;
+	var range = root.ownerDocument.createRange();
+	var len = root.childNodes.length;
+	var offset = 0;
+	var bestRectDist = null;
+
+	for (var i = 0; i < len; i++) {
+		var node = root.childNodes[i];
+		var rect = null;
+
+		if (node.nodeType === 3) {
+			range.selectNodeContents(node);
+			rect = last(range.getClientRects());
+		} else if (node.getClientRects) {
+			rect = last(node.getClientRects());
+		}
+
+		if (rect) {
+			var rectDist = modifiedDist(rect, x, y);
+			if (bestRectDist === null || rectDist < bestRectDist) {
+				best = node;
+				bestRect = rect;
+				bestRectDist = rectDist;
+				if (bestRectDist <= 0) break;
+			}
+		}
+	}
+
+	if (best === null) {
+		best = root;
+	} else if (best.childNodes.length > 0) {
+		return coordsCaret(best, x, y);
+	}
+
+	if (best.nodeType === 3) {
+		offset = offsetFromPoint(best, x, y);
+		range.setStart(best, 0);
+		range.setEnd(best, offset);
+		bestRect = last(range.getClientRects());
+	} else {
+		offset = nodeIndex(best) + 1;
+		best = best.parentNode;
+	}
+
+	return new Caret(best, offset, bestRect.bottom < y || bestRect.top > y)
+
+}
+
+
+var isMouseDown = false;
+var hasFocus = true;
+
+function handleMouseDown(e) {
+    var caret = coordsCaret(preview, e.clientX, e.clientY);
+    selection.focus = caret;
+    selection.goalColumn = null;
+	if (!e.shiftKey) {
+		selection.anchor = caret;
+	}
+	isMouseDown = true;
+	e.preventDefault();
+	renderCursor();
+}
+
+function handleMouseUp(e) {
+	isMouseDown = false;
+}
+
+function handleMouseMove(e) {
+	if (isMouseDown) {
+		e.preventDefault();
+		selection.focus = coordsCaret(preview, e.clientX, e.clientY);
+    	renderCursor();
+	}
+}
+
+function handleDocBlur(e) {
+	isMouseDown = false;
+	hasFocus = false;
+	renderCursor();
+}
+
+function handleDocFocus(e) {
+	hasFocus = true;
+	renderCursor();
+}
+
+function handleDocResize(e) {
+	setTimeout(renderCursor, 0);
+}
+
+function handleKeyDown(e) {
+	var name = keyName(e);
+	//check for a special key combination and don't focus the editor
+	if (!actions[name])
+		focusEditor();
+	else if (typeof actions[name] === 'function') {
+		actions[name](e);
+	} else {
+		var sel = document.getSelection();
+		if (sel.rangeCount === 1) {
+			var range = sel.getRangeAt(0);
+		}
+	}
+}
+
+window.addEventListener('keydown', handleKeyDown, false);
+window.addEventListener('mousedown', handleMouseDown, false);
+window.addEventListener('mouseup', handleMouseUp, false);
+window.addEventListener('mousemove', handleMouseMove, false);
+window.addEventListener('blur', handleDocBlur, false);
+window.addEventListener('focus', handleDocFocus, false);
+window.addEventListener('resize', handleDocResize, false);
+</script>
+</body>
+</html>
