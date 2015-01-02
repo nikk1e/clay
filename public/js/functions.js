@@ -269,6 +269,17 @@ function _csv(headers, rows) {
 	return str;
 }
 
+function File(name, f, type) {
+	var a = document.createElement('a');
+	a.appendChild(document.createTextNode(name));
+	a.href = '#';
+	a.onclick = function() {
+		saveAs(new Blob([f()], {type: type}), name);
+		return false;
+	};
+	return a;
+}
+
 function BasicTable(headers, rows, highlight) {
 	//var c = document.createElement.bind(document);
 	var table = document.createElement('table')
@@ -492,6 +503,7 @@ mixin(Cube.Functions, {
 	concat: concat,
 	index: index2,
 	indexb: index3,
+	file: File,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
