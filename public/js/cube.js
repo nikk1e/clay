@@ -701,8 +701,11 @@ function normaliseHeadToPackage(node, basepackage) {
 	return node;
 }
 
+var MID = 1;
 
-function Model(name, cells, namespace, seed, modified, dirty) {
+
+function Model(name, cells, namespace, seed, modified, dirty, id) {
+	this._id = (id === undefined) ? MID++ : id; //unique id
 	this.cells = cells || [];
 	this.namespace = namespace || 'Main';
 	this.name = name;
@@ -828,7 +831,7 @@ Model.prototype.toRaw = function() {
 
 Model.prototype.clone = function() {
 	var model = new Model(this.name, this.cells.slice(0),
-		this.namespace, this.seed,  this.modified, this._dirty);
+		this.namespace, this.seed,  this.modified, this._dirty, this._id);
 	model.data = this.data;
 	return model;
 };
