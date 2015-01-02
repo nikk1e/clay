@@ -1067,6 +1067,7 @@ var MultiEditor = createClass({
 			DOM.div({id: 'main', className: (this.state.debug ? 'show-debug' : '') }, 
 				mapObjToArr(cube.models, function(name, value) {
 				return Editor({
+					key: value._id,
 					model: value,
 					active: name === active,
 					name: name,
