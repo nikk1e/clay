@@ -1316,6 +1316,43 @@ Cube.prototype.dirty = function() {
 	return false;
 };
 
+function debounce(func, wait, immediate) {
+    var timeout, args, context, timestamp, result;   
+    var later = function() {
+      var last = now() - timestamp;
+
+      if (last < wait && last >= 0) {
+        timeout = setTimeout(later, wait - last);
+      } else {
+        timeout = null;
+        if (!immediate) {
+          result = func.apply(context, args);
+          if (!timeout) context = args = null;
+        }
+      }
+    };
+
+    return function() {
+      context = this;
+      args = arguments;
+      timestamp = now();
+      var callNow = immediate && !timeout;
+      if (!timeout) timeout = setTimeout(later, wait);
+      if (callNow) {
+        result = func.apply(context, args);
+        context = args = null;
+      }
+      return result;
+    };
+};
+
+Cube.prototype.recalcIfDirty = debounce(function() {
+	if (this.dirty()) {
+		this.recalculate();
+		this.clean();
+	}
+}, 1500);
+
 Cube.prototype.clean = function() {
 	for (var n in this.models) {
 		if (this.models.hasOwnProperty(n)) {
@@ -1347,6 +1384,7 @@ Cube.prototype.mergeModel = function(name, model) {
 		this.recalculate();
 		this.clean();
 	}
+	//this.recalcIfDirty();
 };
 
 Cube.prototype.import = function(path, opt_as_namespace) {
@@ -1853,6 +1891,42 @@ Cube.prototype._compileFunc = function(code, expr) {
         case 'Func*':    return unmemoize(func);
         default:         return memoize(func);
     }
+};
+
+Cube.prototype.totalCells = function() {
+	var me = this;
+	var diml = {};
+	function dimLength(di) {
+		if (!diml.hasOwnProperty(di)) {
+			var ds = di.split('.');
+			var df = me._environment[ds[0]][ds[1]];
+			try {
+				diml[di] = df.len();
+			} catch(e) {
+				console.log(e.message);
+				diml[di] = 1;
+			}
+						
+		}
+		return diml[di];
+	}
+
+	var total = 0;
+	for (var n in this._environment) {
+		if (/^_/.test(n)) continue; //skip '_Cube' etc
+		var ns = this._environment[n];
+		for (var fn in ns) {
+			var f = ns[fn];
+			if (!f.dimensions) continue;
+			var prod = 1;
+			f.dimensions.forEach(function(d) {
+				prod *= dimLength(d);
+			});
+			console.log(n + ' : ' + fn + ' ... ' + f.dimensions.join(", ") + ' = ' + prod);
+			total += prod;
+		}
+	}
+	return total;
 };
 
 //Compile and bind expression
