@@ -15,7 +15,7 @@ function index(res, next, errors) {
     if (err) {
       return next(err);
     }
-    res.render('index', {files: files, title: "Clay", errors: errors || []});
+    res.render('index', {files: files, title: "Qube", errors: errors || []});
     //res.send(files);
   })
 }
