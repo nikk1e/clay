@@ -263,6 +263,7 @@ function _Table(list, ast) {
 
 function _csv(headers, rows) {
 	function cell(h) {
+		if(h===undefined) return '';
 		var c = h.toString();
 		if (/,/.test(c)) c = '"' + c + '"';
 		return c;
@@ -275,9 +276,9 @@ function _csv(headers, rows) {
 	return str;
 }
 
-function File(name, f, type) {
+function File(name, f, type, displayName) {
 	var a = document.createElement('a');
-	a.appendChild(document.createTextNode(name));
+	a.appendChild(document.createTextNode(displayName || name));
 	a.href = '#';
 	a.onclick = function() {
 		saveAs(new Blob([f()], {type: type}), name);
@@ -296,18 +297,31 @@ function BasicTable(headers, rows, highlight) {
 	table.className = 'pure-table pure-table-horizontal';
 	if (highlight === undefined) highlight = 0;
 
+	var dataName = "";
 	var hr = head.insertRow();
-
 	headers.forEach(function(h, i) {
 		var th = document.createElement('th');
 		hr.appendChild(th);
-		if (i < highlight) th.className = 'highlight';
+		if (i < highlight) {
+			th.className = 'highlight';
+		} else {
+			if(dataName!="") dataName = dataName.concat('_');
+			dataName = dataName.concat(h.toString());
+		}
 		if (isElement(h)) {
 			th.appendChild(h);
 		} else {
 			th.appendChild(document.createTextNode(h.toString()));
 		}
 	});
+
+	var downloadLink = File(dataName.concat('.csv'),function(){return _csv(headers, rows)}, 'text/csv',' ');
+	var span = document.createElement('span');
+	span.className = 'icon-download-alt';
+	downloadLink.appendChild(span);
+
+	//Add the link to the far right header
+	hr.childNodes[headers.length-1].appendChild(downloadLink);
 
 	var maxrows = 1000;
 

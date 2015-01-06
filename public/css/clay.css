@@ -276,6 +276,9 @@ td.highlight {
 background-color: rgb(255, 250, 229);
 }
 
+th > a {	
+	float: right;	
+}
 
 div.error,
 div.warning,
