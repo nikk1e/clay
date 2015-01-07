@@ -315,7 +315,7 @@ function BasicTable(headers, rows, highlight) {
 		}
 	});
 
-	var downloadLink = File(dataName.concat('.csv'),function(){return _csv(headers, rows)}, 'text/csv',' ');
+	var downloadLink = File('Qube.csv',function(){return _csv(headers, rows)}, 'text/csv',' ');
 	var span = document.createElement('span');
 	span.className = 'icon-download-alt';
 	downloadLink.appendChild(span);

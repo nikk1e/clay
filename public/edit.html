@@ -1005,7 +1005,7 @@ var MultiEditor = createClass({
 	},
 	toggleDebug: function() {
 		this.setState({debug: !this.state.debug});
-	},
+	},	
 	save: function() {
 		console.log('save clicked')
 		var json = JSON.stringify(cube);
@@ -1043,7 +1043,7 @@ var MultiEditor = createClass({
 				[DOM.span()]),
 			DOM.div({id: 'menu'}, 
 				[DOM.div({className:"pure-menu pure-menu-open"},
-					DOM.a({className:"pure-menu-heading", href:"#"},'Qube'),
+					DOM.a({className:"pure-menu-heading", href:"../../../"},'Qube'),
 					DOM.ul({}, cube.names.map(function(n,i) {
 						return DOM.li({onClick: me.handleMenuClick, 
 							className: (n === active ? 'pure-menu-selected ' : '') + (cube.models[n].modified ? 'menu-modified' : '') },
@@ -1052,8 +1052,8 @@ var MultiEditor = createClass({
 					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick, 
 						className: ('#Scratch' === active ? 'pure-menu-selected' : '') },
 							[DOM.a({href:"##Scratch"}, 'Scratch')])]),
-					DOM.ul({}, [DOM.li({onClick: this.toggleDebug},
-							[DOM.a({href:"#"}, 'Debug')]),
+					DOM.ul({}, [/**DOM.li({onClick: this.toggleDebug},
+							[DOM.a({href:"#"}, 'Debug')]),**/
 							DOM.li({onClick: this.save},
 							[DOM.a({href:"#"}, 'Save')]),
 							DOM.li({onClick: this.refresh},
