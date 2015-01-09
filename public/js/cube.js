@@ -1269,7 +1269,11 @@ Cube.prototype.dataCache = function() {
 };
 
 Cube.prototype.clearDataCache = function() {
-	this.baseModel().data = {};
+	for (var n in this.models) {
+		if (this.models.hasOwnProperty(n)) {
+			this.models[n].data = {};		
+		}
+	}	
 };
 
 Cube.prototype.toJSON = function() {

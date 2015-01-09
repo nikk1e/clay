@@ -497,10 +497,13 @@ function uconcat(list) {
 	return Unique(Array.prototype.concat.apply([], list));
 }
 
-function toDateString(elem) {
-	var ret;
-	ret = Date.parse(elem);
-	return ret.toDateString();
+function formatDate(list,format) {
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return dateFormat(item,format);
+        });
+    }    
+    return dateFormat(list,format); 
 }
 
 function format(list) {  
@@ -577,9 +580,9 @@ mixin(Cube.Functions, {
 	uconcat: uconcat,
 	format: format,
 	coalesce: coalesce,
-	isnull:isnull,
-	toDateString:toDateString,
+	isnull:isnull,	
 	numbers:numbers,
+	formatDate:formatDate,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
