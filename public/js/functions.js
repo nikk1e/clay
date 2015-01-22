@@ -506,6 +506,33 @@ function formatDate(list,format) {
     return dateFormat(list,format); 
 }
 
+function addDays(list,days,businessDays) {
+	businessDays = String(businessDays || true).toLowerCase() == "true"
+
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return setDays(item);
+        });
+    } 
+
+    function businessDay(date) {    	
+    	switch(date.getDay()) {
+    		case 0: return (days > 0) ? date.setDate(date.getDate() + 1) : date.setDate(date.getDate() - 2);
+    		case 6: return (days > 0) ? date.setDate(date.getDate() + 2) : date.setDate(date.getDate() - 1);
+    		default:return date;
+    	}    	
+    }
+
+    function setDays(item) {
+    	var date = new Date(dateFormat(item));
+    	date.setDate(date.getDate() + days);
+    	if(businessDays) return businessDay(date);
+    	return date;
+    }
+
+    return setDays(list);
+}
+
 function format(list) {  
 	if(Array.isArray(list)) {
         return list.map(function(item){
@@ -538,7 +565,7 @@ function numbers(list){
 }
 
 function isnull(x, val){
-	if(!(x === null || x === undefined)) return x;	
+	if(!(x === null || x === undefined || isNaN(x))) return x;	
 	return val;	
 }
 
@@ -583,6 +610,7 @@ mixin(Cube.Functions, {
 	isnull:isnull,	
 	numbers:numbers,
 	formatDate:formatDate,
+	addDays:addDays,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
