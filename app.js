@@ -137,6 +137,8 @@ var area = require('./routes/area')(base);
 
 var app = express();
 
+app.disable('etag');
+
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 app.use(favicon(__dirname + '/public/favicon.ico'));
