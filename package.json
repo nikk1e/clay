@@ -47,6 +47,7 @@
     "temp": "~0.8.1",
     "mongodb": "~1.4.19",
     "mongojs": "~0.15.1",
-    "gridfs-stream": "~0.5.1"
+    "gridfs-stream": "~0.5.1",
+    "access-check": "latest"
   }
 }

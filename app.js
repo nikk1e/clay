@@ -9,7 +9,7 @@ var fs = require('fs');
 var passport = require('passport');
 
 //Config
-function userEmail(user) {
+function userEmail(user) {    
     return user.id + '@uss.co.uk';
 }
 
@@ -91,7 +91,7 @@ var WindowsAuthentication = require('passport-windowsauth');
 passport.use(new WindowsAuthentication(
     {integrated: true},
     function(profile, done) {
-    var user = users[profile.id];
+    var user = users[profile.id];   
     if (!user) {
         profile.email = userEmail(profile);
         user =  profile;
@@ -152,7 +152,7 @@ app.use(require('stylus').middleware(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname,'public')));
 
 app.get('/profile', passport.authenticate('WindowsAuthentication'),
-  function (req, res){
+  function (req, res){    
     res.json(req.user);
 });
 
@@ -162,6 +162,7 @@ app.get('/login', function(req, res, next) {
     if (!user) { return res.render('login',{}); } //show login form if not windows authenticated
     req.login(user, function(err) {
       if (err) { return next(err); }
+      console.log(user.name);
       return res.redirect('/~' + user.name);
     });
   })(req, res, next);

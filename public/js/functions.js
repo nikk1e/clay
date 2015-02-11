@@ -569,6 +569,18 @@ function isnull(x, val){
 	return val;	
 }
 
+function returns(list){
+	if(Array.isArray(list)){
+		var ret = [];
+		list.forEach(function(item,indx,ary){
+			if(indx==0||item==0) return ret.push(0);
+			return ret.push((item / ary[indx-1])-1);
+		});
+		return ret;
+	}	
+	return 0;
+}
+
 //
 mixin(Cube.Functions, {
 	Sum: Sum,
@@ -611,6 +623,7 @@ mixin(Cube.Functions, {
 	numbers:numbers,
 	formatDate:formatDate,
 	addDays:addDays,
+	returns:returns,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));

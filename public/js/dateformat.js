@@ -16,7 +16,7 @@
   'use strict';
 
   var dateFormat = (function() {
-      var token = /d{1,4}|m{1,4}|yy(?:yy)?|([HhMsTt])\1?|[LloSZWN]|'[^']*'|'[^']*'/g;
+      var token = /d{1,4}|m{1,4}|yy(?:yy)?|([HhMsTt])\1?|[LloSZWNE]|'[^']*'|'[^']*'/g;
       var timezone = /\b(?:[PMCEA][SDP]T|(?:Pacific|Mountain|Central|Eastern|Atlantic) (?:Standard|Daylight|Prevailing) Time|(?:GMT|UTC)(?:[-+]\d{4})?)\b/g;
       var timezoneClip = /[^-+\dA-Z]/g;
   
@@ -63,6 +63,7 @@
         var o = utc ? 0 : date.getTimezoneOffset();
         var W = getWeek(date);
         var N = getDayOfWeek(date);
+        var E = getExcelSerial(date);
         var flags = {
           d:    d,
           dd:   pad(d),
@@ -92,7 +93,8 @@
           o:    (o > 0 ? '-' : '+') + pad(Math.floor(Math.abs(o) / 60) * 100 + Math.abs(o) % 60, 4),
           S:    ['th', 'st', 'nd', 'rd'][d % 10 > 3 ? 0 : (d % 100 - d % 10 != 10) * d % 10],
           W:    W,
-          N:    N
+          N:    N,
+          E:    E 
         };
   
         return mask.replace(token, function (match) {
@@ -184,6 +186,11 @@ function getDayOfWeek(date) {
     dow = 7;
   }
   return dow;
+}
+
+function getExcelSerial(date){
+  var returnDateTime = 25569.0 + ((date.getTime() - (date.getTimezoneOffset() * 60 * 1000)) / (1000 * 60 * 60 * 24));  
+  return returnDateTime;
 }
 
 /**
