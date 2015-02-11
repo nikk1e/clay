@@ -425,6 +425,7 @@ var parse = function(ts) { //,multi) {
 
 	getList = getListLike('List','}');
 	getSlice = getListLike('Slice',']');
+	getBracket = getListLike('Bracket',')');
 	
 	function getArguments(node) {
 		while (true) {
@@ -491,10 +492,11 @@ var parse = function(ts) { //,multi) {
 		if (token.type === 'bracket') {
 			switch (token.value) {
 				case '(':
-					getToken();
-					temp = parseOperators(parsePrimary(), 0);
-					getOperator(')');
-					return ['Bracket',temp]; //add bracket so we can merge the flat stuff.
+					return getBracket();
+					//getToken();
+					//temp = parseOperators(parsePrimary(), 0);
+					//getOperator(')');
+					//return ['Bracket',temp]; //add bracket so we can merge the flat stuff.
 				case '{':
 					return getList();
 					//case '"': return getString();
@@ -2266,7 +2268,7 @@ Cube.prototype.recalculate = function() {
    			switch(sexpr[0]) {
    				case 'Set*':
    				case 'Set':
-   						if (sexpr[1][0] !== 'Symbol') {
+   					if (sexpr[1] === undefined || sexpr[1][0] !== 'Symbol') {
    						node.error = 'Cannot Set '+ showS(sexpr[1]);
    					} else {
    						fkey = sexpr[1].slice(1).join('.');
@@ -2278,7 +2280,7 @@ Cube.prototype.recalculate = function() {
    					}
    					break;
    				case 'Category':
-   					if (sexpr[1][0] !== 'Symbol') {
+   					if (sexpr[1] === undefined || sexpr[1][0] !== 'Symbol') {
    						node.error = 'Cannot create Category ' + showS(sexpr[1]);
    					} else {
    						fkey = sexpr[1].slice(1).join('.');
