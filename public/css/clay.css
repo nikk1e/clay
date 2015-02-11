@@ -276,8 +276,8 @@ td.highlight {
 background-color: rgb(255, 250, 229);
 }
 
-th > a {	
-	float: right;	
+a.table-download-link {
+	float: right;
 }
 
 div.error,

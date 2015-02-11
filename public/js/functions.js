@@ -280,6 +280,7 @@ function File(name, f, type, displayName) {
 	var a = document.createElement('a');
 	a.appendChild(document.createTextNode(displayName || name));
 	a.href = '#';
+	a.className = "table-download-link";
 	a.onclick = function() {
 		saveAs(new Blob([f()], {type: type}), name);
 		return false;
@@ -302,12 +303,7 @@ function BasicTable(headers, rows, highlight) {
 	headers.forEach(function(h, i) {
 		var th = document.createElement('th');
 		hr.appendChild(th);
-		if (i < highlight) {
-			th.className = 'highlight';
-		} else {
-			if(dataName!="") dataName = dataName.concat('_');
-			dataName = dataName.concat(h.toString());
-		}
+		if (i < highlight) th.className = 'highlight';
 		if (isElement(h)) {
 			th.appendChild(h);
 		} else {
@@ -415,29 +411,7 @@ function dot(key, obj) {
 	return obj[key];
 }
 
-function index2(items, keys) {
-	if (keys === null || keys === undefined || !(keys.length > 0)) return items;
-	var cache = {};
-	var rest = keys.slice(0);
-	var key = rest.pop();
-	//collect as list the items by last key
-	items.forEach(function(item) {
-		var k = item[key];
-		if (cache.hasOwnProperty(k)) {
-			cache[k].push(item);
-		} else {
-			cache[k] = [item];
-		}
-		
-	});
-
-	for (var k in cache) {
-		cache[k] = index2(cache[k], rest);
-	}
-	return cache;
-}
-
-function index3(items, keys) {
+function index(items, keys) {
 	var rkeys = {};
 	var values = {};
 	if (items === undefined) return undefined;
@@ -492,11 +466,6 @@ function concat(list) {
 	return Array.prototype.concat.apply([], list)
 }
 
-//list of list to list
-function uconcat(list) {
-	return Unique(Array.prototype.concat.apply([], list));
-}
-
 function formatDate(list,format) {
 	if(Array.isArray(list)) {
         return list.map(function(item){
@@ -542,43 +511,18 @@ function format(list) {
     return list.toLocaleString();      
 }
 
-function coalesce(list){
-	if(Array.isArray(list)){
-		var ret = [];
-		list.forEach(function(item){
-			if(!(item === null || item === undefined)) ret.push(item);
-		});
-		return ret;
-	}		
-	return list;	
+function isNullCheck(item){	return !(item === null || item === undefined); }
+function isNumberCheck(item){ return (!isNaN(item)); }
+
+//Bound when setting in the mixin
+function filterFunc(list){
+	if(Array.isArray(list)) return list.filter(this);
+	return this(list) ? undefined : list;
 }
 
-function numbers(list){
-	if(Array.isArray(list)){
-		var ret = [];
-		list.forEach(function(item){
-			if(!(item === null || item === undefined || isNaN(item))) ret.push(item);
-		});
-		return ret;
-	}		
-	return list;	
-}
-
-function isnull(x, val){
-	if(!(x === null || x === undefined || isNaN(x))) return x;	
+function isNull(x, val){
+	if(isNullCheck(x) || isNumberCheck(x)) return x;	
 	return val;	
-}
-
-function returns(list){
-	if(Array.isArray(list)){
-		var ret = [];
-		list.forEach(function(item,indx,ary){
-			if(indx==0||item==0) return ret.push(0);
-			return ret.push((item / ary[indx-1])-1);
-		});
-		return ret;
-	}	
-	return 0;
 }
 
 //
@@ -613,17 +557,18 @@ mixin(Cube.Functions, {
 	RemoveLast: RemoveLast,
 	first: first,
 	concat: concat,
-	index: index3,
-	indexb: index2,
-	file: File,
-	uconcat: uconcat,
+	index: index,	
+	file: File,	
 	format: format,
-	coalesce: coalesce,
-	isnull:isnull,	
-	numbers:numbers,
+	//coalesce: coalesce,
+	filterNulls: filterFunc.bind(isNullCheck),
+	//isnull:isnull,
+	isNull:isNull,
+	//numbers:numbers,
+	filterNumbers: filterFunc.bind(isNumberCheck),
 	formatDate:formatDate,
 	addDays:addDays,
-	returns:returns,
+	//returns:returns,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));

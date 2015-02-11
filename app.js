@@ -9,7 +9,7 @@ var fs = require('fs');
 var passport = require('passport');
 
 //Config
-function userEmail(user) {    
+function userEmail(user) {
     return user.id + '@uss.co.uk';
 }
 
