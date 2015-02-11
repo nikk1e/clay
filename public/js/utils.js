@@ -68,7 +68,7 @@ function fetchJSONFile(path, callback) {
         var callback_name = 'callback_' + (sym++);
         var on_success = options.onSuccess || function(){};
         var on_timeout = options.onTimeout || function(){};
-        var timeout = options.timeout || 10; // sec
+        var timeout = options.timeout || 30; // sec
 
         data = data || {};
         data['callback'] = 'JSONp.' + callback_name;
