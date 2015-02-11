@@ -1691,6 +1691,10 @@ Cube.prototype.compileExpr = function(expr, basepack, context) {
 			return me.compileExpr(expr[1], basepack, context);
 		case 'Cube':
 			return 'env._Cube';
+		case 'Cond':
+			return '((' + me.compileExpr(expr[1], basepack, context) + ')' +
+			       ' ? (' + me.compileExpr(expr[2], basepack, context) + ') : (' +
+			       me.compileExpr(expr[3], basepack, context) + '))';
 		case 'Quote':
 			return quote(expr[1]);
 		case 'LetG':

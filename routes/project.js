@@ -95,6 +95,10 @@ function file(area, project, branch, path, done) {
 	loadBranch(branch);
 }
 
+
+function history(req, res, next) {
+}
+
 function tree(req, res, next) {
 	var area = req.params.area;
 	var base_path;
@@ -240,6 +244,10 @@ router.get('/:branch*',function(req, res, next) {
 		//and the HTML rendered (for SEO and old browsers)
 		res.sendfile('edit.html', { root: 'public'});
 	}
+});
+
+router.get('/:branch/history', function(req, res, next) {
+	history(req, res, next);
 });
 
 router.post('/:branch*', function(req, res, next) {
