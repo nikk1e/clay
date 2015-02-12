@@ -298,7 +298,6 @@ function BasicTable(headers, rows, highlight) {
 	table.className = 'pure-table pure-table-horizontal';
 	if (highlight === undefined) highlight = 0;
 
-	var dataName = "";
 	var hr = head.insertRow();
 	headers.forEach(function(h, i) {
 		var th = document.createElement('th');
@@ -522,7 +521,7 @@ function filterFunc(list){
 
 //Todo: check why the number check is needed
 function isNull(x, val){ return (isNullCheck(x) || isNumberCheck(x)) ? x : val; }
-function ifNaN(x, val){	return isNumberCheck(x) ? x : val; }
+function ifNaN(x, val){ return isNumberCheck(x) ? x : val; }
 
 function returns(list){
 	if(Array.isArray(list)){

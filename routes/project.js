@@ -97,6 +97,9 @@ function file(area, project, branch, path, done) {
 	loadBranch(branch);
 }
 
+function history(req, res, next) {
+}
+
 function tree(req, res, next) {
 	var area = req.params.area;
 	var base_path;
@@ -244,6 +247,10 @@ router.get('/:branch*',function(req, res, next) {
 	}
 });
 
+router.get('/:branch/history', function(req, res, next) {
+	history(req, res, next);
+});
+
 router.post('/:branch*', passport.authenticate('WindowsAuthentication'), function(req, res, next) {
 	//expect json encoded commit tree
 	console.log('save files');
@@ -301,8 +308,8 @@ router.post('/:branch*', passport.authenticate('WindowsAuthentication'), functio
 							repo.saveAs("commit", {
 		        				tree: tree,
 		        				parent: head, //we lose history if we don't set this
-		        				author: { name: req.user.id, 
-		        						  email: req.user.email },
+		        				author: {	name: req.user.id, 
+		        							email: req.user.email },
 		        				message: "Auto commit"
 		      				}, function(err, hash) {
 		      					if (err) {
