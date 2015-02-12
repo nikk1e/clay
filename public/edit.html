@@ -289,7 +289,7 @@ function renderToFriar(model) {
 		}));
 	}
 
-	funcion renderTable() {
+	function renderTable() {
 		var ret = [Table(token)];
 		if (token.error) {
 			ret.push(DOM.div({className: 'error', id: 'error-' + keyToId(token.key)}, token.error.toString()));
