@@ -274,7 +274,7 @@ var applyPrec = 7200;
 
 //e1~e2~e3, 'e2[e1,e3]',6800,left
 
-prefix('#', 'Index', 7000); //index of dimension
+prefix('#', 'Index', 7200); //index of dimension
 infix('#', 'IndexOf', 7100); //index of element in dimension
 prefix('##', 'Count', 6900); //can probably use @ for index
 
@@ -284,7 +284,6 @@ prefix('##', 'Count', 6900); //can probably use @ for index
 //infix('//@', 'MapAll', 6700, right);
 //infix('@@', 'Apply', 6700, right);
 //infix('@@@','Apply',6700,right) //Apply[e1,e2,{1}]
-
 
 postfix('!', 'Factorial', 6600);
 postfix('!!', 'Factorial2', 6600);
@@ -315,6 +314,7 @@ prefix('-', 'Neg', 5200); //PreMinus
 prefix('+', 'Noop', 5200);
 
 infix('/', 'Divide', 5100, left);
+infix('%', 'Mod', 5100, left);
 infix('\u00f7', 'Divide', 5100, left);
 
 //6 others
@@ -364,6 +364,8 @@ infix('&&', 'And', 2200, flat);
 
 infix('||', 'Or', 2000, flat);
 //vee
+
+postfix('%', 'Percentage', 1500); //TODO.. this is not working
 
 infix('->', 'Rule', 1100, right);
 
@@ -1734,6 +1736,8 @@ Cube.prototype.compileExpr = function(expr, basepack, context) {
 			return '(' + me.compileExpr(expr[1], basepack, context) + ')';
 		case 'Divide':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' / ') + ')';
+		case 'Mod':
+			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' % ') + ')';
 		case 'And':
 			return '(' + expr.slice(1).map(function(e) { return me.compileExpr(e, basepack, context); }).join(' && ') + ')';
 		case 'Or':

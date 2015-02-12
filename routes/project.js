@@ -7,99 +7,25 @@ var createMixin = require('js-git/mixins/create-tree');
 var formatsMixin = require('js-git/mixins/formats');
 //var async = require('async');
 var router = express.Router({ mergeParams: true });
+var moment = require('moment');
 
 var base;
 
-/*router.param(function(name, fn){
-  if (fn instanceof RegExp) {
-    return function(req, res, next, val){
-      var captures;
-      if (captures = fn.exec(String(val))) {
-        req.params[name] = captures;
-        next();
-      } else {
-        next('route');
-      }
-    }
-  }
-})
-*/
-function file(area, project, branch, path, done) {
-	var base_path;
-	if (/^\~/.test(area)) {
-		area = area.slice(1);
-		base_path = join(base, 'users');
-	} else {
-		base_path = join(base, 'areas');
-	}
-	var rootPath = join(base_path, area, project + '.git');
-	console.log(rootPath)
-	var repo = {};
+function file(req, branch, path, next) {
+	var repo = openRepo(req);
+
 	var rawPath = path.join('/');
-
-	fsdb(repo, rootPath);
 	
-	function loadBlob(hash) {
-		repo.loadAs('blob', hash, function(err, blob) {
-			if (err) return done(err);
-			done(null, blob);
+	branchOrCommit(repo, branch, function(err, commit) {
+		if (err) return next(err);
+		loadFile(repo, commit.tree, path, function(err, hash) {
+			if (err) return next("File not found: " + rawPath);
+			loadBlob(repo, hash, next);
 		});
-	}
-
-	function loadTree(hash) {
-		console.log('loading commit: '  + hash);
-		repo.loadAs('tree', hash, function(err, tree) {
-			var dir;
-			if (err) return done(err);
-			if ((dir = path.shift()) && tree[dir]) {
-				if (tree[dir].mode === modes.tree) {
-					return loadTree(tree[dir].hash);
-				} else if (path.length === 0) {
-					return loadBlob(tree[dir].hash);
-				}
-				return done(new Error('File not found ' + rawPath));
-			} else {
-				return done(new Error('File not found ' + rawPath));
-			}
-		});
-	}
-
-	function loadCommit(hash) {
-		console.log('loading commit: '  + hash);
-		repo.loadAs('commit', hash, function(err, commit) {
-			if (err) {
-				return next(err);
-			}
-			last_commit = commit;
-			loadTree(commit.tree);
-		});
-	}
-
-	function loadTag(tag) {
-		var ref = 'refs/tags/' + tag;
-		repo.readRef(ref, function(err, hash) {
-			if (err || hash === undefined) return loadCommit(tag);
-			loadCommit(hash);
-		});
-	}
-
-	function loadBranch(branch) {
-		var ref = 'refs/heads/' + branch;
-		console.log('loading branch ref: '  + ref);
-		repo.readRef(ref, function(err, hash) {
-			if (err || hash === undefined) return loadTag(branch);
-			loadCommit(hash);
-		});
-	}
-
-	loadBranch(branch);
+	})
 }
 
-
-function history(req, res, next) {
-}
-
-function tree(req, res, next) {
+function openRepo(req) {
 	var area = req.params.area;
 	var base_path;
 	if (/^\~/.test(area)) {
@@ -108,24 +34,66 @@ function tree(req, res, next) {
 	} else {
 		base_path = join(base, 'areas');
 	}
-	var project = req.params.project;
-	var rootPath = join(base_path, area, project + '.git');
+	
+	var rootPath = join(base_path, area, req.params.project + '.git');
 	var repo = {};
-	var rawPath = req.params.path || req.params[0] || '/';
+
+	fsdb(repo, rootPath);
+
+	return repo;
+}
+
+function history(req, branch, next) {
+	var repo = openRepo(req);
+
+	var limit = 20;
+	var commits = [];
+	var baseUrl = '/' + req.params.area + '/' + req.params.project + '/';
+
+	function traverseHistory(hash) {
+		repo.loadAs('commit', hash, function(err, commit) {
+			if (err) {
+				if (commits.length > 0) return next(null, commits)
+				return next(err);
+			}
+			if (commit === undefined) return next("Commit not found");
+			commits.push({
+				url: baseUrl + hash + '/',
+				hash: hash,
+				when: moment(commit.author.date.seconds * 1000, "x"),
+				commiter: commit.commiter,
+				author: commit.author,
+				message: commit.message,
+			});
+			if (commits.length >= limit) return next(null, commits);
+			var parents = commit.parents;
+			if (!(parents && parents.length > 0)) return next(null, commits);
+			traverseHistory(parents[0]);
+		});
+	}
+
+	branchOrTag(repo, branch, function(err, hash) {
+		if (err) return next(err);
+		traverseHistory(hash);
+	});
+}
+
+function tree(req, res, next) {
 	var branch = req.params.branch || req.params.commit || 'master';
 	branch = branch.replace(/^~/, ''); //remove leading ~ when we match with branch with command
+	
+	var repo = openRepo(req);
+
+	var rawPath = req.params.path || req.params[0] || '/';
 	var path = rawPath
 		.slice(1)
 		.split('/')
 		.filter(function(p) { return p.length > 0; });
-	var last_commit;
 	var urlPath = path.join('/');
-
-	fsdb(repo, rootPath);
-
+	var project = req.params.project;
 	var baseUrl = '/' + req.params.area + '/' + project + '/';
 
-	function done(tree) { 
+	function done(tree, commit) { 
 		var treeM = [];
 		for (var name in tree) {
 			if (/^\./.test(name)) continue;
@@ -138,38 +106,88 @@ function tree(req, res, next) {
 				url: baseUrl + branch + urlPath + '/' + (isDir ? name + '/' : name.replace(/.cube$/,''))
 			});
 		}
-		res.render('tree', {title: area + '/' + project + (urlPath ? '/' + urlPath : ''), tree: treeM, commit: last_commit});
+		res.render('tree', {title: req.params.area + '/' + project + (urlPath ? '/' + urlPath : ''), tree: treeM, commit: commit});
 	}
 
-	function loadTree(hash) {
-		repo.loadAs('tree', hash, function(err, tree) {
-			var dir;
-			if (err) {
-				return next(err);
-			}
-			if ((dir = path.shift())) {
-				for (var i = tree.length - 1; i >= 0; i--) {
-					if (tree[i].name === dir) {
-						if (tree[i].mode === modes.tree) {
-							return loadTree(tree[i].hash);
-						}
+	branchOrCommit(repo, branch, function(err, commit) {
+		if (err) return next(err);
+		loadTree(repo, commit.tree, path, function(err, tree) {
+			if (err) return next("Directory not found: " + rawPath);
+			done(tree, commit);
+		});
+	});
+}
+
+function loadBlob(repo, hash, next) {
+	repo.loadAs('blob', hash, function(err, blob) {
+		if (err) return next(err);
+		next(null, blob);
+	});
+}
+
+function loadTree(repo, hash, path, next) {
+	repo.loadAs('tree', hash, function(err, tree) {
+		var dir;
+		if (err) {
+			return next(err);
+		}
+		if ((dir = path.shift())) {
+			for (var i = tree.length - 1; i >= 0; i--) {
+				if (tree[i].name === dir) {
+					if (tree[i].mode === modes.tree) {
+						return loadTree(repo, tree[i].hash, path, next);
 					}
 				}
-				return next(new Error('Directory not found ' + rawPath));
-			} else {
-				done(tree);
 			}
-		});
-	}
+			return next(new Error('Directory not found '));
+		} else {
+			next(null, tree);
+		}
+	});
+}
+
+function loadFile(repo, hash, path, next) {
+	console.log('loading commit: '  + hash);
+	repo.loadAs('tree', hash, function(err, tree) {
+		var dir;
+		if (err) return next(err);
+		if ((dir = path.shift()) && tree[dir]) {
+			if (tree[dir].mode === modes.tree) {
+				return loadFile(repo, tree[dir].hash, path, next);
+			} else if (path.length === 0) {
+				return next(null, tree[dir].hash);
+			}
+			return next(new Error('File not found '));
+		} else {
+			return next(new Error('File not found '));
+		}
+	});
+}
+
+function branchOrCommit(repo, branch, next) {
 
 	function loadCommit(hash) {
 		repo.loadAs('commit', hash, function(err, commit) {
-			if (err) {
-				return next(err);
-			}
+			if (err) return next(err);
 			if (commit === undefined) return next("Commit not found");
-			last_commit = commit;
-			loadTree(commit.tree);
+			next(null, commit);
+		});
+	}
+
+	branchOrTag(repo, branch, function(err, hash) {
+		if (err) return next(err);
+		loadCommit(hash);
+	});
+}
+
+//will return a hash if given a commit
+function branchOrTag(repo, branch, next) {
+
+	function loadCommit(hash) {
+		repo.loadAs('commit', hash, function(err, commit) {
+			if (err) return next(err);
+			if (commit === undefined) return next("Commit not found");
+			next(null, commit);
 		});
 	}
 
@@ -177,22 +195,18 @@ function tree(req, res, next) {
 		var ref = 'refs/tags/' + tag;
 		repo.readRef(ref, function(err, hash) {
 			if (err) return next(err);
-			if (hash === undefined) return loadCommit(tag);
-			loadCommit(hash);
+			if (hash === undefined) return next(null, tag);
+			next(null, hash);
 		});
 	}
 
-	function loadBranch(branch) {
-		var ref = 'refs/heads/' + branch;
-		console.log('loading branch ref: '  + ref);
-		repo.readRef(ref, function(err, hash) {
-			if (err) return next(err);
-			if (hash === undefined) return loadTag(branch);
-			loadCommit(hash);
-		});
-	}
-
-	loadBranch(branch);
+	var ref = 'refs/heads/' + branch;
+	console.log('loading branch ref: '  + ref);
+	repo.readRef(ref, function(err, hash) {
+		if (err) return next(err);
+		if (hash === undefined) return loadTag(branch);
+		next(null, hash);
+	});
 }
 
 //router.param('branch', /^\w+$/);
@@ -219,7 +233,7 @@ router.get('/:branch/*.cube', function(req, res, next) {
 		.split('/')
 		.filter(function(p) { return p.length > 0; });
 	commit = commit.replace(/^~/, ''); //remove leading ~ when we match with branch with command
-  	file(area, project, commit, path, function(err, blob) {
+  	file(req, commit, path, function(err, blob) {
   		if (err) {
   			return next(err);
   		}
@@ -230,6 +244,21 @@ router.get('/:branch/*.cube', function(req, res, next) {
 
 router.get('/:branch/*.xslx', function(req, res, next) {
 	res.send('I am xslx for ' + req.params[0]);
+});
+
+router.get('/:branch/history', function(req, res, next) {
+	var branchR = req.params.branch || req.params.commit;
+	var branch = branchR || 'master';
+	branch = branch.replace(/^~/, ''); //remove leading ~ when we match with branch with command
+	
+	var area = req.params.area;
+	var project = req.params.project;
+
+	var title = area + '/' + project + (branchR ? '/' + branchR : '')
+	history(req, branch, function(err, commits) {
+		if (err) return next(err);
+		res.render('history', {commits: commits, title: title, errors: []})
+	});
 });
 
 router.get('/:branch*',function(req, res, next) {
@@ -246,9 +275,7 @@ router.get('/:branch*',function(req, res, next) {
 	}
 });
 
-router.get('/:branch/history', function(req, res, next) {
-	history(req, res, next);
-});
+
 
 router.post('/:branch*', function(req, res, next) {
 	//expect json encoded commit tree
