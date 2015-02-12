@@ -35,6 +35,10 @@ function makeRecursion(func) {
 	};
 }
 
+function cond(bool, yes, no) { //actually "IF" but I cannot name it that.
+	return ['Cond', bool, yes, no];
+}
+
 
 //This should only be called at the base level
 // as Flip(X, Line, {Net Income, etc})
@@ -244,6 +248,7 @@ var Macros = {
 	FLIP: flip,
 	'GRAPH.LINE': graphLine,
 	DATA: data,
+	IF: cond,
 };
 
 //macros applied after analyse dimensions
