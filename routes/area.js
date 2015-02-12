@@ -15,7 +15,7 @@ function index(res, next, errors) {
     if (err) {
       return next(err);
     }
-    res.render('index', {files: files, title: "Clay", errors: errors || []});
+    res.render('index', {files: files, title: "Qube", errors: errors || []});
     //res.send(files);
   })
 }
@@ -93,6 +93,7 @@ router.route('/:area')
   var dir = path.join(base_path, area);
   var name = req.body.name;
   var gitpath = path.join(dir, name + '.git');
+  console.log('Repo Path: ' + gitpath);
   var repo = {};
   fsdb(repo, gitpath);
   createMixin(repo);
@@ -108,6 +109,7 @@ router.route('/:area')
         return next(err);
       }
       console.log(tree);
+
       repo.saveAs("commit", {
             tree: tree,
             author: { name: "Unknown Author", 

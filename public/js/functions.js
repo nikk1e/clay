@@ -18,7 +18,12 @@ function mixin(obj, mix) {
 
 function Sum(list) {
 	var sum = 0;
-	list.forEach(function(v,i) { if (v !== undefined) sum += v; });
+	if(list===undefined) return sum;
+	list.forEach(function(v,i) {
+		if (v !== undefined && !isNaN(v)) {
+			sum += v; 
+		}
+	});		
 	return sum;
 }
 
@@ -64,6 +69,7 @@ function RemoveLast(list, num) {
 
 function Count(list){
 	var num = 0;
+	if(list === undefined) return num;
 	list.forEach(function(v,i){
 		num++;
 	});
@@ -120,7 +126,7 @@ function Last(list) {
 }
 
 function Round(list) {  
-	if(Array.isArray(lst)) {
+	if(Array.isArray(list)) {
         return list.map(Math.round);
     }
     return Math.round(list);       
@@ -257,6 +263,7 @@ function _Table(list, ast) {
 
 function _csv(headers, rows) {
 	function cell(h) {
+		if(h===undefined) return '';
 		var c = h.toString();
 		if (/,/.test(c)) c = '"' + c + '"';
 		return c;
@@ -269,10 +276,11 @@ function _csv(headers, rows) {
 	return str;
 }
 
-function File(name, f, type) {
+function File(name, f, type, displayName) {
 	var a = document.createElement('a');
-	a.appendChild(document.createTextNode(name));
+	a.appendChild(document.createTextNode(displayName || name));
 	a.href = '#';
+	a.className = "table-download-link";
 	a.onclick = function() {
 		saveAs(new Blob([f()], {type: type}), name);
 		return false;
@@ -291,7 +299,6 @@ function BasicTable(headers, rows, highlight) {
 	if (highlight === undefined) highlight = 0;
 
 	var hr = head.insertRow();
-
 	headers.forEach(function(h, i) {
 		var th = document.createElement('th');
 		hr.appendChild(th);
@@ -302,6 +309,14 @@ function BasicTable(headers, rows, highlight) {
 			th.appendChild(document.createTextNode(h.toString()));
 		}
 	});
+
+	var downloadLink = File('Qube.csv',function(){return _csv(headers, rows)}, 'text/csv',' ');
+	var span = document.createElement('span');
+	span.className = 'icon-download-alt';
+	downloadLink.appendChild(span);
+
+	//Add the link to the far right header
+	hr.childNodes[headers.length-1].appendChild(downloadLink);
 
 	var maxrows = 1000;
 
@@ -359,7 +374,7 @@ function queryString(data) {
 FETCHING = {}; //sentinal
 //gets data from jsonp call with caching in Cube
 //note: refetch is cube.clearDataCache() then recalc.
-function _data(cube, url, args) {
+function _data(cube, url, args, options) {
 	var fullurl = url + '?' + queryString(args);
 	var cache = cube.dataCache();
 	var data = cache[fullurl];
@@ -379,7 +394,8 @@ function _data(cube, url, args) {
 			onTimeout: function() {
 				cache[fullurl] = new Error("Timeout while fetching data");
 				cube.recalculate();
-			}
+			},
+			timeout: options.timeout || 10,
 		})
 	}
 	if (data === FETCHING) throw "Data pending...";
@@ -394,31 +410,10 @@ function dot(key, obj) {
 	return obj[key];
 }
 
-function index2(items, keys) {
-	if (keys === null || keys === undefined || !(keys.length > 0)) return items;
-	var cache = {};
-	var rest = keys.slice(0);
-	var key = rest.pop();
-	//collect as list the items by last key
-	items.forEach(function(item) {
-		var k = item[key];
-		if (cache.hasOwnProperty(k)) {
-			cache[k].push(item);
-		} else {
-			cache[k] = [item];
-		}
-		
-	});
-
-	for (var k in cache) {
-		cache[k] = index2(cache[k], rest);
-	}
-	return cache;
-}
-
-function index3(items, keys) {
+function index(items, keys) {
 	var rkeys = {};
 	var values = {};
+	if (items === undefined) return undefined;
 	var ilen = items.length;
 	var klen = keys.length;
 	var elem;
@@ -470,40 +465,142 @@ function concat(list) {
 	return Array.prototype.concat.apply([], list)
 }
 
+function formatDate(list,format) {
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return dateFormat(item,format);
+        });
+    }    
+    return dateFormat(list,format); 
+}
+
+function addDays(list,days,businessDays) {
+	businessDays = String(businessDays || true).toLowerCase() == "true"
+
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return setDays(item);
+        });
+    } 
+
+    function businessDay(date) {    	
+    	switch(date.getDay()) {
+    		case 0: return (days > 0) ? date.setDate(date.getDate() + 1) : date.setDate(date.getDate() - 2);
+    		case 6: return (days > 0) ? date.setDate(date.getDate() + 2) : date.setDate(date.getDate() - 1);
+    		default:return date;
+    	}    	
+    }
+
+    function setDays(item) {
+    	var date = new Date(dateFormat(item));
+    	date.setDate(date.getDate() + days);
+    	if(businessDays) return businessDay(date);
+    	return date;
+    }
+
+    return setDays(list);
+}
+
+function format(list) {
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return item.toLocaleString();
+        });
+    }
+    return list.toLocaleString();
+}
+
+function isNullCheck(item){	return !(item === null || item === undefined); }
+function isNumberCheck(item){ return (!isNaN(item)); }
+
+//Bound when setting in the mixin
+function filterFunc(list){
+	if(Array.isArray(list)) return list.filter(this);
+	return this(list) ? undefined : list;
+}
+
+//Todo: check why the number check is needed
+function isNull(x, val){ return (isNullCheck(x) || isNumberCheck(x)) ? x : val; }
+function ifNaN(x, val){ return isNumberCheck(x) ? x : val; }
+
+function returns(list){
+	if(Array.isArray(list)){
+		var ret = [];
+		list.forEach(function(item,indx,ary){
+			if(indx==0||item==0) return ret.push(0);
+			return ret.push((item / ary[indx-1])-1);
+		});
+		return ret;
+	}	
+	return 0;
+}
+
 //
 mixin(Cube.Functions, {
 	Sum: Sum,
+	sum: Sum,
 	Max: Max,
+	max: Max,
 	Min: Min,
+	min: Min,
 	Average: Average,
+	average: Average,
 	range: range,
 	Head: Head,
+	head: Head,
 	Tail: Tail,
+	tail: Tail,
 	Last: Last,
+	last: Last,
+	End: Last,
+	end: Last,
 	Unique: Unique,
+	unique: Unique,
 	_Table: _Table,
 	BasicTable: BasicTable,
 	Values: Values,
+	values: Values,
 	Round:Round,
+	round:Round,
 	Stdev:Stdev,
+	stdev:Stdev,
 	Stdevp:Stdevp,
+	stdevp:Stdevp,
 	Count:Count,
+	count:Count,
 	CountNumbers:CountNumbers,
+	countNumbers:CountNumbers,
 	Help:Help,
+	help:Help,
 	Correl:Correl,
+	correl:Correl,
 	CovarianceS: CovarianceS,
+	covarianceS: CovarianceS,
 	CovarianceP: CovarianceP,
+	covarianceP: CovarianceP,
 	"typeof": TypeOf,
 	dot: dot,
 	map: map,
 	_data: _data,
 	_csv: _csv,
 	RemoveLast: RemoveLast,
+	removeLast: RemoveLast,
 	first: first,
 	concat: concat,
-	index: index2,
-	indexb: index3,
-	file: File,
+	index: index,	
+	file: File,	
+	format: format,
+	coalesce: filterFunc.bind(isNullCheck),
+	filterNulls: filterFunc.bind(isNullCheck),
+	isnull:isNull,
+	isNull:isNull,	
+	numbers:filterFunc.bind(isNumberCheck),
+	filterNumbers: filterFunc.bind(isNumberCheck),
+	formatDate:formatDate,
+	addDays:addDays,
+	returns:returns,
+	isNaN:isNaN,
+	ifNaN:ifNaN,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));
