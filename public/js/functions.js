@@ -502,13 +502,13 @@ function addDays(list,days,businessDays) {
     return setDays(list);
 }
 
-function format(list) {  
+function format(list) {
 	if(Array.isArray(list)) {
         return list.map(function(item){
         	return item.toLocaleString();
         });
     }
-    return list.toLocaleString();      
+    return list.toLocaleString();
 }
 
 function isNullCheck(item){	return !(item === null || item === undefined); }
@@ -520,55 +520,88 @@ function filterFunc(list){
 	return this(list) ? undefined : list;
 }
 
-function isNull(x, val){
-	if(isNullCheck(x) || isNumberCheck(x)) return x;	
-	return val;	
+//Todo: check why the number check is needed
+function isNull(x, val){ return (isNullCheck(x) || isNumberCheck(x)) ? x : val; }
+function ifNaN(x, val){	return isNumberCheck(x) ? x : val; }
+
+function returns(list){
+	if(Array.isArray(list)){
+		var ret = [];
+		list.forEach(function(item,indx,ary){
+			if(indx==0||item==0) return ret.push(0);
+			return ret.push((item / ary[indx-1])-1);
+		});
+		return ret;
+	}	
+	return 0;
 }
 
 //
 mixin(Cube.Functions, {
 	Sum: Sum,
+	sum: Sum,
 	Max: Max,
+	max: Max,
 	Min: Min,
+	min: Min,
 	Average: Average,
+	average: Average,
 	range: range,
 	Head: Head,
+	head: Head,
 	Tail: Tail,
+	tail: Tail,
 	Last: Last,
+	last: Last,
 	End: Last,
+	end: Last,
 	Unique: Unique,
+	unique: Unique,
 	_Table: _Table,
 	BasicTable: BasicTable,
 	Values: Values,
+	values: Values,
 	Round:Round,
+	round:Round,
 	Stdev:Stdev,
+	stdev:Stdev,
 	Stdevp:Stdevp,
+	stdevp:Stdevp,
 	Count:Count,
+	count:Count,
 	CountNumbers:CountNumbers,
+	countNumbers:CountNumbers,
 	Help:Help,
+	help:Help,
 	Correl:Correl,
+	correl:Correl,
 	CovarianceS: CovarianceS,
+	covarianceS: CovarianceS,
 	CovarianceP: CovarianceP,
+	covarianceP: CovarianceP,
 	"typeof": TypeOf,
 	dot: dot,
 	map: map,
 	_data: _data,
 	_csv: _csv,
 	RemoveLast: RemoveLast,
+	removeLast: RemoveLast,
 	first: first,
 	concat: concat,
 	index: index,	
 	file: File,	
 	format: format,
-	//coalesce: coalesce,
+	coalesce: filterFunc.bind(isNullCheck),
 	filterNulls: filterFunc.bind(isNullCheck),
-	//isnull:isnull,
-	isNull:isNull,
-	//numbers:numbers,
+	isnull:isNull,
+	isNull:isNull,	
+	numbers:filterFunc.bind(isNumberCheck),
 	filterNumbers: filterFunc.bind(isNumberCheck),
 	formatDate:formatDate,
 	addDays:addDays,
-	//returns:returns,
+	returns:returns,
+	isNaN:isNaN,
+	ifNaN:ifNaN,
 });
 
 }(this || (typeof window !== 'undefined' ? window : global)));

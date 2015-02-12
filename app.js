@@ -91,7 +91,7 @@ var WindowsAuthentication = require('passport-windowsauth');
 passport.use(new WindowsAuthentication(
     {integrated: true},
     function(profile, done) {
-    var user = users[profile.id];   
+    var user = users[profile.id];
     if (!user) {
         profile.email = userEmail(profile);
         user =  profile;
@@ -154,7 +154,7 @@ app.use(require('stylus').middleware(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname,'public')));
 
 app.get('/profile', passport.authenticate('WindowsAuthentication'),
-  function (req, res){    
+  function (req, res){
     res.json(req.user);
 });
 
