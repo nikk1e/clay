@@ -137,6 +137,8 @@ var area = require('./routes/area')(base);
 
 var app = express();
 
+app.disable('etag');
+
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
 app.use(favicon(__dirname + '/public/favicon.ico'));
@@ -162,6 +164,7 @@ app.get('/login', function(req, res, next) {
     if (!user) { return res.render('login',{}); } //show login form if not windows authenticated
     req.login(user, function(err) {
       if (err) { return next(err); }
+      console.log(user.name);
       return res.redirect('/~' + user.name);
     });
   })(req, res, next);

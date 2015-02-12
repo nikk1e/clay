@@ -198,6 +198,7 @@ a:hover [class^="menuicon-"], [class*=" menuicon-"] {
 <script src="http://d3js.org/d3.v3.js"></script>
 <script type="text/javascript" src="/js/functions/graph.js"></script>
 <script type="text/javascript" src="/js/utils.js"></script>
+<script type="text/javascript" src="/js/dateformat.js"></script>
 <script type="text/javascript">
 
 var DOM = Friar.DOM, 
@@ -232,9 +233,9 @@ var Table = createClass({
 				}) : [DOM.td({className: 'empty', colSpan: alignments.length},' ')]);
 		}
 
-		if (token.error) {
-			foot.push(DOM.tr({},[DOM.td({className: 'error', colSpan: alignments.length}, token.error)]));
-		}
+		//if (token.error) {
+		//	foot.push(DOM.tr({},[DOM.td({className: 'error', colSpan: alignments.length}, token.error)]));
+		//}
 
 		return DOM.table({id: keyToId(token.key),  
 						  className: 'pure-table pure-table-bordered'}, 
@@ -286,6 +287,14 @@ function renderToFriar(model) {
 		return DOM.tr({id: keyToId(token.key)},token.values.map(function(c,i) { //
 			return DOM[type]({style: (alignments[i] || {})}, c); //TODO (c should be spans)
 		}));
+	}
+
+	function renderTable() {
+		var ret = [Table(token)];
+		if (token.error) {
+			ret.push(DOM.div({className: 'error', id: 'error-' + keyToId(token.key)}, token.error.toString()));
+		}
+		return ret;
 	}
 
 	function renderCode(lang) {
@@ -373,8 +382,8 @@ function renderToFriar(model) {
 			case 'ulli':   return renderList('ul', 'ulli');
 			case 'olli':   return renderList('ol', 'olli');
 			case 'quote':  return [DOM.blockquote({id: keyToId(token.key)}, renderSpans(token))];
-			//case 'tr':     return renderTable();
-			case 'table':  return [Table(token)];
+			case 'table':  return renderTable();
+			//case 'table':  return [Table(token)];
 			default: 
 				return [
 					DOM.p({className: 'error', id: keyToId(token.key)}, 
@@ -1043,8 +1052,7 @@ var MultiEditor = createClass({
 				[DOM.span()]),
 			DOM.div({id: 'menu'}, 
 				[DOM.div({className:"pure-menu pure-menu-open"},
-					DOM.a({className:"pure-menu-heading", href:"#"},
-						DOM.text('Clay'), DOM.sup({},'3')),
+					DOM.a({className:"pure-menu-heading", href:"../../../"},'Qube'),
 					DOM.ul({}, cube.names.map(function(n,i) {
 						return DOM.li({onClick: me.handleMenuClick, 
 							className: (n === active ? 'pure-menu-selected ' : '') + (cube.models[n].modified ? 'menu-modified' : '') },
@@ -1053,8 +1061,8 @@ var MultiEditor = createClass({
 					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick, 
 						className: ('#Scratch' === active ? 'pure-menu-selected' : '') },
 							[DOM.a({href:"##Scratch"}, 'Scratch')])]),
-					DOM.ul({}, [DOM.li({onClick: this.toggleDebug},
-							[DOM.a({href:"#"}, 'Debug')]),
+					DOM.ul({}, [/**DOM.li({onClick: this.toggleDebug},
+							[DOM.a({href:"#"}, 'Debug')]),**/
 							DOM.li({onClick: this.save},
 							[DOM.a({href:"#"}, 'Save')]),
 							DOM.li({onClick: this.refresh},
@@ -1169,6 +1177,6 @@ function test(n) {
 
 </script>
 <script src="/js/ui.js"></script>
-<script src="//localhost:35729/livereload.js"></script>
+<!--<script src="//localhost:35729/livereload.js"></script>-->
 </body>
 </html>

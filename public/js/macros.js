@@ -229,8 +229,8 @@ function graphLine(expr, over, series) {
 	return ['Call', ['Symbol', 'Graph', 'Line'], showM(expr), expr]; 
 }
 
-function data(url, args) {
-	return ['Call', ['Symbol', '_data'], ['Cube'], url, args];
+function data(url, args, options) {
+	return ['Call', ['Symbol', '_data'], ['Cube'], url, args, options];
 }
 
 //most macros are applied before 

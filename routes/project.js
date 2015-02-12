@@ -5,11 +5,14 @@ var modes = require('js-git/lib/modes');
 var fsdb = require('git-node-fs/mixins/fs-db');
 var createMixin = require('js-git/mixins/create-tree');
 var formatsMixin = require('js-git/mixins/formats');
+var passport = require('passport');
+var access = require('access-check');
 //var async = require('async');
 var router = express.Router({ mergeParams: true });
 var moment = require('moment');
 
 var base;
+var users = {};
 
 function file(req, branch, path, next) {
 	var repo = openRepo(req);
@@ -36,6 +39,7 @@ function openRepo(req) {
 	}
 	
 	var rootPath = join(base_path, area, req.params.project + '.git');
+
 	var repo = {};
 
 	fsdb(repo, rootPath);
@@ -277,7 +281,7 @@ router.get('/:branch*',function(req, res, next) {
 
 
 
-router.post('/:branch*', function(req, res, next) {
+router.post('/:branch*', passport.authenticate('WindowsAuthentication'), function(req, res, next) {
 	//expect json encoded commit tree
 	console.log('save files');
 	var body = req.body;
@@ -293,61 +297,71 @@ router.post('/:branch*', function(req, res, next) {
 		var project = req.params.project;
 		var repo = {};
 		var rootPath = join(base_path, area, project + '.git');
-		var rawPath = req.params[0];
-		var branch = req.params.branch || 'master';
-		var ref = 'refs/heads/' + branch;
-		var path = rawPath
-			.slice(1)
-			.split('/')
-			.filter(function(p) { return p.length > 0; });
 
-		fsdb(repo, rootPath);
-		createMixin(repo);
-		formatsMixin(repo);
-		console.log(ref)
-		repo.readRef(ref, function(err, head) {
-			if (err) return next(err);
-			console.log('head:' + head);
-			repo.loadAs('commit', head, function(err, commit) {
-				if (err) return next(err);
-				console.log(commit);
-				var entries = body.map(function(file) {
-					return { mode: modes.blob,
-							 content: JSON.stringify(file),
-							 path: file.name + '.cube' };
+		//Test if the user has permissions to update the repo
+		access.checkDirectoryPermissions(req.user.id, rootPath.replace(/\\/g,'/'), function(pErr, pOut){
+			console.log('Is repo writable: ' + pOut.isWritable);
+
+			if(!pOut.isWritable) { 
+				res.send("User doesn't have permission to save"); 
+			} else {
+				var rawPath = req.params[0];
+				var branch = req.params.branch || 'master';
+				var ref = 'refs/heads/' + branch;
+				var path = rawPath
+					.slice(1)
+					.split('/')
+					.filter(function(p) { return p.length > 0; });
+
+				fsdb(repo, rootPath);
+				createMixin(repo);
+				formatsMixin(repo);
+				console.log(ref)
+				repo.readRef(ref, function(err, head) {
+					if (err) return next(err);
+					console.log('head:' + head);
+					repo.loadAs('commit', head, function(err, commit) {
+						if (err) return next(err);
+						console.log(commit);
+						var entries = body.map(function(file) {
+							return { mode: modes.blob,
+									 content: JSON.stringify(file),
+									 path: file.name + '.cube' };
+						});
+						entries.base = commit.tree;
+						repo.createTree(entries, function(err, tree) {
+							if (err) {
+								console.log(err);
+								return next(err);
+							}
+							console.log(tree);
+							repo.saveAs("commit", {
+		        				tree: tree,
+		        				parent: head, //we lose history if we don't set this
+		        				author: {	name: req.user.id, 
+		        							email: req.user.email },
+		        				message: "Auto commit"
+		      				}, function(err, hash) {
+		      					if (err) {
+		      						console.log(err);
+		      						return next(err);
+		      					}
+		      					console.log('newhead:' + hash);
+		      					//push branch forward to this commit
+		      					repo.updateRef(ref, hash, function(err) {
+		      						if (err) return next(err);
+		      						res.send('Saved files');
+		      					});
+		      				});
+						});
+					});
 				});
-				entries.base = commit.tree;
-				repo.createTree(entries, function(err, tree) {
-					if (err) {
-						console.log(err);
-						return next(err);
-					}
-					console.log(tree);
-					repo.saveAs("commit", {
-        				tree: tree,
-        				parent: head, //we lose history if we don't set this
-        				author: { name: "Unknown Author", 
-        						  email: "ims@uss.co.uk" },
-        				message: "Auto commit"
-      				}, function(err, hash) {
-      					if (err) {
-      						console.log(err);
-      						return next(err);
-      					}
-      					console.log('newhead:' + hash);
-      					//push branch forward to this commit
-      					repo.updateRef(ref, hash, function(err) {
-      						if (err) return next(err);
-      						res.send('Saved files');
-      					});
-      				});
-				});
-			});
+
+			}
 		});
 	} else {
 		res.send('No files to save');
 	}
-	
 });
 
 router.get('/',function(req, res, next) {
