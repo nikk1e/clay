@@ -96,6 +96,7 @@ function tree(req, res, next) {
 	var urlPath = path.join('/');
 	var project = req.params.project;
 	var baseUrl = '/' + req.params.area + '/' + project + '/';
+	var historyUrl = baseUrl + branch + '/history';
 
 	function done(tree, commit) { 
 		var treeM = [];
@@ -110,7 +111,7 @@ function tree(req, res, next) {
 				url: baseUrl + branch + urlPath + '/' + (isDir ? name + '/' : name.replace(/.cube$/,''))
 			});
 		}
-		res.render('tree', {title: req.params.area + '/' + project + (urlPath ? '/' + urlPath : ''), tree: treeM, commit: commit});
+		res.render('tree', {title: req.params.area + '/' + project + (urlPath ? '/' + urlPath : ''), tree: treeM, commit: commit, historyUrl: historyUrl});
 	}
 
 	branchOrCommit(repo, branch, function(err, commit) {
@@ -250,18 +251,34 @@ router.get('/:branch/*.xslx', function(req, res, next) {
 	res.send('I am xslx for ' + req.params[0]);
 });
 
-router.get('/:branch/history', function(req, res, next) {
+router.get('/:branch/history/:page?', function(req, res, next) {
 	var branchR = req.params.branch || req.params.commit;
 	var branch = branchR || 'master';
 	branch = branch.replace(/^~/, ''); //remove leading ~ when we match with branch with command
 	
 	var area = req.params.area;
 	var project = req.params.project;
+	var itemsPerPage = 15;
+	var page = req.params.page || 1;
 
 	var title = area + '/' + project + (branchR ? '/' + branchR : '')
 	history(req, branch, function(err, commits) {
 		if (err) return next(err);
-		res.render('history', {commits: commits, title: title, errors: []})
+
+		function slicer(items){
+			var offset = (itemsPerPage*(page-1));
+			if(items.length > offset){				
+				return items.slice(offset);
+			}			
+			return items;
+		}
+
+		res.render('history', {	commits: slicer(commits), 
+								title: title, 
+								itemsPerPage: itemsPerPage, 
+								page: page,
+								maxPages: commits.length % itemsPerPage, 
+								errors: []})
 	});
 });
 

@@ -174,6 +174,7 @@ app.get('/login', function(req, res, next) {
 //TODO: authenticate/register with Google/Twitter/Facebook
 
 app.use('/:area/:project', project);
+app.use('/:area/:project/history/:page*', project);
 app.use('/', area);
 
 // catch 404 and forward to error handler
