@@ -259,25 +259,28 @@ router.get('/:branch/history/:page?', function(req, res, next) {
 	var area = req.params.area;
 	var project = req.params.project;
 	var itemsPerPage = 15;
-	var page = req.params.page || 1;
+	var page = parseInt(req.params.page || 1);
 
 	var title = area + '/' + project + (branchR ? '/' + branchR : '')
 	history(req, branch, function(err, commits) {
 		if (err) return next(err);
 
+		var maxPages = Math.ceil(commits.length / itemsPerPage);
+		page = page < 1 ? 1 : page;
+		page = page > maxPages ? maxPages : page;
+
 		function slicer(items){
 			var offset = (itemsPerPage*(page-1));
-			if(items.length > offset){				
+			if(items.length > offset){
 				return items.slice(offset);
-			}			
+			}
 			return items;
 		}
 
-		res.render('history', {	commits: slicer(commits), 
-								title: title, 
-								itemsPerPage: itemsPerPage, 
-								page: page,
-								maxPages: commits.length % itemsPerPage, 
+		res.render('history', {	commits: slicer(commits),
+								title: title,
+								itemsPerPage: itemsPerPage,
+								page: page,			 
 								errors: []})
 	});
 });
