@@ -47,10 +47,10 @@ function openRepo(req) {
 	return repo;
 }
 
-function history(req, branch, next) {
+function history(req, branch, limit, next) {
 	var repo = openRepo(req);
 
-	var limit = 20;
+	limit = limit||20;
 	var commits = [];
 	var baseUrl = '/' + req.params.area + '/' + req.params.project + '/';
 
@@ -251,36 +251,27 @@ router.get('/:branch/*.xslx', function(req, res, next) {
 	res.send('I am xslx for ' + req.params[0]);
 });
 
-router.get('/:branch/history/:page?', function(req, res, next) {
+router.get('/:branch/history/:limit?', function(req, res, next) {
 	var branchR = req.params.branch || req.params.commit;
 	var branch = branchR || 'master';
 	branch = branch.replace(/^~/, ''); //remove leading ~ when we match with branch with command
 	
 	var area = req.params.area;
-	var project = req.params.project;
-	var itemsPerPage = 15;
-	var page = parseInt(req.params.page || 1);
+	var project = req.params.project;	
+	var limit = parseInt(req.params.limit || 20);
 
 	var title = area + '/' + project + (branchR ? '/' + branchR : '')
-	history(req, branch, function(err, commits) {
+	history(req, branch, limit+1, function(err, commits) {
 		if (err) return next(err);
 
-		var maxPages = Math.ceil(commits.length / itemsPerPage);
-		page = page < 1 ? 1 : page;
-		page = page > maxPages ? maxPages : page;
+		var nextCommit = undefined;
+		if(commits.length == limit+1) nextCommit = commits.pop();
 
-		function slicer(items){
-			var offset = (itemsPerPage*(page-1));
-			if(items.length > offset){
-				return items.slice(offset);
-			}
-			return items;
-		}
-
-		res.render('history', {	commits: slicer(commits),
+		res.render('history', {	commits: commits,
 								title: title,
-								itemsPerPage: itemsPerPage,
-								page: page,			 
+								limit: limit,									
+								nextCommit: nextCommit,	
+								limit:limit,						 
 								errors: []})
 	});
 });

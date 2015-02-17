@@ -4,8 +4,7 @@ block content
   for err in errors
     div(class=err.level)= err.text
   h1= title
-  .pure-u-1
-    -var counter= 0
+  .pure-u-1    
     table(style="text-align:left")
       thead
         tr 
@@ -13,20 +12,13 @@ block content
           th What
           th When
       tbody
-        while counter < itemsPerPage && counter < commits.length
-          -var val= commits[counter]  
-          -counter= counter+1
-            tr 
-              td= (val.commiter||val.author) !== undefined ? (val.commiter||val.author).name : "Unknown"
-              td= val.message
-              td
-                div                
-                  span(style='width: 20px;' class='icon-book')
-                  a(href=val.url)=val.when.format('DD MMM YYYY HH:mm:ss')
-
-  if commits.length > (page * itemsPerPage)               
-    a(href='/'+title+'/history/'+(page+1))='Next'
-
-
-
-        
+        each val in commits
+          tr 
+            td= (val.commiter||val.author) !== undefined ? (val.commiter||val.author).name : "Unknown"
+            td= val.message
+            td
+              div                
+                span(style='width: 20px;' class='icon-book')
+                a(href=val.url)=val.when.format('DD MMM YYYY HH:mm:ss')
+  if(nextCommit !== undefined)
+    a(href=nextCommit.url+'history/'+limit)='Next'  
