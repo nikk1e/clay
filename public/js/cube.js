@@ -1323,7 +1323,7 @@ Cube.prototype.dirty = function() {
 function debounce(func, wait, immediate) {
     var timeout, args, context, timestamp, result;   
     var later = function() {
-      var last = now() - timestamp;
+      var last = Date.now() - timestamp;
 
       if (last < wait && last >= 0) {
         timeout = setTimeout(later, wait - last);
@@ -1339,7 +1339,7 @@ function debounce(func, wait, immediate) {
     return function() {
       context = this;
       args = arguments;
-      timestamp = now();
+      timestamp = Date.now();
       var callNow = immediate && !timeout;
       if (!timeout) timeout = setTimeout(later, wait);
       if (callNow) {
@@ -1355,7 +1355,7 @@ Cube.prototype.recalcIfDirty = debounce(function() {
 		this.recalculate();
 		this.clean();
 	}
-}, 1500);
+}, 800);
 
 Cube.prototype.clean = function() {
 	for (var n in this.models) {
@@ -1383,12 +1383,8 @@ Cube.prototype.remodify = function(names) {
 };
 
 Cube.prototype.mergeModel = function(name, model) {
-	this.models[name] = this.models[name].merge(model);
-	if (this.dirty()) {
-		this.recalculate();
-		this.clean();
-	}
-	//this.recalcIfDirty();
+	this.models[name] = this.models[name].merge(model);	
+	this.recalcIfDirty();
 };
 
 Cube.prototype.import = function(path, opt_as_namespace) {
