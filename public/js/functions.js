@@ -15,7 +15,7 @@ function mixin(obj, mix) {
 }
 
 //Functions for Cube
-
+Sum.Description = "Sums across a given list of numbers\nSyntax: sum(x)\nParameters: x (A list of numbers)";
 function Sum(list) {
 	var sum = 0;
 	if(list===undefined) return sum;
@@ -27,6 +27,7 @@ function Sum(list) {
 	return sum;
 }
 
+Max.Description = "Returns the largest number from a given list\nSyntax: max(x)\nParameters: x (A list of numbers)";
 function Max(list) {
 	var max;
 	list.forEach(function(v,i) { 
@@ -37,6 +38,7 @@ function Max(list) {
 	return max;
 }
 
+Min.Description = "Returns the smallest number from a given list\nSyntax: min(x)\nParameters: x (A list of numbers)";
 function Min(list) {
 	var min;
 	list.forEach(function(v,i) { 
@@ -47,6 +49,7 @@ function Min(list) {
 	return min;
 }
 
+CountNumbers.Description = "Counts only the numbers in a given list\nSyntax: countNumbers(x)\nParameters: x (A list of numbers)";
 function CountNumbers(list){
 	var num = 0;
 	list.forEach(function(v,i){
@@ -57,6 +60,7 @@ function CountNumbers(list){
 	return num;
 }
 
+RemoveLast.Description = "Removes the last n items from the list\nSyntax: removeLast(x, n)\nParameters: x (A list of numbers)\n           : n (An integer) - Optional, default (1)";
 function RemoveLast(list, num) {
 	if(list !== undefined && list.length>0) {
 		if(num === undefined) num = 1;
@@ -67,6 +71,7 @@ function RemoveLast(list, num) {
 	}
 }
 
+Count.Description = "Counts the elements in a given list\nSyntax: count(x)\nParameters: x (A list of numbers)";
 function Count(list){
 	var num = 0;
 	if(list === undefined) return num;
@@ -76,7 +81,8 @@ function Count(list){
 	return num;
 }
 
-function first(func, list) {
+First.Description = "Returns the first element in a list which satisfies the function condition\nSyntax: first(f, x)\nParameters: f (A function which takes a single element and returns a boolean)\n          : x (A list of numbers)";
+function First(func, list) {
 	var ret;
 	list.some(function(element) {
 		if (func(element)) {
@@ -88,7 +94,8 @@ function first(func, list) {
 	return ret;
 }
 
-function range(start, end, step) {
+Range.Description = "Returns a list of numbers which match the given range params\nSyntax: range(s, e, n)\nParameters: s (A number which defines where to start *included)\n          : e (A number which defines where to end *excluded)\n          : step (A number defining the step) - Optional, default (1)";
+function Range(start, end, step) {
 	if (end === undefined) {
 		end = start;
 		start = 0;
@@ -104,6 +111,7 @@ function range(start, end, step) {
 	return ret;
 }
 
+Head.Description = "Returns the first element in the list\nSyntax: head(x)\nParameters: x (A list)";
 function Head(list) {
 	var head;
 	if (list === null || list === undefined) return list;
@@ -111,6 +119,7 @@ function Head(list) {
 	return head;
 }
 
+Tail.Description = "Returns the list excluding the head element\nSyntax: tail(x)\nParameters: x (A list)";
 function Tail(list) {
 	if(list !== undefined && list.length>0) {
 		return list.slice(1);
@@ -120,18 +129,26 @@ function Tail(list) {
 	}
 }
 
+Last.Description = "Returns the last element in the list\nSyntax: last(x)\nParameters: x (A list)";
 function Last(list) {
 	var tmp = list.slice(0);	
 	return Head(tmp.reverse());
 }
 
-function Round(list) {  
+Round.Description = "Returns the list of numbers rounded to specified number of decimal places\nSyntax: round(x, n)\nParameters: x (A list of numbers)\n          : n (The numer of decimal places) - Optional, default (1)";
+function Round(list, dp) {
+	if (dp === undefined) dp = 0;
 	if(Array.isArray(list)) {
-        return list.map(Math.round);
+		var ret = [];
+		list.map(function(e){
+			ret.push(e.toFixed(dp));
+		});
+        return ret;
     }
-    return Math.round(list);       
+    return list.toFixed(dp);
 }
 
+Average.Description = "Returns an average given the #of numeric elements in the list\nSyntax: average(x)\nParameters: x (A list)";
 function Average(list) {
 	var count = 0;
 	var sum = 0;
@@ -144,6 +161,7 @@ function Average(list) {
 	return sum / count;
 }
 
+Help.Description = "Describes the function requested\nSyntax: help(fn)\nParameters: fn (Name of function)";
 function Help(functionName){	
 	var path = functionName.split('.');	
 	var ret = [];	
@@ -153,7 +171,7 @@ function Help(functionName){
 	return ret.join('\n');
 }
 
-Stdev.Description = "Estimates standard deviation based on a sample\nSyntax: Stdev(x)\nParameters: x (A list of numbers)";
+Stdev.Description = "Estimates standard deviation based on a sample\nSyntax: stdev(x)\nParameters: x (A list of numbers)";
 function Stdev(list) {  
     var avg = Average(list);
     var flist = filterListToNumbers(list); 
@@ -164,8 +182,7 @@ function Stdev(list) {
     return Math.sqrt(variance);        	
 }
 
-
-Stdevp.Description = "Calculates standard deviation based on the entire population\nSyntax: Stdevp(x)\nParameters: x (A list of numbers)";
+Stdevp.Description = "Calculates standard deviation based on the entire population\nSyntax: stdevp(x)\nParameters: x (A list of numbers)";
 function Stdevp(list) {  
     var avg = Average(list);  
     var flist = filterListToNumbers(list);  
@@ -176,36 +193,38 @@ function Stdevp(list) {
     return Math.sqrt(variance);    
 }
 
-function listSquaredReduced(list) {
-	return list.reduce(function(a,b) {
-		return a + Math.pow(b,2);
-	},0);
-}   
-
 function filterListToNumbers(list) {
 	return list.filter(function(a) {
 		return (!isNaN(a)); 
 	});
 }    
 
-function correlation(list) {
+function _correlation(list) {
     var avg = Average(list);  
-    function listLessAverage(l,b) {
-    	return l.map(function(a) {
-        	return a-b;
+
+    var listLessAvg = function(){
+    	return list.map(function(a) {
+        	return a-avg;
         });
-	}       
+    }();
+
+	var listSquaredReduced = function() {
+		return listLessAvg.reduce(function(a,b) {
+			return a + Math.pow(b,2);
+		},0);
+	}(); 
+
     return {
         Average: avg,
-        LessAverage: listLessAverage(list,avg),   
-        SumSquared: listSquaredReduced(listLessAverage(list,avg)),
+        LessAverage: listLessAvg,   
+        SumSquared: listSquaredReduced,
     };
 }
 
-Correl.Description = "Returns the correlation coefficient of two lists of the same length\nSyntax: Correl(x,y)\nParameters:\n x (A list of numbers)\n y (A list of numbers)";
+Correl.Description = "Returns the correlation coefficient of two lists of the same length\nSyntax: correl(x,y)\nParameters:\n x (A list of numbers)\n y (A list of numbers)";
 function Correl(listA, listB) {
-    var a = correlation(listA);
-    var b = correlation(listB);
+    var a = _correlation(listA);
+    var b = _correlation(listB);
     
     var sumTotal = 0;
     for (var i = 0; i < listA.length; i++) {
@@ -261,9 +280,9 @@ function _Table(list, ast) {
 	return clay.code.show(ast);
 }
 
-function _csv(headers, rows) {
+function _Csv(headers, rows) {
 	function cell(h) {
-		if(h===undefined) return '';
+		if(h===undefined||h=== null) return '';
 		var c = h.toString();
 		if (/,/.test(c)) c = '"' + c + '"';
 		return c;
@@ -276,23 +295,44 @@ function _csv(headers, rows) {
 	return str;
 }
 
+function datenum(v, date1904) {
+	if(date1904) v+=1462;
+	var epoch = Date.parse(v);
+	return (epoch - new Date(Date.UTC(1899, 11, 30))) / (24 * 60 * 60 * 1000);
+}
+
+function Boolean(val, fallback){
+	if(typeof val === 'boolean') return val;
+	if(typeof val === 'number') {
+		if(val % 1 == 0 && val <= 1 && val >= 0){
+			return Boolean(val);
+		}
+	}
+	if(val != undefined){
+		var str = val.toLowerCase();
+		if(str == "true" || str == "1") return true;
+		if(str == "false" || str == "0") return false;
+	}
+	return fallback;
+}
+
 function File(name, f, type, displayName) {
 	var a = document.createElement('a');
 	a.appendChild(document.createTextNode(displayName || name));
-	a.href = '#';
-	a.className = "table-download-link";
-	a.onclick = function() {
-		saveAs(new Blob([f()], {type: type}), name);
+	a.href = '#';	
+	var data = f();
+	a.onclick = function() {		
+		saveAs(new Blob([data], {type: type}), name);
 		return false;
 	};
 	return a;
 }
 
-function BasicTable(headers, rows, highlight) {
+function _BasicTable(headers, rows, highlight) {
 	//var c = document.createElement.bind(document);
 	var table = document.createElement('table')
 	var head = document.createElement('thead');//table.createTHead()
-	var body = document.createElement('tbody');
+	var body = document.createElement('tbody');	
 	table.appendChild(head);
 	table.appendChild(body);//table.createTBody();
 	table.className = 'pure-table pure-table-horizontal';
@@ -309,8 +349,9 @@ function BasicTable(headers, rows, highlight) {
 			th.appendChild(document.createTextNode(h.toString()));
 		}
 	});
-
-	var downloadLink = File('Qube.csv',function(){return _csv(headers, rows)}, 'text/csv',' ');
+		
+	var downloadLink = File('Qube.csv',function(){return _Csv(headers, rows)}, 'text/csv',' ');
+	downloadLink.className = "table-download-link";
 	var span = document.createElement('span');
 	span.className = 'icon-download-alt';
 	downloadLink.appendChild(span);
@@ -326,13 +367,24 @@ function BasicTable(headers, rows, highlight) {
 		var tr = foot.insertRow();
 		var td = tr.insertCell(-1);
 		td.colSpan = headers.length;
-		td.className = 'info'
+		td.className = 'info';
 		td.appendChild(document.createTextNode(".... " + (rows.length - maxrows).toString() + " more rows."));
 		rows = rows.slice(0,maxrows);
 	}
 
 	rows.forEach(function(r, j) {
+		//Check if an 'empty' row
+		rowClass = function(){
+			return r.slice(highlight).every(function(e) {
+					var n = e || 0;
+					var isNumber = IsNumberCheck(n.toString().replace(/,/g,''));
+					var isNotEmpty = !(e === undefined || e === null || e == '');
+					return ((isNumber || isNotEmpty) && (n==0||n=="0"));
+			}) ? 'zeroContent hide' : '';
+		}
+
 		var tr = body.insertRow();
+		tr.className = rowClass();
 		r.forEach(function(e, i) {
 			var th = tr.insertCell(-1);
 			if (i < highlight) th.className = 'highlight';
@@ -348,7 +400,7 @@ function BasicTable(headers, rows, highlight) {
 			}
 		});
 	});
-
+	
 	return table;
 }
 
@@ -362,8 +414,7 @@ function TypeOf(x) {
 	return typeof(x);
 }
 
-
-function queryString(data) {
+function _queryString(data) {
 	var query = [];
     for (var key in data) {
         query.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
@@ -374,8 +425,8 @@ function queryString(data) {
 FETCHING = {}; //sentinal
 //gets data from jsonp call with caching in Cube
 //note: refetch is cube.clearDataCache() then recalc.
-function _data(cube, url, args, options) {
-	var fullurl = url + '?' + queryString(args);
+function _Data(cube, url, args, options) {
+	var fullurl = url + '?' + _queryString(args);
 	var cache = cube.dataCache();
 	var data = cache[fullurl];
 	if (data === undefined) {
@@ -386,7 +437,12 @@ function _data(cube, url, args, options) {
 				try {
 					cache[fullurl] = JSON.parse(data);
 				} catch (e) {
-					cache[fullurl] = new Error(e.message);
+					//Nothing to parse as is already obj
+					if(e.message == "Unexpected token o"){
+						cache[fullurl] = data;
+					} else {
+						cache[fullurl] = new Error(e.message);
+					}
 				}
 				cube.recalculate();
 
@@ -403,17 +459,17 @@ function _data(cube, url, args, options) {
 	return data;
 }
 
-function dot(key, obj) {
+function Dot(key, obj) {
 	if (arguments.length === 1)
-		return dot.bind(null, key);
+		return Dot.bind(null, key);
 	if (obj === null || obj === undefined) return obj;
 	return obj[key];
 }
 
-function index(items, keys) {
+function Index(items, keys) {
 	var rkeys = {};
 	var values = {};
-	if (items === undefined) return undefined;
+	if (items === undefined || items.every(function(i){ return i === undefined })) return undefined;
 	var ilen = items.length;
 	var klen = keys.length;
 	var elem;
@@ -452,20 +508,32 @@ function index(items, keys) {
 	}
 
 	return ret;
-
 }
 
-function map(func, list) {
-	if (list === null || list === undefined) return list;
-	return list.map(func);
+function Map(func, list) {
+	if (list === null || list === undefined) return list;	
+	return (Array.isArray(list) ? list : [list]).map(func);	
 }
 
 //list of list to list
-function concat(list) {
+function Concat(list) {
 	return Array.prototype.concat.apply([], list)
 }
 
-function formatDate(list,format) {
+function IsMonthEnd(list){
+	if(Array.isArray(list)) {
+		return list.map(function(item){
+        	var date = moment(new Date(item));
+        	var me = moment(new Date(item)).endOf('month').format("YYYYMMDD");
+        	return me == date.format("YYYYMMDD");
+        });
+	}
+	var date = moment(new Date(list));
+	var me = moment(new Date(list)).endOf('month').format("YYYYMMDD");
+	return me == date.format("YYYYMMDD");
+}
+
+function FormatDate(list,format) {
 	if(Array.isArray(list)) {
         return list.map(function(item){
         	return dateFormat(item,format);
@@ -474,7 +542,12 @@ function formatDate(list,format) {
     return dateFormat(list,format); 
 }
 
-function addDays(list,days,businessDays) {
+function IsDate(item){
+	var date = new Date(item);
+	return isNaN(date) ? false : true;
+}
+
+function AddDays(list,days,businessDays) {
 	businessDays = String(businessDays || true).toLowerCase() == "true"
 
 	if(Array.isArray(list)) {
@@ -501,7 +574,7 @@ function addDays(list,days,businessDays) {
     return setDays(list);
 }
 
-function format(list) {
+function Format(list) {
 	if(Array.isArray(list)) {
         return list.map(function(item){
         	return item.toLocaleString();
@@ -510,20 +583,39 @@ function format(list) {
     return list.toLocaleString();
 }
 
-function isNullCheck(item){	return !(item === null || item === undefined); }
-function isNumberCheck(item){ return (!isNaN(item)); }
+Array.prototype.diff = function(a) {
+    return this.filter(function(i) {return a.indexOf(i) < 0;});
+};
+
+function Diff(list, other) {
+	var first = Array.isArray(list) ? list : [list];
+	var second = Array.isArray(other) ? other : [other];
+	return first.diff(second);
+}
+
+function Property(obj) {	
+	var props = [];
+	for(var propertyName in obj) {
+		props.push(propertyName);
+	}
+    return props;
+}
+
+function IsNotNullCheck(item){	return !(item === null || item === undefined || item === "" || item.length == 0); }
+function IsNumberCheck(item){ return !isNaN(parseFloat(item)) && isFinite(item); }
+
+function IfNull(x, val){ return IsNotNullCheck(x) ? x : val; }
+function IfNaN(x, val){ return !IsNumberCheck(x) ? val : x; }
+function IsNaN(x) { return !IsNumberCheck(x); }
+function IsNull(x) { return !IsNotNullCheck(x); }
 
 //Bound when setting in the mixin
-function filterFunc(list){
+function FilterFunc(list){
 	if(Array.isArray(list)) return list.filter(this);
 	return this(list) ? undefined : list;
 }
 
-//Todo: check why the number check is needed
-function isNull(x, val){ return (isNullCheck(x) || isNumberCheck(x)) ? x : val; }
-function ifNaN(x, val){ return isNumberCheck(x) ? x : val; }
-
-function returns(list){
+function Returns(list){
 	if(Array.isArray(list)){
 		var ret = [];
 		list.forEach(function(item,indx,ary){
@@ -535,72 +627,114 @@ function returns(list){
 	return 0;
 }
 
-//
-mixin(Cube.Functions, {
-	Sum: Sum,
-	sum: Sum,
-	Max: Max,
-	max: Max,
-	Min: Min,
-	min: Min,
-	Average: Average,
-	average: Average,
-	range: range,
-	Head: Head,
-	head: Head,
-	Tail: Tail,
-	tail: Tail,
-	Last: Last,
-	last: Last,
-	End: Last,
-	end: Last,
-	Unique: Unique,
-	unique: Unique,
+function Reverse(list) {	
+	return list.reverse();
+}
+
+function ToFixed(list, digits) {
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return item.toFixed(digits);
+        });
+    }
+    return list.toFixed(digits);
+}
+
+function Join(list, elem){
+	var ret = Array.isArray(list) ? list.slice(0) : [list];
+	ret.push(elem);
+	return Array.isArray(elem) ? Concat(ret) : ret;
+}
+
+function Link(url, name){
+	var a = document.createElement('a');
+	a.appendChild(document.createTextNode(name || url));
+	a.href = url;	
+	a.target="_blank";
+	return a;
+}
+
+function ListFunctions(){
+	var ret = [];
+	for (var prop in Cube.Functions) {
+    	if (Cube.Functions.hasOwnProperty(prop) && /^[a-z]\w*/g.test(prop)) {
+    		ret.push([prop,Cube.Functions[prop].Description || "No description..."]);
+    	}
+	}
+	var sorted = ret.sort(function(a,b){ 
+		if(a[0] < b[0]) return -1;
+		if(a[0] > b[0]) return 1;
+		return 0;
+	});
+
+	var table = _BasicTable(['Name','Description'],sorted,1);
+	return table;
+}
+
+var funcList = {
+	//Hidden
 	_Table: _Table,
-	BasicTable: BasicTable,
-	Values: Values,
-	values: Values,
-	Round:Round,
-	round:Round,
-	Stdev:Stdev,
-	stdev:Stdev,
-	Stdevp:Stdevp,
-	stdevp:Stdevp,
-	Count:Count,
-	count:Count,
-	CountNumbers:CountNumbers,
-	countNumbers:CountNumbers,
-	Help:Help,
-	help:Help,
-	Correl:Correl,
-	correl:Correl,
-	CovarianceS: CovarianceS,
-	covarianceS: CovarianceS,
-	CovarianceP: CovarianceP,
-	covarianceP: CovarianceP,
-	"typeof": TypeOf,
-	dot: dot,
-	map: map,
-	_data: _data,
-	_csv: _csv,
-	RemoveLast: RemoveLast,
+	_BasicTable: _BasicTable,
+	_Data: _Data,	
+	_Csv: _Csv,	
+	//Aggregates
+	sum: Sum,	
+	max: Max,	
+	min: Min,	
+	avg: Average,
+	count: Count,
+	countNumbers: CountNumbers,
+	returns:Returns,
+	//List manipulations
+	range: Range,
+	head: Head,
+	tail: Tail,
+	last: Last,
+	first: First,
+	concat: Concat,
+	reverse: Reverse,
+	join: Join,
 	removeLast: RemoveLast,
-	first: first,
-	concat: concat,
-	index: index,	
-	file: File,	
-	format: format,
-	coalesce: filterFunc.bind(isNullCheck),
-	filterNulls: filterFunc.bind(isNullCheck),
-	isnull:isNull,
-	isNull:isNull,	
-	numbers:filterFunc.bind(isNumberCheck),
-	filterNumbers: filterFunc.bind(isNumberCheck),
-	formatDate:formatDate,
-	addDays:addDays,
-	returns:returns,
-	isNaN:isNaN,
-	ifNaN:ifNaN,
-});
+	diff:Diff,	
+	unique: Unique,	
+	values: Values,
+	//Formats
+	round: Round,
+	toFixed: ToFixed,
+	format: Format,
+	formatDate: FormatDate,
+	//Dates
+	addDays: AddDays,
+	isMonthEnd: IsMonthEnd,
+	//Maths
+	stdev: Stdev,
+	stdevp: Stdevp,
+	correl: Correl,
+	covarianceS: CovarianceS,
+	covarianceP: CovarianceP,
+	//Helpers
+	help: Help,
+	listFunctions:ListFunctions,
+	property:Property,
+	"typeof": TypeOf,
+	dot: Dot,
+	map: Map,
+	index: Index,
+	file: File,
+	link: Link,
+	//Checkers
+	isNaN: IsNaN,
+	isDate: IsDate,
+	isNull: IsNull,
+	ifNaN: IfNaN,
+	ifNull: IfNull,
+	coalesce: FilterFunc.bind(IsNotNullCheck),
+	filterNulls: FilterFunc.bind(IsNotNullCheck),
+	numbers: FilterFunc.bind(IsNumberCheck),
+	filterNumbers: FilterFunc.bind(IsNumberCheck),
+};
+
+//
+mixin(Cube.Functions, funcList);
 
 }(this || (typeof window !== 'undefined' ? window : global)));

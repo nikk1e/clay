@@ -61,10 +61,10 @@ function flip(symb, catSymb, expr) {
 //Table({Graph.Line(Net Income[Month][Growth])},{Year})
 //Y = Table({Graph.Line(Net Income[Month][Growth])})
 function postTable(exprs, quoteds, dims) {
-	return expandDims(['Symbol', 'BasicTable'], exprs, quoteds, dims);
+	return expandDims(['Symbol', '_BasicTable'], exprs, quoteds, dims);
 }
 
-function expandDims(symb, exprs, quoteds, dims) {
+function expandDims(symb, exprs, quoteds, opt_params, dims) {
 	//exprs and quoteds are both expected to be list literals
 
 	// ***** TODO : don't bother with all this dimension stuff
@@ -93,7 +93,7 @@ function expandDims(symb, exprs, quoteds, dims) {
 	});
 	exprs.slice(1).forEach(function(d) { fexpr.push(d); });
 	quoteds.slice(1).forEach(function(d) { heads.push(d); });
-	return ['Call', symb, heads, over, len]; 
+	return ['Call', symb, heads, over, len, opt_params]; 
 }
 
 //pages should be of form {symb=value,...}
@@ -230,7 +230,24 @@ function graphLine(expr, over, series) {
 }
 
 function data(url, args, options) {
-	return ['Call', ['Symbol', '_data'], ['Cube'], url, args, options];
+	return ['Call', ['Symbol', '_Data'], ['Cube'], url, args, options];
+}
+
+//function postTable(exprs, quoteds, dims) {
+	//return expandDims(['Symbol', 'BasicTable'], exprs, quoteds, dims);
+//}
+
+var _genSymNumber = 0;
+function genSym() {
+	return '_genSym#' + (++_genSymNumber);
+}
+
+function source(data, categories, values) {
+	return ['PostMacro', ['Symbol', 'POSTSOURCE'], ['Cube'], data, categories, values];	
+}
+
+function split(expr, oth, other, others){
+
 }
 
 //most macros are applied before 
@@ -249,6 +266,7 @@ var Macros = {
 	'GRAPH.LINE': graphLine,
 	DATA: data,
 	IF: cond,
+	SPLIT: split,
 };
 
 //macros applied after analyse dimensions

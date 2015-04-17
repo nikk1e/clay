@@ -68,6 +68,15 @@ td.empty {
 td.error {
 	border-top: 1px solid #cbcbcb;
 }
+td.info{
+	text-align:right;
+}
+tr.zeroContent {
+	
+}
+.hide {
+	display: none;
+}
 hr {
 	border-top: 1px solid #edece4;
 	border-bottom: 0;
@@ -192,6 +201,7 @@ a:hover [class^="menuicon-"], [class*=" menuicon-"] {
 </div>
 <script type="text/javascript" src="/js/friar.js"></script>
 <script type="text/javascript" src="/js/cube.js"></script>
+<script type="text/javascript" src="/js/excel.js"></script>
 <script type="text/javascript" src="/js/macros.js"></script>
 <script type="text/javascript" src="/js/FileSaver.js"></script>
 <script type="text/javascript" src="/js/functions.js"></script>
@@ -199,6 +209,10 @@ a:hover [class^="menuicon-"], [class*=" menuicon-"] {
 <script type="text/javascript" src="/js/functions/graph.js"></script>
 <script type="text/javascript" src="/js/utils.js"></script>
 <script type="text/javascript" src="/js/dateformat.js"></script>
+<script type="text/javascript" src="/js/moment.js"></script>
+<script lang="text/javascript" src="/js/jszip.js"></script>
+<script lang="text/javascript" src="/js/xlsx.js"></script>
+<script type="text/javascript" src="/js/xmlToJSON.js"></script>
 <script type="text/javascript">
 
 var DOM = Friar.DOM, 
@@ -1015,6 +1029,15 @@ var MultiEditor = createClass({
 	toggleDebug: function() {
 		this.setState({debug: !this.state.debug});
 	},
+	toggleEmptyRows: function() {
+		var elems = document.getElementsByClassName('zeroContent');
+		Array.prototype.forEach.call(elems, function(el) {			    
+		    el.classList.toggle('hide');
+		});	
+		var scr = document.body.scrollTop;
+		window.location.hash = ' ';
+		document.body.scrollTop = scr;
+	},
 	save: function() {
 		console.log('save clicked')
 		var json = JSON.stringify(cube);
@@ -1061,12 +1084,14 @@ var MultiEditor = createClass({
 					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick, 
 						className: ('#Scratch' === active ? 'pure-menu-selected' : '') },
 							[DOM.a({href:"##Scratch"}, 'Scratch')])]),
-					DOM.ul({}, [/**DOM.li({onClick: this.toggleDebug},
-							[DOM.a({href:"#"}, 'Debug')]),**/
+					DOM.ul({}, [DOM.li({onClick: this.toggleDebug},
+							[DOM.a({href:"#"}, 'Debug')]),
 							DOM.li({onClick: this.save},
 							[DOM.a({href:"#"}, 'Save')]),
 							DOM.li({onClick: this.refresh},
 							[DOM.a({href:"#"}, 'Refresh')]),
+							DOM.li({onClick: this.toggleEmptyRows},
+							[DOM.a({href:"#"}, 'Empty Rows')]),
 							//revert localstorage to server
 							// DOM.li({onClick: this.revert}, 
 							// [DOM.a({href:"#"}, 'Revert')]),

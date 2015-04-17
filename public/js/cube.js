@@ -717,6 +717,7 @@ function Model(name, cells, namespace, seed, modified, dirty, id) {
 	this.modified = !!modified;
 	this._dirty = !!dirty;
 	this.data = {}; //used to store linked data
+	this.session = {}; //used to store session data
 	//Note: if you add properties you need to update clone();
 	//     and probably toJSON;
 
@@ -1272,8 +1273,13 @@ Cube.prototype.dataCache = function() {
 	return this.baseModel().data;
 };
 
+Cube.prototype.sessionCache = function() {
+	return this.baseModel().session;
+};
+
 Cube.prototype.clearDataCache = function() {
 	this.baseModel().data = {};
+	this.baseModel().session = {};
 };
 
 Cube.prototype.toJSON = function() {
@@ -2689,18 +2695,23 @@ function Environment() {}
 //Environment.prototype = Functions;
 
 function table(expr, opt_dims) {
-	return expandDims(['Symbol', 'BasicTable'], expr, opt_dims)
+	return expandDims(['Symbol', '_BasicTable'], expr, opt_dims)
 }
 
 function csv(expr, opt_dims) {
-	return expandDims(['Symbol', '_csv'], expr, opt_dims)
+	return expandDims(['Symbol', '_Csv'], expr, opt_dims)
 }
-function expandDims(symb, expr, opt_dims) {
+
+function workSheet(expr, p) {
+	return expandDims(['Symbol', '_Sheet'], expr, undefined, p)
+}
+
+function expandDims(symb, expr, opt_dims, opt_params) {
 	if (expr[0] !== 'List') {
 		expr = ['List', expr];
 	}
 	var quoteds = expr.map(function(e, i) { return (i > 0) ? showM(e) : e; });
-	var pm = ['PostMacro', ['Symbol', 'expandDims'], symb, expr, quoteds];
+	var pm = ['PostMacro', ['Symbol', 'expandDims'], symb, expr, quoteds, opt_params];
 	if (opt_dims !== undefined) {
 		pm.push(opt_dims);
 		return ['RemDims', pm, opt_dims];
@@ -2713,7 +2724,7 @@ function imp(path, opt_as_namespace) {
 	return ['Do']; //replace with call to assert namespace of is the same as....
 }
 
-Cube.Macros = {TABLE: table, IMPORT: imp, CSV: csv}; //see js/macros.js
+Cube.Macros = {TABLE: table, IMPORT: imp, CSV: csv, SHEET: workSheet}; //see js/macros.js
 Cube.PostMacros = {}; //see js/macros.js
 Cube.Functions = Functions; // we add functions to this to make them available
 Cube.Model = Model;
