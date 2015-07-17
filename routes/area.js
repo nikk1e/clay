@@ -6,6 +6,7 @@ var modes = require('js-git/lib/modes');
 var fsdb = require('git-node-fs/mixins/fs-db');
 var createMixin = require('js-git/mixins/create-tree');
 var formatsMixin = require('js-git/mixins/formats');
+var passport = require('passport');
 
 var router = express.Router();
 var base;
@@ -80,7 +81,7 @@ router.route('/:area')
     res.render('area', {files: files, title: area, errors: []})
   })
 })
-.post(function(req, res, next) {
+.post(passport.authenticate('WindowsAuthentication'), function(req, res, next) {
   var area = req.params.area;
   var base_path;
   if (/^\~/.test(area)) {
@@ -112,8 +113,8 @@ router.route('/:area')
 
       repo.saveAs("commit", {
             tree: tree,
-            author: { name: "Unknown Author", 
-                  email: "ims@uss.co.uk" },
+            author: { name: req.user.name, 
+                  email: req.user.email },
             message: "Created " + name
           }, function(err, hash) {
             if (err) {

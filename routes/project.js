@@ -215,7 +215,6 @@ function branchOrTag(repo, branch, next) {
 }
 
 //router.param('branch', /^\w+$/);
-
 router.get('/:branch/*.csv', function(req, res, next) {
 	res.send('I am csv for ' + req.params[0]);
 });
@@ -292,7 +291,7 @@ router.get('/:branch*',function(req, res, next) {
 
 
 
-router.post('/:branch*', /**passport.authenticate('WindowsAuthentication'),**/ function(req, res, next) {
+router.post('/:branch*', passport.authenticate('WindowsAuthentication'), function(req, res, next) {
 	//expect json encoded commit tree
 	console.log('save files');
 	var body = req.body;
@@ -310,12 +309,11 @@ router.post('/:branch*', /**passport.authenticate('WindowsAuthentication'),**/ f
 		var rootPath = join(base_path, area, project + '.git');
 
 		//Test if the user has permissions to update the repo
-		/**access.checkDirectoryPermissions(req.user.id, rootPath.replace(/\\/g,'/'), function(pErr, pOut){
+		access.checkDirectoryPermissions(req.user.id, rootPath.replace(/\\/g,'/'), function(pErr, pOut){
 			console.log('Is repo writable: ' + pOut.isWritable);
-
 			if(!pOut.isWritable) { 
 				res.send("User doesn't have permission to save"); 
-			} else {**/
+			} else {
 				var rawPath = req.params[0];
 				var branch = req.params.branch || 'master';
 				var ref = 'refs/heads/' + branch;
@@ -349,10 +347,8 @@ router.post('/:branch*', /**passport.authenticate('WindowsAuthentication'),**/ f
 							repo.saveAs("commit", {
 		        				tree: tree,
 		        				parent: head, //we lose history if we don't set this
-		        				/**author: {	name: req.user.id,
-		        							email: req.user.email },**/
-		        				author: { 	name: "Unknown Author",
-                 						 	email: "ims@uss.co.uk" },
+		        				author: {	name: req.user.id,
+		        							email: req.user.email },		        				
 		        				message: "Auto commit"
 		      				}, function(err, hash) {
 		      					if (err) {
@@ -370,17 +366,22 @@ router.post('/:branch*', /**passport.authenticate('WindowsAuthentication'),**/ f
 					});
 				});
 
-			/**}
-		});**/
+			}
+		});
 	} else {
 		res.send('No files to save');
 	}
 });
 
 router.get('/',function(req, res, next) {
-	req.params.branch = 'master';
-	req.params.path = ''; //trailing slash needed for directory listing
-	tree(req, res, next);
+	if(/[\w\s\d]*\.xlsx/.test(req.params.project)){
+		res.sendfile('templates/' + req.params.project);
+	}
+	else {
+		req.params.branch = 'master';
+		req.params.path = ''; //trailing slash needed for directory listing
+		tree(req, res, next);
+	}
 });
 
 function parallelEach(list, fn, callback) {

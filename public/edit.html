@@ -1079,7 +1079,7 @@ var MultiEditor = createClass({
 					DOM.ul({}, cube.names.map(function(n,i) {
 						return DOM.li({onClick: me.handleMenuClick, 
 							className: (n === active ? 'pure-menu-selected ' : '') + (cube.models[n].modified ? 'menu-modified' : '') },
-							[DOM.a({href:"#" + n}, n)])
+							[DOM.a({href:"#" + n}, decodeURIComponent(n))])
 					})),
 					DOM.ul({}, [DOM.li({onClick: me.handleMenuClick, 
 						className: ('#Scratch' === active ? 'pure-menu-selected' : '') },

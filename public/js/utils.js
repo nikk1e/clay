@@ -68,6 +68,7 @@ function fetchJSONFile(path, callback) {
         var callback_name = 'callback_' + (sym++);
         var on_success = options.onSuccess || function(){};
         var on_timeout = options.onTimeout || function(){};
+        var on_error = options.onError || function(){};
         var timeout = options.timeout || 30; // sec
 
         data = data || {};
@@ -90,10 +91,17 @@ function fetchJSONFile(path, callback) {
             on_success(data);
         };
 
+        var error_procedure = function(data) {
+            window.clearTimeout(timeout_trigger);
+            removeScript(callback_name);
+            on_error();
+        };
+
         var script = document.createElement('script');
         script.type = 'text/javascript';
         script.async = true;
         script.src = src;
+        script.onerror = error_procedure;       
 
         document.getElementsByTagName('head')[0].appendChild(script);
     };

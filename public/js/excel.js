@@ -28,11 +28,20 @@ function FindSheetInBook(wb, sheetName){
 
 function _Sheet(headers, rows, keyCount, params){
 	function addCell(elem,row,col){
+		if((elem==undefined||elem==null))
+			elem = '';
+
 		var cell = {v:elem};
 
 		if(typeof cell.v === 'number') {
-			cell.t = 'n';
-			cell.w = elem.toLocaleString();
+			if(isNaN(cell.v)){
+				cell.v = '';
+				cell.t = 's';
+			}
+			else {
+				cell.t = 'n';
+				cell.w = elem.toLocaleString();
+			}
 		}
 		else if(typeof cell.v === 'boolean') cell.t = 'b';
 		else if(cell.v instanceof Date) {
@@ -45,24 +54,41 @@ function _Sheet(headers, rows, keyCount, params){
 	}	
 
 	var header = boolean(params.header, true);
-	var hOffset = header ? 1 : 0;
-	var cell_ref = "A1";	
+	var rOffset = header ? 1 : 0;
+	var cell_ref = params.startCell || 'A1';
+	var start_pos = XLSX.utils.decode_cell(cell_ref);
 	var ws = { };
 	var colWidths = [{wch:20}]; 
 
-	if(header){
+	if(header){		
+		headers = (params.headers || headers);
 		headers.forEach(function(val,i){
 			addCell(val,0,i);
 		});
 	}
 
-	rows.forEach(function(r,i){
-		r.forEach(function(e,j){
-			addCell(e,i+hOffset,j);
-		})
+	var i = start_pos.r;
+	var c = start_pos.c;
+	rows.forEach(function(r){
+		if(boolean(params.skipEmptyRows,false)){
+			var nonKeys = r.slice(keyCount);
+			if(!nonKeys.every(function(elem){
+				return elem == undefined;
+			})){
+				r.forEach(function(e,j){
+					addCell(e,i+rOffset,j+c);
+				});
+				i++;		
+			}
+		} else {			
+			r.forEach(function(e,j){
+				addCell(e,i+rOffset,j+c);
+			});
+			i++;
+		}
 	});
 
-	ws['!ref'] = "A1:"+cell_ref;
+	ws['!ref'] = 'A1:'+cell_ref;
 	ws['!cols'] = colWidths;
 	return ws;
 }
@@ -110,7 +136,7 @@ function FindSheetInBook(wb, sheetName){
 function ClearWorkbookCache(wb){
 	//If cell has a <f>, remove the <v>, should cause Excel to recalc on open
 	var sheetNames = SheetNames(wb);
-	var fnReg = RegExp(/<\/f>/); //Function
+	var fnReg = RegExp(/<f/); //Function
 
 	sheetNames.forEach(function(sheet){
 		var alias = FindSheetInBook(wb, sheet);
@@ -176,8 +202,7 @@ function ReadWorkbook(url){
 		oReq.onload = function(e) {
 			var bstr = ArrayBufferToBinaryString(oReq.response);	
 			data = new JSZip(bstr, { base64:false });
-			cache[url] = data;
-			cube.recalculate();
+			cache[url] = data;			
 		}
 
 		oReq.onerror = function() {
@@ -189,7 +214,7 @@ function ReadWorkbook(url){
 		oReq.send();
 	}	
 	
-	if (data === READING) throw "Read pending...";
+	//if (data === READING) throw "Read pending...";
 	if (data instanceof Error) throw data;
 	return data;
 }
@@ -205,6 +230,11 @@ function Workbook(sheets){
 		}
 	}
 	return StringToArrayBuffer(XLSX.write(wb, wopts));	
+}
+
+function fetchXlsxTemplate(templateName){
+	var url = '../../../templates/' + templateName;			
+	ReadWorkbook(url);
 }
 
 function xlsx(sheets, templateName){	
@@ -239,6 +269,7 @@ function xlsx(sheets, templateName){
 						var tableData = XLSX.readSheet(target,'xl/tables/'+tableXml);
 
 						tableData = tableData.replace(/ref\=\"[A-z0-9:]*\"/gm,"ref=\""+dataRange[1]+"\"");
+						tableData = tableData.replace(/<sort.*State>/,"");
 
 						target.files['xl/tables/'+tableXml]._data = StringToUint8Array(tableData);
 					}					
@@ -259,7 +290,7 @@ function xlsx(sheets, templateName){
 	return undefined;		
 }	
 
-var funcList = 	{ _Sheet:_Sheet, xlsx: xlsx };
+var funcList = 	{ _Sheet:_Sheet, xlsx:xlsx, fetchXlsxTemplate:fetchXlsxTemplate };
 
 mixin(Cube.Functions, funcList);
 

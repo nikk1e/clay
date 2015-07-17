@@ -6,6 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "scripts": {
+    "install-windows-service": "winser -i",
+    "uninstall-windows-service": "winser -r"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/mavxg/clay.git"
@@ -52,6 +56,8 @@
     "mongodb": "~1.4.19",
     "mongojs": "~0.15.1",
     "gridfs-stream": "~0.5.1",
-    "access-check": "latest"
+    "access-check": "latest",
+    "express-ntlm": "2.1.4",
+    "passport-custom": "1.0.1"
   }
 }

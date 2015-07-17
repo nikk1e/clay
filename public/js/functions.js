@@ -14,11 +14,21 @@ function mixin(obj, mix) {
 	}
 }
 
+function FlattenArrays(){
+	//arrayify all elements
+	var clist = [].slice.apply(arguments).map(function(item){
+		return Array.isArray(item) ? item : [item];
+	});
+
+	//create single array list from list of arrays
+	return [].concat.apply([], clist);	
+}
+
 //Functions for Cube
 Sum.Description = "Sums across a given list of numbers\nSyntax: sum(x)\nParameters: x (A list of numbers)";
-function Sum(list) {
+function Sum() {
 	var sum = 0;
-	if(list===undefined) return sum;
+	var list = FlattenArrays.apply(this, arguments);	
 	list.forEach(function(v,i) {
 		if (v !== undefined && !isNaN(v)) {
 			sum += v; 
@@ -28,8 +38,9 @@ function Sum(list) {
 }
 
 Max.Description = "Returns the largest number from a given list\nSyntax: max(x)\nParameters: x (A list of numbers)";
-function Max(list) {
+function Max() {
 	var max;
+	var list = FlattenArrays.apply(this, arguments);
 	list.forEach(function(v,i) { 
 		if ((max === undefined || max < v) && !isNaN(v)){
 			max = v; 	
@@ -39,8 +50,9 @@ function Max(list) {
 }
 
 Min.Description = "Returns the smallest number from a given list\nSyntax: min(x)\nParameters: x (A list of numbers)";
-function Min(list) {
-	var min;
+function Min() {
+	var min;	
+	var list = FlattenArrays.apply(this, arguments);
 	list.forEach(function(v,i) { 
 		if ((min === undefined || min > v) && !isNaN(v)){
 			min = v; 	
@@ -50,8 +62,9 @@ function Min(list) {
 }
 
 CountNumbers.Description = "Counts only the numbers in a given list\nSyntax: countNumbers(x)\nParameters: x (A list of numbers)";
-function CountNumbers(list){
+function CountNumbers(){
 	var num = 0;
+	var list = FlattenArrays.apply(this, arguments);
 	list.forEach(function(v,i){
 		if(!isNaN(v)){
 			num++;
@@ -108,6 +121,14 @@ function Range(start, end, step) {
 		ret.push(cur);
 		cur = cur + step;
 	}
+	return ret;
+}
+
+function ElementAt(list, pos){
+	var ret = [];
+	list.forEach(function(elem){
+		ret.push(elem[pos]);
+	});
 	return ret;
 }
 
@@ -316,12 +337,26 @@ function Boolean(val, fallback){
 	return fallback;
 }
 
-function File(name, f, type, displayName) {
+function _File(cube, name, f, type, displayName) {
 	var a = document.createElement('a');
 	a.appendChild(document.createTextNode(displayName || name));
-	a.href = '#';	
-	var data = f();
-	a.onclick = function() {		
+	a.href = '#';
+
+	a.onclick = function() {
+
+		var data;		
+		
+		try {
+			data = f();
+		}
+		catch(err) {
+			cube.onAfterPending.push(function() {
+				var data = f();
+				saveAs(new Blob([data], {type: type}), name);
+			});;
+			return false;
+		}
+
 		saveAs(new Blob([data], {type: type}), name);
 		return false;
 	};
@@ -338,6 +373,34 @@ function _BasicTable(headers, rows, highlight) {
 	table.className = 'pure-table pure-table-horizontal';
 	if (highlight === undefined) highlight = 0;
 
+	var reg = /sort=([A-Z\W][^}]*)/i;
+	var sorts = headers.reduce(function(sorts, e, i){
+							   		var m = e.match(reg);
+							   		if(m){ sorts.push(i); }
+							   		return sorts;
+							   	}, []);
+
+	for (var i = sorts.length - 1; i >= 0; i--) {		
+		rows = rows.sort(function(a,b){
+			var aS = a[sorts[i]].Sort;
+			var bS = b[sorts[i]].Sort;
+		
+			//Needed to ensure numbers/strings sorted together.  (NaN, NULL etc screw things up...)
+			if(isFinite(aS) == isFinite(bS)){
+				if(aS > bS) { return 1; } 
+				if(aS < bS) { return -1; }
+				return 0;
+			}
+
+			if(!isFinite(aS)) { return 1; }
+			if(!isFinite(bS)) { return -1; }
+			return 0;
+		});
+		//Remove the sort from the return data
+		rows.forEach(function(r){ r.splice(sorts[i],1);});
+		headers.splice(sorts[i],1);
+	};	
+	
 	var hr = head.insertRow();
 	headers.forEach(function(h, i) {
 		var th = document.createElement('th');
@@ -350,7 +413,7 @@ function _BasicTable(headers, rows, highlight) {
 		}
 	});
 		
-	var downloadLink = File('Qube.csv',function(){return _Csv(headers, rows)}, 'text/csv',' ');
+	var downloadLink = _File(undefined, 'Qube.csv',function(){return _Csv(headers, rows)}, 'text/csv',' ');
 	downloadLink.className = "table-download-link";
 	var span = document.createElement('span');
 	span.className = 'icon-download-alt';
@@ -378,8 +441,8 @@ function _BasicTable(headers, rows, highlight) {
 			return r.slice(highlight).every(function(e) {
 					var n = e || 0;
 					var isNumber = IsNumberCheck(n.toString().replace(/,/g,''));
-					var isNotEmpty = !(e === undefined || e === null || e == '');
-					return ((isNumber || isNotEmpty) && (n==0||n=="0"));
+					var isNotEmpty = !(e === undefined || e === null || e === '');
+					return ((isNumber || isNotEmpty) && (n===0||n==="0"));
 			}) ? 'zeroContent hide' : '';
 		}
 
@@ -422,6 +485,9 @@ function _queryString(data) {
     return query.join('&');
 }
 
+//Def function to see if any data pending
+
+
 FETCHING = {}; //sentinal
 //gets data from jsonp call with caching in Cube
 //note: refetch is cube.clearDataCache() then recalc.
@@ -447,14 +513,18 @@ function _Data(cube, url, args, options) {
 				cube.recalculate();
 
 			},
+			onError: function() {
+				cache[fullurl] = new Error("Problem while fetching data from ("+ (options.name || url) + "). Check file is not open...");
+				cube.recalculate();
+			},
 			onTimeout: function() {
-				cache[fullurl] = new Error("Timeout while fetching data");
+				cache[fullurl] = new Error("Timeout while fetching data from ("+ (options.name || url) + ").");
 				cube.recalculate();
 			},
 			timeout: options.timeout || 10,
 		})
 	}
-	if (data === FETCHING) throw "Data pending...";
+	if (data === FETCHING) throw "Data pending from (" + (options.name || url) + ")";
 	if (data instanceof Error) throw data;
 	return data;
 }
@@ -538,7 +608,8 @@ function FormatDate(list,format) {
         return list.map(function(item){
         	return dateFormat(item,format);
         });
-    }    
+    }   
+    if (list === null || list === undefined) return list;
     return dateFormat(list,format); 
 }
 
@@ -547,27 +618,61 @@ function IsDate(item){
 	return isNaN(date) ? false : true;
 }
 
+function ToUTC(item){	
+	var date = moment(item);
+	return date.toISOString();
+}
+
+function AddPeriod(list, amount, period){
+	if(Array.isArray(list)){
+		return list.map(function(item){
+			return moment(item).add(amount,period);
+		});
+	}
+
+	return moment(list).add(amount,period);
+}
+
+function MonthEnd(list, businessDays){
+	if (list === null || list === undefined) return list;	
+	businessDays = String(businessDays || false).toLowerCase() == "true";
+
+	function end(item) {
+		var mEnd = moment(item).endOf('month');    	
+    	if(businessDays) return businessDay(mEnd, 0);
+    	return mEnd;
+    }
+
+	if(Array.isArray(list)) {
+        return list.map(function(item){
+        	return end(item);
+        });
+    }
+
+    return end(list);
+}
+
+function businessDay(date, days) {    	
+	switch(date.weekday()) {
+		case 0: return (days > 0) ? date.add(1, 'days') : date.add(-2, 'days');
+		case 6: return (days > 0) ? date.add(2, 'days') : date.add(-1, 'days');
+		default:return date;
+	}
+} 
+
 function AddDays(list,days,businessDays) {
-	businessDays = String(businessDays || true).toLowerCase() == "true"
+	if (list === null || list === undefined) return list;	
+	businessDays = String(businessDays || true).toLowerCase() == "true";
 
 	if(Array.isArray(list)) {
         return list.map(function(item){
         	return setDays(item);
         });
-    } 
-
-    function businessDay(date) {    	
-    	switch(date.getDay()) {
-    		case 0: return (days > 0) ? date.setDate(date.getDate() + 1) : date.setDate(date.getDate() - 2);
-    		case 6: return (days > 0) ? date.setDate(date.getDate() + 2) : date.setDate(date.getDate() - 1);
-    		default:return date;
-    	}    	
     }
 
     function setDays(item) {
-    	var date = new Date(dateFormat(item));
-    	date.setDate(date.getDate() + days);
-    	if(businessDays) return businessDay(date);
+    	var date = moment(item).add(days, 'days');
+    	if(businessDays) return businessDay(date, days);
     	return date;
     }
 
@@ -671,6 +776,73 @@ function ListFunctions(){
 	return table;
 }
 
+function CreateObj(items, keys) {
+	var ret = [];
+	var kLen = keys.length;
+
+	items.forEach(function(elem){
+
+		if(elem.length != kLen)
+			throw "Cannot create obj, Keys/Items differ in lenth..."
+
+		var item = {};
+		for (j = 0; j < kLen; j++) {
+			item[keys[j]] = elem[j];
+		}
+		ret.push(item);
+	});
+
+	return ret;
+}
+
+function Elements(items, path){
+	var picker = function(elem, address){		
+		var prop = address.shift();
+
+		if(Array.isArray(elem)){			
+			return elem.map(function(item){
+				return (address.length>0) ? picker(elem[prop],address) : item[prop];				
+			});
+		}
+
+		return (address.length>0) ? picker(elem[prop],address) : elem[prop];
+	};
+
+	var ret = picker(items, path.split('.'));
+	return ret;
+}
+
+function RegexMatch(items, regex){
+	var rr = new RegExp(regex);	
+
+	if(Array.isArray(items)){
+		var ret = [];
+		items.forEach(function(elem){
+			ret.push(rr.exec(items) === null ? undefined : rr.exec(items));
+		});
+
+		return ret;
+	}
+
+	return rr.exec(items) === null ? undefined : rr.exec(items);
+}
+
+function Product(list){
+	if(Array.isArray(list)){
+		//Remove any which are not numbers
+		var filteredList = list.filter(function(elem){
+			return !IsNaN(elem);
+		});
+
+		if(filteredList.length > 0){
+			return filteredList.reduce(function(prev,curr){
+				return prev * curr;
+			});
+		}
+	}	
+	return list;
+}
+
 var funcList = {
 	//Hidden
 	_Table: _Table,
@@ -685,6 +857,7 @@ var funcList = {
 	count: Count,
 	countNumbers: CountNumbers,
 	returns:Returns,
+	product:Product,
 	//List manipulations
 	range: Range,
 	head: Head,
@@ -698,6 +871,7 @@ var funcList = {
 	diff:Diff,	
 	unique: Unique,	
 	values: Values,
+	elementAt: ElementAt,
 	//Formats
 	round: Round,
 	toFixed: ToFixed,
@@ -705,13 +879,17 @@ var funcList = {
 	formatDate: FormatDate,
 	//Dates
 	addDays: AddDays,
+	addPeriod:AddPeriod,
 	isMonthEnd: IsMonthEnd,
+	monthEnd: MonthEnd,
+	toUTC: ToUTC,
 	//Maths
 	stdev: Stdev,
 	stdevp: Stdevp,
 	correl: Correl,
 	covarianceS: CovarianceS,
 	covarianceP: CovarianceP,
+	perf:Product,
 	//Helpers
 	help: Help,
 	listFunctions:ListFunctions,
@@ -720,7 +898,7 @@ var funcList = {
 	dot: Dot,
 	map: Map,
 	index: Index,
-	file: File,
+	_File: _File,
 	link: Link,
 	//Checkers
 	isNaN: IsNaN,
@@ -732,6 +910,9 @@ var funcList = {
 	filterNulls: FilterFunc.bind(IsNotNullCheck),
 	numbers: FilterFunc.bind(IsNumberCheck),
 	filterNumbers: FilterFunc.bind(IsNumberCheck),
+	createObj:CreateObj,
+	regexMatch:RegexMatch,
+	elements:Elements,
 };
 
 //

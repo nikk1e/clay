@@ -7,6 +7,8 @@ var session = require('express-session');
 var bodyParser = require('body-parser');
 var fs = require('fs');
 var passport = require('passport');
+var ntlm = require('express-ntlm');
+var NTLMStrategy = require('passport-custom').Strategy;
 
 //Config
 function userEmail(user) {
@@ -87,36 +89,39 @@ function createRepo(gitpath, username, email, entries, next) {
   });
 }
 
-var WindowsAuthentication = require('passport-windowsauth');
-passport.use(new WindowsAuthentication(
-    {integrated: true},
-    function(profile, done) {
-    var user = users[profile.id];
-    if (!user) {
-        profile.email = userEmail(profile);
-        user =  profile;
-        var repoPath = path.join(base_users, profile.id, 'welcome.git');
-        if (!fs.existsSync(repoPath)) {
-            //create repo for user if it doesn't exist
-            //TODO: add Learn/Answers/Getting+Started.cube.
-            createRepo(repoPath, profile.name, profile.email, [
-            { mode: modes.blob,
-               content: '{"cells":[{"key":0,"level":1,"text":"Readme\\n","type":"header"},{"key":2,"spans":[{"type":"text","text":"Welcome to your new Cube project.\\n"}],"type":"p"},{"key":3,"lang":"cube","text":"1 + 2 + 3\\n","tokens":[],"sexpr":[["Plus",["Plus",["Number",1],["Number",2]],["Number",3]]],"type":"code"}],"namespace":"Readme","name":"Readme","seed":4,"modified":false,"_dirty":false}',
-               path: 'Readme.cube' },
-            { mode: modes.blob,
-               content: '{"_default":"read","' + profile.id + '":"admin"}',
-               path: '.permssions' }
-            ], function(err, hash) {
-                if (err) return done(err);
-                done(null, user);
-            });
-        } else {
-            done(null, user);
-        }
-    }
+passport.use('WindowsAuthentication', new NTLMStrategy(
+  function(req, done) {
+    if(req.ntlm!=undefined){
+      var user = {
+          id:req.ntlm.UserName,
+          name:req.ntlm.UserName,
+          domain:req.ntlm.DomainName,
+          workstation:req.ntlm.Workstation,
+      };
+      user.email = userEmail(user);
+     
+      var repoPath = path.join(base_users, user.id, 'welcome.git');
+      if (!fs.existsSync(repoPath)) {
+          //create repo for user if it doesn't exist
+          //TODO: add Learn/Answers/Getting+Started.cube.
+          createRepo(repoPath, user.name, user.email, [
+          { mode: modes.blob,
+             content: '{"cells":[{"key":0,"level":1,"text":"Readme\\n","type":"header"},{"key":2,"spans":[{"type":"text","text":"Welcome to your new Cube project.\\n"}],"type":"p"},{"key":3,"lang":"cube","text":"1 + 2 + 3\\n","tokens":[],"sexpr":[["Plus",["Plus",["Number",1],["Number",2]],["Number",3]]],"type":"code"}],"namespace":"Readme","name":"Readme","seed":4,"modified":false,"_dirty":false}',
+             path: 'Readme.cube' },
+          { mode: modes.blob,
+             content: '{"_default":"read","' + user.id + '":"admin"}',
+             path: '.permssions' }
+          ], function(err, hash) {
+              if (err) return done(err);
+              return done(null, user);
+          });
+      } else {
+          return done(null, user);
+      }
+    }   
+    return done(null, false);
   }
 ));
-//try catch (use non windows login stuff)
 
 passport.serializeUser(function(user, done) {
     done(null, JSON.stringify(user));
@@ -150,7 +155,7 @@ app.use(session({ secret: 'keyboard cat' }));
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(require('stylus').middleware(path.join(__dirname, 'public')));
-
+app.use(ntlm({ domaincontroller: 'ldap://USS-LON-DOM1' }));
 app.use(express.static(path.join(__dirname,'public')));
 
 app.get('/profile', passport.authenticate('WindowsAuthentication'),

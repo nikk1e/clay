@@ -246,8 +246,63 @@ function source(data, categories, values) {
 	return ['PostMacro', ['Symbol', 'POSTSOURCE'], ['Cube'], data, categories, values];	
 }
 
-function split(expr, oth, other, others){
+function fileDl(name, f, type, displayName){
+	return ['Call', ['Symbol', '_File'], ['Cube'], name, f, type, displayName];
+}
 
+function datax(varPrefix, dataExpr, index, value){
+	
+	var actions = ['Do'];
+	var prefix = varPrefix[1];
+	var indices = [];
+	var lstIndices = ['List'];
+	value = value || [];
+
+	index.slice(1).forEach(function(elem){
+		var item = elem[0] == 'Set' ? {Name:elem[1][1], Symbol:elem[2][1]} : {Name:elem[1]};
+	    indices.push(item);
+	    lstIndices.push(['String', item.Name]);
+	});    
+
+    var dotter = function(lst){
+    	var cat = lst[0].hasOwnProperty('Symbol') ? lst[0].Symbol : prefix + lst[0].Name;
+		if(lst.length > 1){
+			return ['Call', ['Symbol', 'dot'], ['Symbol', cat], dotter(lst.slice(1))];
+		}
+		
+		return ['Call', ['Symbol', 'dot'], ['Symbol', cat],
+		       ['Call', ['Symbol', 'dot'], ['String', 'values'], ['Symbol', prefix + ' INX']]];				
+	}
+
+	//Create the data and index objects
+	actions.push(['Set', ['Symbol', prefix + ' RAW'], dataExpr]);
+	actions.push(['Set', ['Symbol', prefix + ' INX'], ['Call', ['Symbol', 'index'], ['Symbol', prefix + ' RAW'], lstIndices]]);
+	
+	//Set the indices as new categories (if they're not using an existing category)
+	indices.forEach(function(elem){
+		if(!elem.hasOwnProperty('Symbol')){
+			actions.push(['Category', ['Symbol', prefix + elem.Name], ['Call', ['Symbol', 'dot'], 
+			['String', elem.Name], ['Call', ['Symbol', 'dot'], ['String', 'keys'], ['Symbol', prefix + ' INX']]]]);
+		}
+	});
+
+	//pull out the values as new symbols
+	value.forEach(function(elem){
+		if(Array.isArray(elem)){
+			actions.push(['Set', ['Symbol', prefix + elem[1]], 
+						 ['Call', ['Symbol', 'map'], ['Call', ['Symbol', 'dot'], elem], dotter(indices)]]);
+		}
+	});
+	
+	return actions;
+}
+
+function template(expr, other){
+	var actions = ['Do'];
+	actions.push(['Set', ['Symbol', expr[1]], ['Call', ['Symbol', 'fetchXlsxTemplate'], ['String', expr[1]]]]);
+	actions.push(['Symbol', expr[1]]);
+
+	return actions;	
 }
 
 //most macros are applied before 
@@ -265,8 +320,10 @@ var Macros = {
 	FLIP: flip,
 	'GRAPH.LINE': graphLine,
 	DATA: data,
-	IF: cond,
-	SPLIT: split,
+	IF: cond,	
+	DATAX: datax,
+	TEMPLATE: template,
+	FILE: fileDl,
 };
 
 //macros applied after analyse dimensions

@@ -789,7 +789,7 @@ Model.prototype.toJSON = function() {
 		namespace: this.namespace,
 		name: this.name,
 		seed: this.seed,
-		data: this.data,
+		data: this.data,		
 	};
 };
 
@@ -838,6 +838,7 @@ Model.prototype.clone = function() {
 	var model = new Model(this.name, this.cells.slice(0),
 		this.namespace, this.seed,  this.modified, this._dirty, this._id);
 	model.data = this.data;
+	model.session = this.session;
 	return model;
 };
 
@@ -1242,6 +1243,7 @@ function Cube() {
 	this._packages = {};
 	this._genSyms = {};
 	this._genSymCount = {};
+	this.onAfterPending = [];
 }
 
 
@@ -1250,7 +1252,7 @@ Cube.prototype.evaluate = function(code, namespace) {
 	var sexpr = parse(tokens); //list of sexprs
 	var me = this;
 	namespace = namespace || this.baseModel().namespace;
-	sexpr = this.preProcessSexprs(sexpr);
+	sexpr = this.preProcessSexprs(sexpr, namespace);
 	var results = sexpr.map(function(expr) {
 		expr._baseNamespace = namespace;
 		expr.sourceNode = {};
@@ -1992,7 +1994,7 @@ function visit(ast, func, path, index) {
 }
 
 //takes and returns array of sexpr
-Cube.prototype.preProcessSexprs = function(sexprs) {
+Cube.prototype.preProcessSexprs = function(sexprs, namespace) {
 	var me = this;
 
 	//expand macros
@@ -2003,7 +2005,7 @@ Cube.prototype.preProcessSexprs = function(sexprs) {
 			if (nodes[0] === 'Do') {
 				nodes = nodes.slice(1);
 				Array.prototype.push.apply(sexpr, nodes.map(function(node) {
-					return normaliseHeadToPackage(node, model.namespace);
+					return normaliseHeadToPackage(node, namespace);
 				}));
 			} else {
 				sexpr.push(nodes);
@@ -2328,7 +2330,7 @@ Cube.prototype.recalculate = function() {
 		
 		//TODO: apply rules.
 
-		var sexpr = me.preProcessSexprs(node.sexpr);
+		var sexpr = me.preProcessSexprs(node.sexpr, model.namespace);
 		
 		sexpr.forEach(function(sexpr, index) {
 			var fkey;
@@ -2545,6 +2547,16 @@ Cube.prototype.recalculate = function() {
 	//TODO: add custom functions to namespace they were defined in
 
 	if (me.onupdate) me.onupdate();
+
+	//The cache has all pendings
+	//If there are none
+	  //Run through onafterpending array
+
+
+	 //need funcs isPending () 
+
+
+
 };
 
 
@@ -2682,7 +2694,7 @@ function _Pivot(title, page_titles, page_values, page_selected, col_headers, row
 }
 
 var Functions = {
-	Math: Math,
+	Math: Math,	
 	JSON: JSON,
 	sin: Math.sin,
 	cos: Math.cos,
@@ -2704,6 +2716,10 @@ function csv(expr, opt_dims) {
 
 function workSheet(expr, p) {
 	return expandDims(['Symbol', '_Sheet'], expr, undefined, p)
+}
+
+function html(expr, p) {
+	return expandDims(['Symbol', '_Html'], expr, undefined, p)
 }
 
 function expandDims(symb, expr, opt_dims, opt_params) {

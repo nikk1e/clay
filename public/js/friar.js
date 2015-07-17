@@ -196,7 +196,7 @@ DOMClass.prototype.addListener = function(key, func) {
 	var name = keyToEvent(key);
 	if (this._listeners.hasOwnProperty[name]) {
 		this.node.removeEventListener(name, this._listeners[name]);
-	}	
+	}
 	this._listeners[name] = function(e) { return func(e); };
 	this.node.addEventListener(name, this._listeners[name]);
 };
